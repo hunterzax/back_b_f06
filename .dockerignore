@@ -1,0 +1,23 @@
+// Ignore node_modules because it will be installed in Docker
+node_modules
+
+// Ignore debug logs
+npm-debug.log
+yarn-error.log
+
+// Ignore source code since only dist/ is needed for production
+# src
+test
+# public
+
+// Ignore Dockerfile itself (optional)
+Dockerfile
+
+// Ignore any .env files (security reasons)
+//.env
+
+// Ignore OS-specific files
+.DS_Store
+Thumbs.db
+
+

@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package tranfService;
+
+service DataService {
+  rpc GetData (RequestData) returns (ResponseData);
+}
+
+message RequestData {
+  string query = 1;
+}
+
+message ResponseData {
+  string result = 1;
+}

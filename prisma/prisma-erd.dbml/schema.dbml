@@ -1,0 +1,4965 @@
+//// ------------------------------------------------------
+//// THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+//// ------------------------------------------------------
+
+Table account {
+  id Int [pk, increment]
+  email String [unique, not null]
+  password String
+  f_t_and_c Boolean
+  account_manage account_manage [not null]
+  active Boolean
+  status Boolean
+  start_date DateTime
+  end_date DateTime
+  detail String
+  address String
+  first_name String
+  last_name String
+  telephone String
+  user_id String
+  password_gen_origin String
+  password_gen_flag Boolean
+  account_password_check account_password_check [not null]
+  create_date DateTime
+  update_date DateTime
+  time_num Int
+  account_reason account_reason [not null]
+  system_login_account system_login_account [not null]
+  type_account_id Int
+  type_account type_account
+  create_by Int
+  created_by_account account
+  created_accounts account [not null]
+  update_by Int
+  updated_by_account account
+  updated_accounts account [not null]
+  system_login_created system_login [not null]
+  system_login_updated system_login [not null]
+  role_created role [not null]
+  role_updated role [not null]
+  group_created group [not null]
+  group_updated group [not null]
+  system_login_account_created system_login_account [not null]
+  system_login_account_updated system_login_account [not null]
+  create_date_num Int
+  update_date_num Int
+  login_logs login_logs [not null]
+  entry_exit_created entry_exit [not null]
+  entry_exit_updated entry_exit [not null]
+  zone_created zone [not null]
+  zone_updated zone [not null]
+  zone_master_quality_created zone_master_quality [not null]
+  zone_master_quality_updated zone_master_quality [not null]
+  config_master_path_created config_master_path [not null]
+  config_master_path_updated config_master_path [not null]
+  revised_capacity_path_created revised_capacity_path [not null]
+  revised_capacity_path_updated revised_capacity_path [not null]
+  revised_capacity_path_edges_created revised_capacity_path_edges [not null]
+  revised_capacity_path_edges_updated revised_capacity_path_edges [not null]
+  contract_nomination_point_created contract_nomination_point [not null]
+  contract_nomination_point_updated contract_nomination_point [not null]
+  contract_point_created contract_point [not null]
+  contract_point_updated contract_point [not null]
+  nomination_point_created nomination_point [not null]
+  nomination_point_updated nomination_point [not null]
+  division_created division [not null]
+  division_updated division [not null]
+  area_created area [not null]
+  area_updated area [not null]
+  customer_type_created customer_type [not null]
+  customer_type_updated customer_type [not null]
+  non_tpa_point_created non_tpa_point [not null]
+  non_tpa_point_updated non_tpa_point [not null]
+  metering_point_created metering_point [not null]
+  metering_point_updated metering_point [not null]
+  concept_point_created concept_point [not null]
+  concept_point_updated concept_point [not null]
+  new_nomination_deadline_created new_nomination_deadline [not null]
+  new_nomination_deadline_updated new_nomination_deadline [not null]
+  limit_concept_point_created limit_concept_point [not null]
+  limit_concept_point_updated limit_concept_point [not null]
+  planning_deadline_created planning_deadline [not null]
+  planning_deadline_updated planning_deadline [not null]
+  announcement_created announcement [not null]
+  announcement_updated announcement [not null]
+  system_parameter_created system_parameter [not null]
+  system_parameter_updated system_parameter [not null]
+  email_notification_management_created email_notification_management [not null]
+  email_notification_management_updated email_notification_management [not null]
+  user_guide_created user_guide [not null]
+  user_guide_updated user_guide [not null]
+  user_guide_match_created user_guide_match [not null]
+  user_guide_match_updated user_guide_match [not null]
+  capacity_publication_remark_created capacity_publication_remark [not null]
+  capacity_publication_remark_updated capacity_publication_remark [not null]
+  setup_background_remark_created setup_background [not null]
+  setup_background_remark_updated setup_background [not null]
+  t_and_c_created t_and_c [not null]
+  t_and_c_updated t_and_c [not null]
+  check_condition_created check_condition [not null]
+  check_condition_updated check_condition [not null]
+  booking_template_created booking_template [not null]
+  booking_template_updated booking_template [not null]
+  config_mode_zone_base_inventory_created config_mode_zone_base_inventory [not null]
+  config_mode_zone_base_inventory_updated config_mode_zone_base_inventory [not null]
+  mode_zone_base_inventory_created mode_zone_base_inventory [not null]
+  mode_zone_base_inventory_updated mode_zone_base_inventory [not null]
+  edit_email_group_for_event_created edit_email_group_for_event [not null]
+  edit_email_group_for_event_updated edit_email_group_for_event [not null]
+  edit_email_group_for_event_match_created edit_email_group_for_event_match [not null]
+  edit_email_group_for_event_match_match_updated edit_email_group_for_event_match [not null]
+  shipper_contract_point_created shipper_contract_point [not null]
+  shipper_contract_point_updated shipper_contract_point [not null]
+  contract_code_created contract_code [not null]
+  contract_code_updated contract_code [not null]
+  submission_comment_capacity_request_management_created submission_comment_capacity_request_management [not null]
+  submission_comment_capacity_request_management_updated submission_comment_capacity_request_management [not null]
+  file_capacity_request_management_created file_capacity_request_management [not null]
+  file_capacity_request_management_updated file_capacity_request_management [not null]
+  extend_contract_capacity_request_management_created extend_contract_capacity_request_management [not null]
+  extend_contract_capacity_request_management_updated extend_contract_capacity_request_management [not null]
+  book_capacity_request_management_created book_capacity_request_management [not null]
+  book_capacity_request_management_updated book_capacity_request_management [not null]
+  comment_book_capacity_request_management_created comment_book_capacity_request_management [not null]
+  comment_book_capacity_request_management_updated comment_book_capacity_request_management [not null]
+  log_book_capacity_request_management_created log_book_capacity_request_management [not null]
+  log_book_capacity_request_management_updated log_book_capacity_request_management [not null]
+  path_management_created path_management [not null]
+  path_management_updated path_management [not null]
+  path_management_config_created path_management_config [not null]
+  path_management_config_updated path_management_config [not null]
+  account_reason_created account_reason [not null]
+  account_reason_updated account_reason [not null]
+  history_created history [not null]
+  history_updated history [not null]
+  booking_version_created booking_version [not null]
+  booking_version_updated booking_version [not null]
+  booking_full_json_created booking_full_json [not null]
+  booking_full_json_updated booking_full_json [not null]
+  booking_row_json_created booking_row_json [not null]
+  booking_row_json_updated booking_row_json [not null]
+  capacity_publication_created capacity_publication [not null]
+  capacity_publication_updated capacity_publication [not null]
+  release_capacity_submission_created release_capacity_submission [not null]
+  crelease_capacity_submission_updated release_capacity_submission [not null]
+  release_capacity_submission_file_created release_capacity_submission_file [not null]
+  release_capacity_submission_file_updated release_capacity_submission_file [not null]
+  release_capacity_submission_detail_created release_capacity_submission_detail [not null]
+  release_capacity_submission_detail_updated release_capacity_submission_detail [not null]
+  release_capacity_active_created release_capacity_active [not null]
+  release_capacity_active_updated release_capacity_active [not null]
+  release_summary_created release_summary [not null]
+  release_summary_updated release_summary [not null]
+  release_summary_detail_created release_summary_detail [not null]
+  release_summary_detail_updated release_summary_detail [not null]
+  release_summary_comment_created release_summary_comment [not null]
+  release_summary_comment_updated release_summary_comment [not null]
+  booking_version_comment_created booking_version_comment [not null]
+  booking_version_comment_updated booking_version_comment [not null]
+  booking_version_edit_temp_created booking_version_edit_temp [not null]
+  booking_version_edit_temp_updated booking_version_edit_temp [not null]
+  reserve_balancing_gas_contract_created reserve_balancing_gas_contract [not null]
+  reserve_balancing_gas_contract_updated reserve_balancing_gas_contract [not null]
+  reserve_balancing_gas_contract_comment_created reserve_balancing_gas_contract_comment [not null]
+  reserve_balancing_gas_contract_comment_updated reserve_balancing_gas_contract_comment [not null]
+  reserve_balancing_gas_contract_files_created reserve_balancing_gas_contract_files [not null]
+  reserve_balancing_gas_contract_files_updated reserve_balancing_gas_contract_files [not null]
+  reserve_balancing_gas_contract_detail_created reserve_balancing_gas_contract_detail [not null]
+  reserve_balancing_gas_contract_detail_updated reserve_balancing_gas_contract_detail [not null]
+  planning_file_submission_template_created planning_file_submission_template [not null]
+  planning_file_submission_template_updated planning_file_submission_template [not null]
+  planning_file_submission_template_nom_created planning_file_submission_template_nom [not null]
+  planning_file_submission_template_nom_updated planning_file_submission_template_nom [not null]
+  query_shipper_planning_files_created query_shipper_planning_files [not null]
+  query_shipper_planning_files_updated query_shipper_planning_files [not null]
+  query_shipper_planning_files_file_created query_shipper_planning_files_file [not null]
+  query_shipper_planning_files_file_updated query_shipper_planning_files_file [not null]
+  newpoint_created newpoint [not null]
+  newpoint_updated newpoint [not null]
+  newpoint_file_created newpoint_file [not null]
+  newpoint_file_updated newpoint_file [not null]
+  newpoint_detail_created newpoint_detail [not null]
+  newpoint_detail_updated newpoint_detail [not null]
+  query_shipper_planning_files_temp_long_created query_shipper_planning_files_temp_long [not null]
+  query_shipper_planning_files_temp_long_updated query_shipper_planning_files_temp_long [not null]
+  query_shipper_planning_files_temp_medium_created query_shipper_planning_files_temp_medium [not null]
+  query_shipper_planning_files_temp_medium_updated query_shipper_planning_files_temp_medium [not null]
+  query_shipper_planning_files_temp_short_created query_shipper_planning_files_temp_short [not null]
+  query_shipper_planning_files_temp_short_updated query_shipper_planning_files_temp_short [not null]
+  query_shipper_planning_files_temp_row_created query_shipper_planning_files_temp_row [not null]
+  query_shipper_planning_files_temp_row_updated query_shipper_planning_files_temp_row [not null]
+  capacity_publication_warning_created capacity_publication_warning [not null]
+  capacity_publication_warning_updated capacity_publication_warning [not null]
+  capacity_detail_created capacity_detail [not null]
+  capacity_detail_updated capacity_detail [not null]
+  capacity_detail_point_created capacity_detail_point [not null]
+  capacity_detail_point_updated capacity_detail_point [not null]
+  capacity_detail_point_date_created capacity_detail_point_date [not null]
+  capacity_detail_point_date_updated capacity_detail_point_date [not null]
+  capacity_publication_detail_created capacity_publication_detail [not null]
+  capacity_publication_detail_updated capacity_publication_detail [not null]
+  booking_full_json_release_created booking_full_json_release [not null]
+  booking_full_json_release_updated booking_full_json_release [not null]
+  booking_row_json_release_created booking_row_json_release [not null]
+  booking_row_json_release_updated booking_row_json_release [not null]
+  release_summary_confirm_log_created release_summary_confirm_log [not null]
+  release_summary_confirm_log_updated release_summary_confirm_log [not null]
+  area_data_kml_full_created area_data_kml_full [not null]
+  area_data_kml_full_updated area_data_kml_full [not null]
+  area_data_kml_row_created area_data_kml_row [not null]
+  area_data_kml_row_updated area_data_kml_row [not null]
+  upload_template_for_shipper_created upload_template_for_shipper [not null]
+  upload_template_for_shipper_updated upload_template_for_shipper [not null]
+  upload_template_for_shipper_file_created upload_template_for_shipper_file [not null]
+  upload_template_for_shipper_file_updated upload_template_for_shipper_file [not null]
+  upload_template_for_shipper_comment_created upload_template_for_shipper_comment [not null]
+  upload_template_for_shipper_comment_updated upload_template_for_shipper_comment [not null]
+  release_capacity_submission_file_document_created release_capacity_submission_file_document [not null]
+  release_capacity_submission_file_document_updated release_capacity_submission_file_document [not null]
+  metered_retrieving_created metered_retrieving [not null]
+  metered_retrieving_updated metered_retrieving [not null]
+  metered_run_number_created metered_run_number [not null]
+  metered_run_number_updated metered_run_number [not null]
+  query_shipper_nomination_file_created query_shipper_nomination_file [not null]
+  query_shipper_nomination_file_updated query_shipper_nomination_file [not null]
+  query_shipper_nomination_file_url_created query_shipper_nomination_file_url [not null]
+  query_shipper_nomination_file_url_updated query_shipper_nomination_file_url [not null]
+  submission_comment_query_shipper_nomination_file_created submission_comment_query_shipper_nomination_file [not null]
+  submission_comment_query_shipper_nomination_file_updated submission_comment_query_shipper_nomination_file [not null]
+  query_shipper_nomination_file_comment_created query_shipper_nomination_file_comment [not null]
+  query_shipper_nomination_file_comment_updated query_shipper_nomination_file_comment [not null]
+  nomination_version_created nomination_version [not null]
+  nomination_version_updated nomination_version [not null]
+  nomination_full_json_created nomination_full_json [not null]
+  nomination_full_json_updated nomination_full_json [not null]
+  nomination_row_json_created nomination_row_json [not null]
+  nomination_row_json_updated nomination_row_json [not null]
+  nomination_full_json_sheet2_created nomination_full_json_sheet2 [not null]
+  nomination_full_json_sheet2_updated nomination_full_json_sheet2 [not null]
+  daily_adjustment_created daily_adjustment [not null]
+  daily_adjustment_updated daily_adjustment [not null]
+  daily_adjustment_reason_created daily_adjustment_reason [not null]
+  daily_adjustment_reason_updated daily_adjustment_reason [not null]
+  daily_adjustment_nom_created daily_adjustment_nom [not null]
+  daily_adjustment_nom_updated daily_adjustment_nom [not null]
+  allocation_mode_created allocation_mode [not null]
+  allocation_mode_updated allocation_mode [not null]
+  allocation_management_created allocation_management [not null]
+  allocation_management_updated allocation_management [not null]
+  allocation_management_comment_created allocation_management_comment [not null]
+  allocation_management_comment_updated allocation_management_comment [not null]
+  allocation_management_shipper_review_created allocation_management_shipper_review [not null]
+  allocation_management_shipper_review_updated allocation_management_shipper_review [not null]
+  closed_balancing_report_created closed_balancing_report [not null]
+  closed_balancing_report_updated closed_balancing_report [not null]
+  park_allocated_created park_allocated [not null]
+  park_allocated_updated park_allocated [not null]
+  intraday_acc_imbalance_inventory_created intraday_acc_imbalance_inventory [not null]
+  intraday_acc_imbalance_inventory_updated intraday_acc_imbalance_inventory [not null]
+  intraday_acc_imbalance_inventory_comment_created intraday_acc_imbalance_inventory_comment [not null]
+  intraday_acc_imbalance_inventory_comment_updated intraday_acc_imbalance_inventory_comment [not null]
+  allocation_report_created allocation_report [not null]
+  allocation_report_updated allocation_report [not null]
+  allocation_report_view_created allocation_report_view [not null]
+  allocation_report_view_updated allocation_report_view [not null]
+  balancing_adjustment_daily_imbalance_created balancing_adjustment_daily_imbalance [not null]
+  balancing_adjustment_daily_imbalance_updated balancing_adjustment_daily_imbalance [not null]
+  balancing_adjust_accumulated_imbalance_created balancing_adjust_accumulated_imbalance [not null]
+  balancing_adjust_accumulated_imbalance_updated balancing_adjust_accumulated_imbalance [not null]
+  publication_center_created publication_center [not null]
+  publication_center_updated publication_center [not null]
+  allocation_monthly_report_approved_created allocation_monthly_report_approved [not null]
+  allocation_monthly_report_approved_updated allocation_monthly_report_approved [not null]
+  vent_commissioning_other_gas_created vent_commissioning_other_gas [not null]
+  vent_commissioning_other_gas_updated vent_commissioning_other_gas [not null]
+  vent_commissioning_other_gas_remark_created vent_commissioning_other_gas_remark [not null]
+  vent_commissioning_other_gas_remark_updated vent_commissioning_other_gas_remark [not null]
+  vent_commissioning_other_gas_import_log_created vent_commissioning_other_gas_import_log [not null]
+  vent_commissioning_other_gas_import_log_updated vent_commissioning_other_gas_import_log [not null]
+  curtailments_allocation_created curtailments_allocation [not null]
+  curtailments_allocation_updated curtailments_allocation [not null]
+  curtailments_allocation_type_created curtailments_allocation_type [not null]
+  curtailments_allocation_type_updated curtailments_allocation_type [not null]
+  curtailments_allocation_calc_created curtailments_allocation_calc [not null]
+  curtailments_allocation_calc_updated curtailments_allocation_calc [not null]
+  intraday_base_inentory_created intraday_base_inentory [not null]
+  intraday_base_inentory_updated intraday_base_inentory [not null]
+  intraday_base_inentory_import_log_created intraday_base_inentory_import_log [not null]
+  intraday_base_inentory_import_log_updated intraday_base_inentory_import_log [not null]
+  allocation_shipper_report_approved_created allocation_shipper_report_approved [not null]
+  allocation_shipper_report_approved_updated allocation_shipper_report_approved [not null]
+  execute_runnumber_created execute_runnumber [not null]
+  execute_runnumber_updated execute_runnumber [not null]
+  execute_eod_created execute_eod [not null]
+  execute_eod_updated execute_eod [not null]
+  execute_intraday_created execute_intraday [not null]
+  execute_intraday_updated execute_intraday [not null]
+  operation_flow_and_instructed_flow_created operation_flow_and_instructed_flow [not null]
+  operation_flow_and_instructed_flow_updated operation_flow_and_instructed_flow [not null]
+  operation_flow_and_instructed_flow_file_created operation_flow_and_instructed_flow_file [not null]
+  operation_flow_and_instructed_flow_file_updated operation_flow_and_instructed_flow_file [not null]
+  operation_flow_and_instructed_flow_comment_created operation_flow_and_instructed_flow_comment [not null]
+  operation_flow_and_instructed_flow_comment_updated operation_flow_and_instructed_flow_comment [not null]
+  hv_type_created hv_type [not null]
+  hv_type_updated hv_type [not null]
+  hv_for_peration_flow_and_instructed_flow_created hv_for_peration_flow_and_instructed_flow [not null]
+  hv_for_peration_flow_and_instructed_flow_updated hv_for_peration_flow_and_instructed_flow [not null]
+  intraday_dashboard_sent_email_created intraday_dashboard_sent_email [not null]
+  intraday_dashboard_sent_email_updated intraday_dashboard_sent_email [not null]
+  allowcation_management_sent_email_created allowcation_management_sent_email [not null]
+  allowcation_management_sent_email_updated allowcation_management_sent_email [not null]
+  balancing_monthly_report_approved_created balancing_monthly_report_approved [not null]
+  balancing_monthly_report_approved_updated balancing_monthly_report_approved [not null]
+  log_execute_eod_created log_execute_eod [not null]
+  log_execute_eod_updated log_execute_eod [not null]
+  log_execute_intraday_created log_execute_intraday [not null]
+  log_execute_intraday_updated log_execute_intraday [not null]
+  event_runnumber_created event_runnumber [not null]
+  event_runnumber_updated event_runnumber [not null]
+  event_doc_master_created event_doc_master [not null]
+  event_doc_master_updated event_doc_master [not null]
+  event_document_created event_document [not null]
+  event_document_updated event_document [not null]
+  event_document_file_created event_document_file [not null]
+  event_document_file_updated event_document_file [not null]
+  event_document_file_pdf_created event_document_file_pdf [not null]
+  event_document_file_pdf_updated event_document_file_pdf [not null]
+  event_document_action_created event_document_action [not null]
+  event_document_action_updated event_document_action [not null]
+  event_document_log_history_created event_document_log_history [not null]
+  event_document_log_history_updated event_document_log_history [not null]
+  event_document_cc_email_created event_document_cc_email [not null]
+  event_document_cc_email_updated event_document_cc_email [not null]
+  event_document_email_group_for_event_created event_document_email_group_for_event [not null]
+  event_document_email_group_for_event_updated event_document_email_group_for_event [not null]
+  signature String
+  log_date DateTime
+  pass_gen_date DateTime
+  login_flag Boolean
+  t_a_c_url String
+  listen_login_date DateTime
+  signature_base_64 String
+  profile_url String
+}
+
+Table login_logs {
+  id Int [pk, increment]
+  event String
+  account_id Int
+  account account
+  create_date DateTime
+  create_date_num Int
+  temps String
+}
+
+Table type_account {
+  id Int [pk, increment]
+  name String
+  color String
+  account account [not null]
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  contract_code contract_code [not null]
+  booking_version booking_version [not null]
+}
+
+Table account_reason {
+  id Int [pk, increment]
+  account_id Int
+  account account
+  reason String
+  status Boolean
+  active Boolean
+  time_num Int
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table account_password_check {
+  id Int [pk, increment]
+  account_id Int
+  account account
+  password String
+  time_num Int
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+}
+
+Table system_login {
+  id Int [pk, increment]
+  role_id Int
+  role role
+  mode_account_id Int
+  mode_account mode_account
+  active Boolean
+  create_date DateTime
+  update_date DateTime
+  system_login_account system_login_account [not null]
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  time_num Int
+  create_date_num Int
+  update_date_num Int
+}
+
+Table system_login_account {
+  id Int [pk, increment]
+  system_login_id Int
+  system_login system_login
+  account_id Int
+  account account
+  active Boolean
+  create_date DateTime
+  update_date DateTime
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  time_num Int
+  create_date_num Int
+  update_date_num Int
+}
+
+Table mode_account {
+  id Int [pk, increment]
+  name String [unique, not null]
+  mode_type String
+  color String
+  account_manage account_manage [not null]
+  system_login system_login [not null]
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+}
+
+Table user_type {
+  id Int [pk, increment]
+  name String [unique, not null]
+  remark String
+  account_manage account_manage [not null]
+  group group [not null]
+  role role [not null]
+  column_table_config column_table_config [not null]
+  color String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  new_nomination_deadline new_nomination_deadline [not null]
+  color_text String
+  event_runnumber event_runnumber [not null]
+  event_document event_document [not null]
+  event_document_action event_document_action [not null]
+  event_document_log_history event_document_log_history [not null]
+}
+
+Table column_field {
+  id Int [pk, increment]
+  name String [unique, not null]
+  column_table_config column_table_config [not null]
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+}
+
+Table column_table {
+  id Int [pk, increment]
+  name String [unique, not null]
+  column_table_config column_table_config [not null]
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+}
+
+Table column_table_config {
+  id Int [pk, increment]
+  user_type_id Int
+  user_type user_type
+  column_table_id Int
+  column_table column_table
+  column_field_id Int
+  column_field column_field
+  active Boolean
+  status Boolean
+  start_date DateTime
+  end_date DateTime
+  show_column Boolean
+  default_column Boolean
+  seq Int
+  field_name String
+  time_num Int
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+}
+
+Table role {
+  id Int [pk, increment]
+  name String [not null]
+  start_date DateTime
+  end_date DateTime
+  user_type_id Int
+  user_type user_type
+  account_role account_role [not null]
+  menus_config menus_config [not null]
+  active Boolean
+  create_date DateTime
+  update_date DateTime
+  role_default role_default [not null]
+  system_login system_login [not null]
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  time_num Int
+  create_date_num Int
+  update_date_num Int
+  user_guide_match user_guide_match [not null]
+}
+
+Table role_default {
+  id Int [pk, increment]
+  role_id Int
+  role role
+  group_id Int
+  group group
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+}
+
+Table menus {
+  id Int [pk, increment]
+  name String [unique, not null]
+  seq Int
+  parent Int
+  menus_config menus_config [not null]
+  default_f_view Int
+  default_f_create Int
+  default_f_edit Int
+  default_f_import Int
+  default_f_export Int
+  default_f_approved Int
+  default_b_manage Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  flag_system_parameter Boolean
+  flag_email_notimanagement Boolean
+  sub_system_parameter sub_system_parameter [not null]
+  sub_email_notification_management sub_email_notification_management [not null]
+  system_parameter system_parameter [not null]
+  email_notification_management email_notification_management [not null]
+  default_f_noti_email Int
+  default_f_noti_inapp Int
+  tso_default_f_view Int
+  tso_default_f_create Int
+  tso_default_f_edit Int
+  tso_default_f_import Int
+  tso_default_f_export Int
+  tso_default_f_approved Int
+  tso_default_f_noti_email Int
+  tso_default_f_noti_inapp Int
+  tso_default_b_manage Boolean
+  shipper_default_f_view Int
+  shipper_default_f_create Int
+  shipper_default_f_edit Int
+  shipper_default_f_import Int
+  shipper_default_f_export Int
+  shipper_default_f_approved Int
+  shipper_default_f_noti_email Int
+  shipper_default_f_noti_inapp Int
+  shipper_default_b_manage Boolean
+  other_default_f_view Int
+  other_default_f_create Int
+  other_default_f_edit Int
+  other_default_f_import Int
+  other_default_f_export Int
+  other_default_f_approved Int
+  other_default_f_noti_email Int
+  other_default_f_noti_inapp Int
+  other_default_b_manage Boolean
+}
+
+Table menus_config {
+  id Int [pk, increment]
+  role_id Int
+  role role
+  menus_id Int
+  menus menus
+  f_view Int
+  f_create Int
+  f_edit Int
+  f_import Int
+  f_export Int
+  f_approved Int
+  b_manage Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  f_noti_inapp Int
+  f_noti_email Int
+  seq Int
+  parent Int
+}
+
+Table division {
+  id Int [pk, increment]
+  division_name String [unique, not null]
+  division_id String
+  division_short_name String
+  account_manage account_manage [not null]
+  group_id Int
+  group group
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  start_date DateTime
+  end_date DateTime
+}
+
+Table history {
+  id Int [pk, increment]
+  reqUser String
+  type String
+  method String
+  value String
+  time DateTime
+  id_value Int
+  time_num Int
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  module String
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table bank_master {
+  id Int [pk, increment]
+  name String [unique]
+  name_en String
+  short_name String
+  url String
+  group group [not null]
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+}
+
+Table group {
+  id Int [pk, increment]
+  id_name String [unique]
+  name String [unique]
+  company_name String
+  account_manage account_manage [not null]
+  user_type_id Int [not null]
+  user_type user_type [not null]
+  division division [not null]
+  telephone String
+  email String
+  address String
+  bank_no String
+  start_date DateTime
+  end_date DateTime
+  status Boolean
+  active Boolean
+  create_date DateTime
+  update_date DateTime
+  bank_master_id Int
+  bank_master bank_master
+  role_default role_default [not null]
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  time_num Int
+  create_date_num Int
+  update_date_num Int
+  limit_concept_point limit_concept_point [not null]
+  shipper_contract_point shipper_contract_point [not null]
+  contract_code contract_code [not null]
+  release_capacity_submission release_capacity_submission [not null]
+  release_summary release_summary [not null]
+  reserve_balancing_gas_contract reserve_balancing_gas_contract [not null]
+  planning_file_submission_template planning_file_submission_template [not null]
+  query_shipper_planning_files query_shipper_planning_files [not null]
+  newpoint newpoint [not null]
+  upload_template_for_shipper upload_template_for_shipper [not null]
+  query_shipper_nomination_file query_shipper_nomination_file [not null]
+  daily_adjustment_group daily_adjustment_group [not null]
+  vent_commissioning_other_gas vent_commissioning_other_gas [not null]
+  hv_for_peration_flow_and_instructed_flow hv_for_peration_flow_and_instructed_flow [not null]
+  event_runnumber event_runnumber [not null]
+  event_document event_document [not null]
+  event_document_action event_document_action [not null]
+  event_document_log_history event_document_log_history [not null]
+}
+
+Table account_manage {
+  id Int [pk, increment]
+  account_id Int [not null]
+  account account [not null]
+  mode_account_id Int [not null]
+  mode_account mode_account [not null]
+  division_id Int
+  division division
+  user_type_id Int [not null]
+  user_type user_type [not null]
+  group_id Int
+  group group
+  account_role account_role [not null]
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+}
+
+Table account_role {
+  id Int [pk, increment]
+  account_manage_id Int
+  account_manage account_manage
+  role_id Int
+  role role
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+}
+
+Table t_and_c {
+  id Int [pk, increment]
+  url String
+  version Int
+  active Boolean
+  used Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  topic String
+  start_date DateTime
+  end_date DateTime
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table entry_exit {
+  id Int [pk, increment]
+  name String
+  color String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  area area [not null]
+  contract_point contract_point [not null]
+  nomination_point nomination_point [not null]
+  zone zone [not null]
+  customer_type customer_type [not null]
+  metering_point metering_point [not null]
+  booking_row_json booking_row_json [not null]
+  capacity_publication capacity_publication [not null]
+  release_capacity_submission_detail release_capacity_submission_detail [not null]
+  release_summary_detail release_summary_detail [not null]
+  reserve_balancing_gas_contract_detail reserve_balancing_gas_contract_detail [not null]
+  query_shipper_planning_files_temp_row query_shipper_planning_files_temp_row [not null]
+  newpoint_detail newpoint_detail [not null]
+  booking_row_json_release booking_row_json_release [not null]
+  nomination_row_json nomination_row_json [not null]
+  daily_adjustment daily_adjustment [not null]
+}
+
+Table zone {
+  id Int [pk, increment]
+  name String
+  color String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  area area [not null]
+  contract_point contract_point [not null]
+  nomination_point nomination_point [not null]
+  description String
+  start_date DateTime
+  end_date DateTime
+  entry_exit_id Int
+  entry_exit entry_exit
+  zone_master_quality zone_master_quality [not null]
+  metering_point metering_point [not null]
+  config_mode_zone_base_inventory config_mode_zone_base_inventory [not null]
+  mode_zone_base_inventory mode_zone_base_inventory [not null]
+  capacity_publication capacity_publication [not null]
+  reserve_balancing_gas_contract_detail reserve_balancing_gas_contract_detail [not null]
+  park_allocated park_allocated [not null]
+  vent_commissioning_other_gas vent_commissioning_other_gas [not null]
+  sensitive Boolean
+}
+
+Table zone_master_quality {
+  id Int [pk, increment]
+  name String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+  zone_id Int
+  zone zone
+  v2_wobbe_index_min Float
+  v2_wobbe_index_max Float
+  v2_methane_min Float
+  v2_methane_max Float
+  v2_oxygen_min Float
+  v2_oxygen_max Float
+  v2_carbon_dioxide_nitrogen_min Float
+  v2_carbon_dioxide_nitrogen_max Float
+  v2_total_sulphur_min Float
+  v2_total_sulphur_max Float
+  v2_hydrocarbon_dew_min Float
+  v2_hydrocarbon_dew_max Float
+  v2_sat_heating_value_min Float
+  v2_sat_heating_value_max Float
+  v2_c2_plus_min Float
+  v2_c2_plus_max Float
+  v2_nitrogen_min Float
+  v2_nitrogen_max Float
+  v2_carbon_dioxide_min Float
+  v2_carbon_dioxide_max Float
+  v2_hydrogen_sulfide_min Float
+  v2_hydrogen_sulfide_max Float
+  v2_mercury_min Float
+  v2_mercury_max Float
+  v2_moisture_min Float
+  v2_moisture_max Float
+}
+
+Table area {
+  id Int [pk, increment]
+  name String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+  start_date DateTime
+  end_date DateTime
+  description String
+  area_nominal_capacity Float
+  zone_id Int
+  zone zone
+  entry_exit_id Int
+  entry_exit entry_exit
+  color String
+  revised_capacity_path revised_capacity_path [not null]
+  source_area revised_capacity_path_edges [not null]
+  target_area revised_capacity_path_edges [not null]
+  contract_point contract_point [not null]
+  nomination_point nomination_point [not null]
+  non_tpa_point non_tpa_point [not null]
+  capacity_publication capacity_publication [not null]
+  supply_reference_quality_area Int
+  supply_reference_quality_area_by area
+  supply_reference_quality_areas area [not null]
+  metering_point metering_point [not null]
+  reserve_balancing_gas_contract_detail reserve_balancing_gas_contract_detail [not null]
+  capacity_detail_point capacity_detail_point [not null]
+  capacity_detail_point_date capacity_detail_point_date [not null]
+  capacity_publication_detail capacity_publication_detail [not null]
+  daily_adjustment daily_adjustment [not null]
+}
+
+Table config_master_path {
+  id Int [pk, increment]
+  path_no String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+  revised_capacity_path revised_capacity_path [not null]
+  revised_capacity_path_edges revised_capacity_path_edges [not null]
+  path_management_config path_management_config [not null]
+}
+
+Table revised_capacity_path {
+  id Int [pk, increment]
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+  config_master_path_id Int
+  config_master_path config_master_path
+  area_id Int
+  area area
+  revised_capacity_path_type_id Int
+  revised_capacity_path_type revised_capacity_path_type
+}
+
+Table revised_capacity_path_type {
+  id Int [pk, increment]
+  name String
+  revised_capacity_path revised_capacity_path [not null]
+}
+
+Table revised_capacity_path_edges {
+  id Int [pk, increment]
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+  config_master_path_id Int
+  config_master_path config_master_path
+  source_id Int
+  source area
+  target_id Int
+  target area
+}
+
+Table contract_point {
+  id Int [pk, increment]
+  contract_point String
+  description String
+  entry_exit_id Int
+  entry_exit entry_exit
+  zone_id Int
+  zone zone
+  area_id Int
+  area area
+  contract_point_start_date DateTime
+  contract_point_end_date DateTime
+  contract_nomination_point contract_nomination_point [not null]
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  nomination_point nomination_point [not null]
+  nomination_point_list nomination_point [not null]
+  nomination_point_start_date DateTime
+  nomination_point_end_date DateTime
+  shipper_contract_point shipper_contract_point [not null]
+}
+
+Table contract_nomination_point {
+  id Int [pk, increment]
+  nomination_point_id Int
+  nomination_point nomination_point
+  contract_point_id Int
+  contract_point contract_point
+  nomination_point_start_date DateTime
+  nomination_point_end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table nomination_point {
+  id Int [pk, increment]
+  nomination_point String
+  description String
+  entry_exit_id Int
+  entry_exit entry_exit
+  zone_id Int
+  zone zone
+  area_id Int
+  area area
+  contract_point_id Int
+  contract_point contract_point
+  contract_point_list contract_point [not null]
+  contract_nomination_point contract_nomination_point [not null]
+  maximum_capacity Float
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  ref_id Int
+  non_tpa_point non_tpa_point [not null]
+  metering_point metering_point [not null]
+  reserve_balancing_gas_contract_detail reserve_balancing_gas_contract_detail [not null]
+  planning_file_submission_template_nom planning_file_submission_template_nom [not null]
+  customer_type_id Int
+  customer_type customer_type
+  daily_adjustment_nom daily_adjustment_nom [not null]
+}
+
+Table customer_type {
+  id Int [pk, increment]
+  name String
+  entry_exit_id Int
+  entry_exit entry_exit
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  metering_point metering_point [not null]
+  nomination_point nomination_point [not null]
+  customer_Type_id_default String
+}
+
+Table non_tpa_point {
+  id Int [pk, increment]
+  non_tpa_point_name String
+  description String
+  area_id Int
+  area area
+  nomination_point_id Int
+  nomination_point nomination_point
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  metering_point metering_point [not null]
+}
+
+Table point_type {
+  id Int [pk, increment]
+  name String
+  metering_point metering_point [not null]
+}
+
+Table metering_point {
+  id Int [pk, increment]
+  metered_id String
+  metered_point_name String
+  description String
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  point_type_id Int
+  point_type point_type
+  entry_exit_id Int
+  entry_exit entry_exit
+  zone_id Int
+  zone zone
+  area_id Int
+  area area
+  non_tpa_point_id Int
+  non_tpa_point non_tpa_point
+  nomination_point_id Int
+  nomination_point nomination_point
+  customer_type_id Int
+  customer_type customer_type
+  ref_id Int
+  hv_for_peration_flow_and_instructed_flow hv_for_peration_flow_and_instructed_flow [not null]
+}
+
+Table concept_point {
+  id Int [pk, increment]
+  concept_point String
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  type_concept_point_id Int
+  type_concept_point type_concept_point
+  limit_concept_point limit_concept_point [not null]
+}
+
+Table type_concept_point {
+  id Int [pk, increment]
+  name String
+  concept_point concept_point [not null]
+  group_type_concept_point_id Int
+  group_type_concept_point group_type_concept_point
+}
+
+Table group_type_concept_point {
+  id Int [pk, increment]
+  name String
+  type_concept_point type_concept_point [not null]
+}
+
+Table limit_concept_point {
+  id Int [pk, increment]
+  concept_point_id Int
+  concept_point concept_point
+  group_id Int
+  group group
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table process_type {
+  id Int [pk, increment]
+  name String
+  new_nomination_deadline new_nomination_deadline [not null]
+}
+
+Table nomination_type {
+  id Int [pk, increment]
+  name String
+  new_nomination_deadline new_nomination_deadline [not null]
+  document_type String
+  color String
+  upload_template_for_shipper upload_template_for_shipper [not null]
+  query_shipper_nomination_file query_shipper_nomination_file [not null]
+}
+
+Table new_nomination_deadline {
+  id Int [pk, increment]
+  hour Int
+  minute Int
+  before_gas_day Int
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  process_type_id Int
+  process_type process_type
+  nomination_type_id Int
+  nomination_type nomination_type
+  user_type_id Int
+  user_type user_type
+}
+
+Table term_type {
+  id Int [pk, increment]
+  name String
+  planning_deadline planning_deadline [not null]
+  booking_template booking_template [not null]
+  color String
+  contract_code contract_code [not null]
+  planning_file_submission_template planning_file_submission_template [not null]
+  query_shipper_planning_files query_shipper_planning_files [not null]
+  newpoint newpoint [not null]
+}
+
+Table planning_deadline {
+  id Int [pk, increment]
+  hour Int
+  minute Int
+  day Int
+  before_month Int
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  term_type_id Int
+  term_type term_type
+}
+
+Table announcement {
+  id Int [pk, increment]
+  topic String
+  detail String
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  status Boolean
+}
+
+Table sub_system_parameter {
+  id Int [pk, increment]
+  name String
+  menus_id Int
+  menus menus
+  system_parameter system_parameter [not null]
+}
+
+Table sub_email_notification_management {
+  id Int [pk, increment]
+  name String
+  menus_id Int
+  menus menus
+  email_notification_management email_notification_management [not null]
+}
+
+Table system_parameter {
+  id Int [pk, increment]
+  menus_id Int
+  menus menus
+  system_parameter_id Int
+  system_parameter sub_system_parameter
+  value String
+  link String
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+}
+
+Table email_notification_management {
+  id Int [pk, increment]
+  menus_id Int
+  menus menus
+  activity_id Int
+  activity sub_email_notification_management
+  subject String
+  detail String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+}
+
+Table user_guide {
+  id Int [pk, increment]
+  document_name String
+  file String
+  description String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+  user_guide_match user_guide_match [not null]
+}
+
+Table user_guide_match {
+  id Int [pk, increment]
+  role_id Int
+  role role
+  user_guide_id Int
+  user_guide user_guide
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table capacity_publication_remark {
+  id Int [pk, increment]
+  remark String
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+}
+
+Table setup_background {
+  id Int [pk, increment]
+  url String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+}
+
+Table check_condition {
+  id Int [pk, increment]
+  orange_value Float
+  orange_mode Int
+  orange_url String
+  yellow_value Float
+  yellow_mode Int
+  yellow_url String
+  purple_url String
+  red_url String
+  green_url String
+  gray_url String
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+  version String
+  thershold Int
+}
+
+Table booking_template {
+  id Int [pk, increment]
+  file_period Int
+  file_period_mode Int
+  file_start_date_mode Int
+  fixdayday Int
+  todayday Int
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+  term_type_id Int
+  term_type term_type
+  shadow_time Int
+  shadow_period Int
+  min Int
+  max Int
+}
+
+Table config_mode_zone_base_inventory {
+  id Int [pk, increment]
+  zone_id Int
+  zone zone
+  mode String
+  high_difficult_day Float
+  to_high_difficult_day Float
+  high_red Float
+  to_high_red Float
+  high_orange Float
+  to_high_orange Float
+  alert_high Float
+  to_alert_high Float
+  low_orange Float
+  to_low_orange Float
+  low_red Float
+  to_low_red Float
+  low_difficult_day Float
+  to_low_difficult_day Float
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+  mode_zone_base_inventory mode_zone_base_inventory [not null]
+  hv Float
+  base_inventory_value Float
+  high_max Float
+  low_max Float
+  alert_low Float
+}
+
+Table mode_zone_base_inventory {
+  id Int [pk, increment]
+  zone_id Int
+  zone zone
+  mode_id Int
+  mode config_mode_zone_base_inventory
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+}
+
+Table edit_email_group_for_event {
+  id Int [pk, increment]
+  name String
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+  edit_email_group_for_event_match edit_email_group_for_event_match [not null]
+  event_document_email_group_for_event event_document_email_group_for_event [not null]
+}
+
+Table edit_email_group_for_event_match {
+  id Int [pk, increment]
+  edit_email_group_for_event_id Int
+  edit_email_group_for_event edit_email_group_for_event
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+  email String
+}
+
+Table shipper_contract_point {
+  id Int [pk, increment]
+  group_id Int
+  group group
+  contract_point_id Int
+  contract_point contract_point
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+}
+
+Table contract_code {
+  id Int [pk, increment]
+  contract_code String
+  submitted_timestamp DateTime
+  contract_start_date DateTime
+  contract_end_date DateTime
+  extend_deadline DateTime
+  terminate_date DateTime
+  group_id Int
+  group group
+  type_account_id Int
+  type_account type_account
+  status_capacity_request_management_id Int
+  status_capacity_request_management status_capacity_request_management
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+  submission_comment_capacity_request_management submission_comment_capacity_request_management [not null]
+  file_capacity_request_management file_capacity_request_management [not null]
+  shadow_time Int
+  shadow_period Int
+  reject_reasons String
+  extend_contract_capacity_request_management extend_contract_capacity_request_management [not null]
+  book_capacity_request_management book_capacity_request_management [not null]
+  term_type_id Int
+  term_type term_type
+  ref_contract_code_by_id Int
+  ref_contract_code_by contract_code
+  ref_contract_code contract_code [not null]
+  amendment_date DateTime
+  file_period_mode Int
+  end Boolean
+  fixdayday Int
+  todayday Int
+  ref_contract_code_by_main_id Int
+  ref_contract_code_by_main contract_code
+  ref_contract_code_main contract_code [not null]
+  status_capacity_request_management_process_id Int
+  status_capacity_request_management_process status_capacity_request_management_process
+  booking_version booking_version [not null]
+  release_capacity_submission release_capacity_submission [not null]
+  release_summary release_summary [not null]
+  capacity_publication_warning capacity_publication_warning [not null]
+  capacity_detail capacity_detail [not null]
+  upload_template_for_shipper upload_template_for_shipper [not null]
+  release_capacity_submission_file_document release_capacity_submission_file_document [not null]
+  query_shipper_nomination_file query_shipper_nomination_file [not null]
+}
+
+Table booking_version {
+  id Int [pk, increment]
+  version String
+  contract_code_id Int
+  contract_code contract_code
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  booking_full_json booking_full_json [not null]
+  booking_row_json booking_row_json [not null]
+  flag_use Boolean
+  booking_version_comment booking_version_comment [not null]
+  booking_version_edit_temp booking_version_edit_temp [not null]
+  capacity_detail capacity_detail [not null]
+  booking_full_json_release booking_full_json_release [not null]
+  booking_row_json_release booking_row_json_release [not null]
+  status_capacity_request_management_id Int
+  status_capacity_request_management status_capacity_request_management
+  submitted_timestamp DateTime
+  type_account_id Int
+  type_account type_account
+  contract_start_date DateTime
+  contract_end_date DateTime
+}
+
+Table booking_version_edit_temp {
+  id Int [pk, increment]
+  booking_full_json_temp String
+  booking_row_json_temp String
+  booking_version_id Int
+  booking_version booking_version
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table booking_version_comment {
+  id Int [pk, increment]
+  comment String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  booking_version_id Int
+  booking_version booking_version
+}
+
+Table booking_full_json {
+  id Int [pk, increment]
+  data_temp String
+  booking_version_id Int
+  booking_version booking_version
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  flag_use Boolean
+}
+
+Table booking_row_json {
+  id Int [pk, increment]
+  zone_text String
+  area_text String
+  data_temp String
+  booking_version_id Int
+  booking_version booking_version
+  entry_exit_id Int
+  entry_exit entry_exit
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  flag_use Boolean
+  contract_point String
+  release_capacity_submission_detail release_capacity_submission_detail [not null]
+  release_summary_detail release_summary_detail [not null]
+}
+
+Table booking_full_json_release {
+  id Int [pk, increment]
+  data_temp String
+  booking_version_id Int
+  booking_version booking_version
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  flag_use Boolean
+}
+
+Table booking_row_json_release {
+  id Int [pk, increment]
+  zone_text String
+  area_text String
+  data_temp String
+  booking_version_id Int
+  booking_version booking_version
+  entry_exit_id Int
+  entry_exit entry_exit
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  flag_use Boolean
+  contract_point String
+}
+
+Table status_capacity_request_management_process {
+  id Int [pk, increment]
+  name String
+  color String
+  contract_code contract_code [not null]
+}
+
+Table status_capacity_request_management {
+  id Int [pk, increment]
+  name String
+  color String
+  contract_code contract_code [not null]
+  booking_version booking_version [not null]
+}
+
+Table submission_comment_capacity_request_management {
+  id Int [pk, increment]
+  remark String
+  contract_code_id Int
+  contract_code contract_code
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table file_capacity_request_management {
+  id Int [pk, increment]
+  url String
+  contract_code_id Int
+  contract_code contract_code
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table extend_contract_capacity_request_management {
+  id Int [pk, increment]
+  shadow_time Int
+  shadow_period Int
+  new_shadow_time Int
+  new_shadow_period Int
+  start_date DateTime
+  end_date DateTime
+  contract_code_id Int
+  contract_code contract_code
+  temp_submitted_timestamp DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  period_count Int
+  file_period_mode Int
+}
+
+Table book_capacity_request_management {
+  id Int [pk, increment]
+  version String
+  file_json Json
+  file_string String
+  contract_code_id Int
+  contract_code contract_code
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  ref Int
+  comment_book_capacity_request_management comment_book_capacity_request_management [not null]
+  log_book_capacity_request_management log_book_capacity_request_management [not null]
+}
+
+Table comment_book_capacity_request_management {
+  id Int [pk, increment]
+  comment String
+  book_capacity_request_management_id Int
+  book_capacity_request_management book_capacity_request_management
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  ref Int
+}
+
+Table log_book_capacity_request_management {
+  id Int [pk, increment]
+  version String
+  file_json Json
+  file_string String
+  book_capacity_request_management_id Int
+  book_capacity_request_management book_capacity_request_management
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  ref Int
+  comment_book_capacity_request_management String [not null]
+}
+
+Table path_management {
+  id Int [pk, increment]
+  version String
+  start_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  path_management_config path_management_config [not null]
+  ref Int
+}
+
+Table path_management_config {
+  id Int [pk, increment]
+  path_management_id Int
+  path_management path_management
+  config_master_path_id Int
+  config_master_path config_master_path
+  temps String
+  temps_json Json
+  start_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  flag_use Boolean
+  exit_name_temp String
+  exit_id_temp Int
+  release_capacity_submission_detail release_capacity_submission_detail [not null]
+  release_summary_detail release_summary_detail [not null]
+}
+
+Table capacity_detail {
+  id Int [pk, increment]
+  mode_temp String
+  contract_code_id Int
+  contract_code contract_code
+  booking_version_id Int
+  booking_version booking_version
+  flag_use Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  capacity_detail_point capacity_detail_point [not null]
+}
+
+Table capacity_detail_point {
+  id Int [pk, increment]
+  temp String
+  path_temp String
+  capacity_detail_id Int
+  capacity_detail capacity_detail
+  area_id Int
+  area area
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  capacity_detail_point_date capacity_detail_point_date [not null]
+}
+
+Table capacity_detail_point_date {
+  id Int [pk, increment]
+  capacity_detail_point_id Int
+  capacity_detail_point capacity_detail_point
+  area_id Int
+  area area
+  area_nominal_capacity String
+  value String
+  cals String
+  adjust String
+  adjust_type String
+  ckCompare Boolean
+  ck_comparea Boolean
+  period Int
+  date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  release String
+}
+
+Table capacity_publication {
+  id Int [pk, increment]
+  entry_exit_id Int
+  entry_exit entry_exit
+  zone_id Int
+  zone zone
+  area_id Int
+  area area
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  capacity_publication_date capacity_publication_date [not null]
+}
+
+Table capacity_publication_warning {
+  id Int [pk, increment]
+  remark String
+  contract_code_id Int
+  contract_code contract_code
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table capacity_publication_detail {
+  id Int [pk, increment]
+  area_id Int
+  area area
+  avaliable_capacity_mmbtu_d String
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table capacity_publication_date {
+  id Int [pk, increment]
+  capacity_publication_id Int
+  capacity_publication capacity_publication
+  date_day DateTime
+  value String
+  value_adjust String
+  value_adjust_use String
+}
+
+Table release_capacity_submission {
+  id Int [pk, increment]
+  contract_code_id Int
+  contract_code contract_code
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  release_capacity_status_id Int
+  release_capacity_status release_capacity_status
+  submission_time DateTime
+  release_capacity_submission_detail release_capacity_submission_detail [not null]
+  release_capacity_submission_file release_capacity_submission_file [not null]
+  release_capacity_active release_capacity_active [not null]
+  group_id Int
+  group group
+  requested_code String
+  release_capacity_submission_file_document release_capacity_submission_file_document [not null]
+}
+
+Table release_capacity_submission_file_document {
+  id Int [pk, increment]
+  url String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  release_capacity_submission_id Int
+  release_capacity_submission release_capacity_submission
+  active Boolean
+  contract_code_id Int
+  contract_code contract_code
+}
+
+Table release_capacity_active {
+  id Int [pk, increment]
+  release_capacity_submission_id Int
+  release_capacity_submission release_capacity_submission
+  release_capacity_status_id Int
+  release_capacity_status release_capacity_status
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  reasons String
+}
+
+Table release_capacity_submission_detail {
+  id Int [pk, increment]
+  release_capacity_submission_id Int
+  release_capacity_submission release_capacity_submission
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  temp_contract_point String
+  temp_zone String
+  temp_area String
+  temp_start_date DateTime
+  temp_end_date DateTime
+  total_contracted_mmbtu_d String
+  total_contracted_mmscfd String
+  total_release_mmbtu_d String
+  total_release_mmscfd String
+  booking_row_json_id Int
+  booking_row_json booking_row_json
+  entry_exit_id Int
+  entry_exit entry_exit
+  path_management_config_temp String
+  path_management_config_id Int
+  path_management_config path_management_config
+  temp_date String
+  temp_from_date String
+  temp_to_date String
+}
+
+Table release_capacity_submission_file {
+  id Int [pk, increment]
+  url String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  release_capacity_submission_id Int
+  release_capacity_submission release_capacity_submission
+}
+
+Table release_capacity_status {
+  id Int [pk, increment]
+  name String
+  color String
+  release_capacity_submission release_capacity_submission [not null]
+  release_capacity_active release_capacity_active [not null]
+}
+
+Table release_type {
+  id Int [pk, increment]
+  name String
+  color String
+  release_summary release_summary [not null]
+}
+
+Table release_summary {
+  id Int [pk, increment]
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  release_start_date DateTime
+  release_end_date DateTime
+  submitted_timestamp DateTime
+  contract_code_id Int
+  contract_code contract_code
+  group_id Int
+  group group
+  release_type_id Int
+  release_type release_type
+  release_summary_detail release_summary_detail [not null]
+  release_summary_comment release_summary_comment [not null]
+  release_summary_confirm_log release_summary_confirm_log [not null]
+}
+
+Table release_summary_confirm_log {
+  id Int [pk, increment]
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  release_summary_id Int
+  release_summary release_summary
+  mmbtu_d String
+  mmscfd_d String
+}
+
+Table release_summary_detail {
+  id Int [pk, increment]
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  release_start_date DateTime
+  release_end_date DateTime
+  release_summary_id Int
+  release_summary release_summary
+  temp_contract_point String
+  temp_zone String
+  temp_area String
+  total_contracted_mmbtu_d String
+  total_release_mmbtu_d String
+  total_contracted_mmscfd String
+  total_release_mmscfd String
+  booking_row_json_id Int
+  booking_row_json booking_row_json
+  entry_exit_id Int
+  entry_exit entry_exit
+  path_management_config_temp String
+  path_management_config_id Int
+  path_management_config path_management_config
+}
+
+Table release_summary_comment {
+  id Int [pk, increment]
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  release_summary_id Int
+  release_summary release_summary
+  comments String
+}
+
+Table reserve_balancing_gas_contract {
+  id Int [pk, increment]
+  res_bal_gas_contract String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  reserve_balancing_gas_contract_comment reserve_balancing_gas_contract_comment [not null]
+  reserve_balancing_gas_contract_files reserve_balancing_gas_contract_files [not null]
+  reserve_balancing_gas_contract_detail reserve_balancing_gas_contract_detail [not null]
+  group_id Int
+  group group
+}
+
+Table reserve_balancing_gas_contract_comment {
+  id Int [pk, increment]
+  comment String
+  reserve_balancing_gas_contract_id Int
+  reserve_balancing_gas_contract reserve_balancing_gas_contract
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table reserve_balancing_gas_contract_files {
+  id Int [pk, increment]
+  url String
+  reserve_balancing_gas_contract_id Int
+  reserve_balancing_gas_contract reserve_balancing_gas_contract
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table reserve_balancing_gas_contract_detail {
+  id Int [pk, increment]
+  reserve_balancing_gas_contract_id Int
+  reserve_balancing_gas_contract reserve_balancing_gas_contract
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  daily_reserve_cap_mmbtu_d String
+  start_date DateTime
+  end_date DateTime
+  area_id Int
+  area area
+  zone_id Int
+  zone zone
+  entry_exit_id Int
+  entry_exit entry_exit
+  nomination_point_id Int
+  nomination_point nomination_point
+}
+
+Table planning_file_submission_template {
+  id Int [pk, increment]
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  start_date DateTime
+  end_date DateTime
+  term_type_id Int
+  term_type term_type
+  group_id Int
+  group group
+  planning_file_submission_template_nom planning_file_submission_template_nom [not null]
+}
+
+Table planning_file_submission_template_nom {
+  id Int [pk, increment]
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  planning_file_submission_template_id Int
+  planning_file_submission_template planning_file_submission_template
+  nomination_point_id Int
+  nomination_point nomination_point
+}
+
+Table query_shipper_planning_files {
+  id Int [pk, increment]
+  planning_code String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  term_type_id Int
+  term_type term_type
+  group_id Int
+  group group
+  start_date DateTime
+  end_date DateTime
+  shipper_file_submission_date DateTime
+  query_shipper_planning_files_file query_shipper_planning_files_file [not null]
+  query_shipper_planning_files_temp_long query_shipper_planning_files_temp_long [not null]
+  query_shipper_planning_files_temp_medium query_shipper_planning_files_temp_medium [not null]
+  query_shipper_planning_files_temp_short query_shipper_planning_files_temp_short [not null]
+  query_shipper_planning_files_temp_row query_shipper_planning_files_temp_row [not null]
+  newpoint newpoint [not null]
+}
+
+Table query_shipper_planning_files_file {
+  id Int [pk, increment]
+  url String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  query_shipper_planning_files_id Int
+  query_shipper_planning_files query_shipper_planning_files
+}
+
+Table query_shipper_planning_files_temp_row {
+  id Int [pk, increment]
+  value String
+  temp_new_point String
+  temp_point_type String
+  temp_nomination_point String
+  temp_customer String
+  temp_area String
+  temp_unit String
+  entry_exit_id Int
+  entry_exit entry_exit
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  query_shipper_planning_files_id Int
+  query_shipper_planning_files query_shipper_planning_files
+}
+
+Table query_shipper_planning_files_temp_long {
+  id Int [pk, increment]
+  temp_full String
+  temp_total_entry String
+  temp_total_exit String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  query_shipper_planning_files_id Int
+  query_shipper_planning_files query_shipper_planning_files
+}
+
+Table query_shipper_planning_files_temp_medium {
+  id Int [pk, increment]
+  temp_full String
+  temp_total_entry String
+  temp_total_exit String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  query_shipper_planning_files_id Int
+  query_shipper_planning_files query_shipper_planning_files
+}
+
+Table query_shipper_planning_files_temp_short {
+  id Int [pk, increment]
+  temp_full String
+  temp_total_entry String
+  temp_total_exit String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  query_shipper_planning_files_id Int
+  query_shipper_planning_files query_shipper_planning_files
+}
+
+Table newpoint {
+  id Int [pk, increment]
+  planning_code String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  term_type_id Int
+  term_type term_type
+  group_id Int
+  group group
+  query_shipper_planning_files_id Int
+  query_shipper_planning_files query_shipper_planning_files
+  start_date DateTime
+  end_date DateTime
+  shipper_file_submission_date DateTime
+  newpoint_file newpoint_file [not null]
+  newpoint_detail newpoint_detail [not null]
+}
+
+Table newpoint_file {
+  id Int [pk, increment]
+  url String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  newpoint_id Int
+  newpoint newpoint
+}
+
+Table newpoint_detail {
+  id Int [pk, increment]
+  point String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  newpoint_id Int
+  newpoint newpoint
+  temp_new_point String
+  temp_point_type String
+  temp_nomination_point String
+  temp_customer String
+  temp_area String
+  temp_unit String
+  entry_exit_id Int
+  entry_exit entry_exit
+}
+
+Table area_data_kml_full {
+  id Int [pk, increment]
+  temps String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table area_data_kml_row {
+  id Int [pk, increment]
+  original_by_document String
+  original_id String
+  original_name String
+  original_icon String
+  original_url String
+  original_lat_lon_box String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table upload_template_for_shipper {
+  id Int [pk, increment]
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  group_id Int
+  group group
+  contract_code_id Int
+  contract_code contract_code
+  nomination_type_id Int
+  nomination_type nomination_type
+  upload_template_for_shipper_file upload_template_for_shipper_file [not null]
+  upload_template_for_shipper_comment upload_template_for_shipper_comment [not null]
+  del_flag Boolean
+}
+
+Table upload_template_for_shipper_file {
+  id Int [pk, increment]
+  url String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  upload_template_for_shipper_id Int
+  upload_template_for_shipper upload_template_for_shipper
+}
+
+Table upload_template_for_shipper_comment {
+  id Int [pk, increment]
+  comment String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  upload_template_for_shipper_id Int
+  upload_template_for_shipper upload_template_for_shipper
+}
+
+Table metered_run_number {
+  id Int [pk, increment]
+  metering_retrieving_id String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  metered_retrieving metered_retrieving [not null]
+}
+
+Table metered_retrieving {
+  id Int [pk, increment]
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  metered_run_number_id Int
+  metered_run_number metered_run_number
+  temp String
+  type String
+  description String
+  timestamp DateTime
+  del_flag Boolean
+  metering_point_sys String
+  gas_day DateTime
+}
+
+Table query_shipper_nomination_file {
+  id Int [pk, increment]
+  nomination_code String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  nomination_type_id Int
+  nomination_type nomination_type
+  gas_day DateTime
+  query_shipper_nomination_status_id Int
+  query_shipper_nomination_status query_shipper_nomination_status
+  contract_code_id Int
+  contract_code contract_code
+  group_id Int
+  group group
+  file_name String
+  query_shipper_nomination_file_url query_shipper_nomination_file_url [not null]
+  submission_comment_query_shipper_nomination_file submission_comment_query_shipper_nomination_file [not null]
+  query_shipper_nomination_file_comment query_shipper_nomination_file_comment [not null]
+  query_shipper_nomination_file_renom_id Int
+  query_shipper_nomination_file_renom query_shipper_nomination_file_renom
+  nomination_version nomination_version [not null]
+  submitted_timestamp DateTime
+  del_flag Boolean
+  entry_quality Boolean
+  overuse_quantity Boolean
+  over_maximum_hour_capacity_right Boolean
+}
+
+Table nomination_version {
+  id Int [pk, increment]
+  version String
+  query_shipper_nomination_file_id Int
+  query_shipper_nomination_file query_shipper_nomination_file
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  nomination_full_json nomination_full_json [not null]
+  nomination_row_json nomination_row_json [not null]
+  query_shipper_nomination_file_url query_shipper_nomination_file_url [not null]
+  query_shipper_nomination_file_comment query_shipper_nomination_file_comment [not null]
+  nomination_full_json_sheet2 nomination_full_json_sheet2 [not null]
+  flag_use Boolean
+}
+
+Table nomination_full_json {
+  id Int [pk, increment]
+  data_temp String
+  nomination_version_id Int
+  nomination_version nomination_version
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  flag_use Boolean
+}
+
+Table nomination_full_json_sheet2 {
+  id Int [pk, increment]
+  data_temp String
+  nomination_version_id Int
+  nomination_version nomination_version
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  flag_use Boolean
+}
+
+Table nomination_row_json {
+  id Int [pk, increment]
+  zone_text String
+  area_text String
+  data_temp String
+  old_index Int
+  nomination_version_id Int
+  nomination_version nomination_version
+  entry_exit_id Int
+  entry_exit entry_exit
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  flag_use Boolean
+  query_shipper_nomination_type_id Int
+  query_shipper_nomination_type query_shipper_nomination_type
+}
+
+Table query_shipper_nomination_type {
+  id Int [pk, increment]
+  name String
+  color String
+  nomination_row_json nomination_row_json [not null]
+}
+
+Table query_shipper_nomination_file_url {
+  id Int [pk, increment]
+  url String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+  query_shipper_nomination_file_id Int
+  query_shipper_nomination_file query_shipper_nomination_file
+  query_shipper_nomination_status_id Int
+  query_shipper_nomination_status query_shipper_nomination_status
+  nomination_version_id Int
+  nomination_version nomination_version
+}
+
+Table query_shipper_nomination_file_comment {
+  id Int [pk, increment]
+  remark String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+  query_shipper_nomination_file_id Int
+  query_shipper_nomination_file query_shipper_nomination_file
+  query_shipper_nomination_status_id Int
+  query_shipper_nomination_status query_shipper_nomination_status
+  nomination_version_id Int
+  nomination_version nomination_version
+  query_shipper_nomination_type_comment_id Int
+  query_shipper_nomination_type_comment query_shipper_nomination_type_comment
+}
+
+Table query_shipper_nomination_type_comment {
+  id Int [pk, increment]
+  name String
+  color String
+  query_shipper_nomination_file_comment query_shipper_nomination_file_comment [not null]
+}
+
+Table query_shipper_nomination_status {
+  id Int [pk, increment]
+  name String
+  color String
+  query_shipper_nomination_file query_shipper_nomination_file [not null]
+  query_shipper_nomination_file_url query_shipper_nomination_file_url [not null]
+  query_shipper_nomination_file_comment query_shipper_nomination_file_comment [not null]
+}
+
+Table submission_comment_query_shipper_nomination_file {
+  id Int [pk, increment]
+  remark String
+  query_shipper_nomination_file_id Int
+  query_shipper_nomination_file query_shipper_nomination_file
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table query_shipper_nomination_file_renom {
+  id Int [pk, increment]
+  name String
+  query_shipper_nomination_file query_shipper_nomination_file [not null]
+  color String
+}
+
+Table daily_adjustment {
+  id Int [pk, increment]
+  daily_code String
+  daily_adjustment_status_id Int
+  daily_adjustment_status daily_adjustment_status
+  gas_day DateTime
+  time String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  daily_adjustment_group daily_adjustment_group [not null]
+  daily_adjustment_reason daily_adjustment_reason [not null]
+  entry_exit_id Int
+  entry_exit entry_exit
+  area_id Int
+  area area
+  daily_adjustment_nom daily_adjustment_nom [not null]
+}
+
+Table daily_adjustment_nom {
+  id Int [pk, increment]
+  daily_adjustment_id Int
+  daily_adjustment daily_adjustment
+  nomination_point_id Int
+  nomination_point nomination_point
+  heating_value String
+  valume_mmscfd String
+  valume_mmscfh String
+  valume_mmscfd2 String
+  valume_mmscfh2 String
+  status Boolean
+  active Boolean
+  time_num Int
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table daily_adjustment_status {
+  id Int [pk, increment]
+  name String
+  color String
+  daily_adjustment daily_adjustment [not null]
+  daily_adjustment_reason daily_adjustment_reason [not null]
+}
+
+Table daily_adjustment_group {
+  id Int [pk, increment]
+  daily_adjustment_id Int
+  daily_adjustment daily_adjustment
+  group_id Int
+  group group
+}
+
+Table daily_adjustment_reason {
+  id Int [pk, increment]
+  daily_adjustment_id Int
+  daily_adjustment daily_adjustment
+  daily_adjustment_status_id Int
+  daily_adjustment_status daily_adjustment_status
+  reason String
+  status Boolean
+  active Boolean
+  time_num Int
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table allocation_mode_type {
+  id Int [pk, increment]
+  mode String
+  allocation_mode allocation_mode [not null]
+}
+
+Table allocation_mode {
+  id Int [pk, increment]
+  allocation_mode_type_id Int
+  allocation_mode_type allocation_mode_type
+  status Boolean
+  active Boolean
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table allocation_status {
+  id Int [pk, increment]
+  name String
+  color String
+  allocation_management allocation_management [not null]
+  allocation_management_comment allocation_management_comment [not null]
+  allocation_management_shipper_review allocation_management_shipper_review [not null]
+}
+
+Table allocation_management {
+  id Int [pk, increment]
+  allocation_status_id Int
+  allocation_status allocation_status
+  review_code String
+  name String
+  gas_day DateTime
+  active Boolean
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  allocation_management_comment allocation_management_comment [not null]
+  allocation_management_shipper_review allocation_management_shipper_review [not null]
+  shipper_name_text String
+  gas_day_text String
+  contract_code_text String
+  point_text String
+  entry_exit_text String
+  area_text String
+  zone_text String
+}
+
+Table allocation_management_shipper_review {
+  id Int [pk, increment]
+  allocation_status_id Int
+  allocation_status allocation_status
+  allocation_management_id Int
+  allocation_management allocation_management
+  shipper_allocation_review String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table allocation_management_comment {
+  id Int [pk, increment]
+  remark String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+  allocation_management_id Int
+  allocation_management allocation_management
+  allocation_status_id Int
+  allocation_status allocation_status
+  reasons Boolean
+}
+
+Table closed_balancing_report {
+  id Int [pk, increment]
+  date_balance DateTime
+  active Boolean
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table park_allocated {
+  id Int [pk, increment]
+  gas_day DateTime
+  zone_id Int
+  zone zone
+  flag_use Boolean
+  total_parking_value String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table intraday_acc_imbalance_inventory {
+  id Int [pk, increment]
+  gas_day DateTime
+  gas_day_text String
+  gas_hour Int
+  zone String
+  value String
+  del_flag Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table intraday_acc_imbalance_inventory_comment {
+  id Int [pk, increment]
+  gas_day DateTime
+  gas_day_text String
+  gas_hour Int
+  remark String
+  del_flag Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table allocation_report {
+  id Int [pk, increment]
+  review_code String
+  name String
+  gas_day DateTime
+  active Boolean
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  shipper_name_text String
+  gas_day_text String
+  contract_code_text String
+  point_text String
+  entry_exit_text String
+  area_text String
+  zone_text String
+  allocation_report_view allocation_report_view [not null]
+}
+
+Table allocation_report_view {
+  id Int [pk, increment]
+  review_code String
+  name String
+  gas_day DateTime
+  active Boolean
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  shipper_name_text String
+  gas_day_text String
+  contract_code_text String
+  point_text String
+  entry_exit_text String
+  area_text String
+  zone_text String
+  allocation_report_id Int
+  allocation_report allocation_report
+}
+
+Table balancing_adjustment_daily_imbalance {
+  id Int [pk, increment]
+  gas_day DateTime
+  gas_hour Int
+  active Boolean
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  shipper_name_text String
+  gas_day_text String
+  contract_code_text String
+  entry_exit_text String
+  area_text String
+  zone_text String
+  adjust_imbalance String
+}
+
+Table balancing_adjust_accumulated_imbalance {
+  id Int [pk, increment]
+  gas_day DateTime
+  gas_hour Int
+  active Boolean
+  start_date DateTime
+  end_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  shipper_name_text String
+  gas_day_text String
+  contract_code_text String
+  entry_exit_text String
+  area_text String
+  zone_text String
+  adjust_imbalance String
+}
+
+Table publication_center {
+  id Int [pk, increment]
+  execute_timestamp Int
+  gas_day_text String
+  gas_day DateTime
+  gas_hour Int
+  del_flag Boolean
+  active Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table allocation_monthly_report_approved {
+  id Int [pk, increment]
+  monthText String
+  contractCode String
+  file String
+  version String
+  typeReport String
+  jsonData String
+  del_flag Boolean
+  active Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table vent_commissioning_other_gas {
+  id Int [pk, increment]
+  gas_day DateTime
+  gas_day_text String
+  group_id Int
+  group group
+  zone_id Int
+  zone zone
+  vent_gas_value_mmbtud String
+  commissioning_gas_value_mmbtud String
+  other_gas_value_mmbtud String
+  del_flag Boolean
+  active Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  vent_commissioning_other_gas_remark vent_commissioning_other_gas_remark [not null]
+}
+
+Table vent_commissioning_other_gas_remark {
+  id Int [pk, increment]
+  remark String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  active Boolean
+  vent_commissioning_other_gas_id Int
+  vent_commissioning_other_gas vent_commissioning_other_gas
+}
+
+Table vent_commissioning_other_gas_import_log {
+  id Int [pk, increment]
+  file String
+  del_flag Boolean
+  active Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table curtailments_allocation {
+  id Int [pk, increment]
+  case_id String
+  gas_day DateTime
+  gas_day_text String
+  area String
+  nomination_point String
+  unit String
+  max_capacity String
+  active Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  curtailments_allocation_type_id Int
+  curtailments_allocation_type curtailments_allocation_type
+  curtailments_allocation_calc curtailments_allocation_calc [not null]
+}
+
+Table curtailments_allocation_calc {
+  id Int [pk, increment]
+  gas_day DateTime
+  gas_day_text String
+  calc_hv String
+  nomination_value String
+  max_capacity String
+  term String
+  shipper_name String
+  contract String
+  area_text String
+  remaining_capacity String
+  active Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  curtailments_allocation_id Int
+  curtailments_allocation curtailments_allocation
+}
+
+Table curtailments_allocation_type {
+  id Int [pk, increment]
+  type String
+  active Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  curtailments_allocation curtailments_allocation [not null]
+}
+
+Table intraday_base_inentory {
+  id Int [pk, increment]
+  gas_day DateTime
+  gas_day_text String
+  gas_hour String
+  timestamp String
+  zone_text String
+  mode String
+  hv String
+  base_inventory_value String
+  high_difficult_day String
+  high_red String
+  high_orange String
+  high_max String
+  alert_high String
+  alert_low String
+  low_orange String
+  low_red String
+  low_difficult_day String
+  low_max String
+  del_flag Boolean
+  active Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table intraday_base_inentory_import_log {
+  id Int [pk, increment]
+  file String
+  del_flag Boolean
+  active Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table allocation_shipper_report_approved {
+  id Int [pk, increment]
+  gas_day_from String
+  gas_day_from_d DateTime
+  gas_day_to String
+  gas_day_to_d DateTime
+  file String
+  jsonData String
+  del_flag Boolean
+  active Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  nomination_point_arr_temp String
+  shipper_arr_temp String
+  share_temp String
+  skip_temp String
+  limit_temp String
+}
+
+Table execute_runnumber {
+  id Int [pk, increment]
+  request_number_type String
+  del_flag Boolean
+  active Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  execute_eod execute_eod [not null]
+  execute_intraday execute_intraday [not null]
+}
+
+Table execute_eod {
+  id Int [pk, increment]
+  request_number_id Int
+  request_number execute_runnumber
+  execute_timestamp Int
+  finish_timestamp Int
+  status String
+  msg String
+  start_date String
+  start_date_date DateTime
+  end_date String
+  end_date_date DateTime
+  del_flag Boolean
+  active Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  execute_intraday execute_intraday [not null]
+}
+
+Table execute_intraday {
+  id Int [pk, increment]
+  request_number_id Int
+  request_number execute_runnumber
+  execute_timestamp Int
+  finish_timestamp Int
+  status String
+  msg String
+  request_number_previous_hour Int
+  request_number_eod_id Int
+  request_number_eod execute_eod
+  gas_day String
+  gas_day_date DateTime
+  gas_hour Int
+  del_flag Boolean
+  active Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table operation_flow_and_instructed_flow {
+  id Int [pk, increment]
+  execute_timestamp Int
+  gas_day String
+  gas_day_date DateTime
+  gas_hour Int
+  shipper String
+  zone String
+  accImb_or_accImbInv String
+  accMargin String
+  level String
+  energyAdjust String
+  energyAdjustRate_mmbtuh String
+  energyAdjustRate_mmbtud String
+  volumeAdjust String
+  volumeAdjustRate_mmscfh String
+  volumeAdjustRate_mmscfd String
+  resolveHour String
+  heatingValue String
+  del_flag Boolean
+  active Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  operation_flow_and_instructed_flow_file operation_flow_and_instructed_flow_file [not null]
+  operation_flow_and_instructed_flow_comment operation_flow_and_instructed_flow_comment [not null]
+}
+
+Table operation_flow_and_instructed_flow_file {
+  id Int [pk, increment]
+  url String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  operation_flow_and_instructed_flow_id Int
+  operation_flow_and_instructed_flow operation_flow_and_instructed_flow
+}
+
+Table operation_flow_and_instructed_flow_comment {
+  id Int [pk, increment]
+  comment String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  operation_flow_and_instructed_flow_id Int
+  operation_flow_and_instructed_flow operation_flow_and_instructed_flow
+  comment_tap_user_type Int
+}
+
+Table hv_type {
+  id Int [pk, increment]
+  type String
+  color String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  hv_for_peration_flow_and_instructed_flow hv_for_peration_flow_and_instructed_flow [not null]
+}
+
+Table hv_for_peration_flow_and_instructed_flow {
+  id Int [pk, increment]
+  start_date DateTime
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+  hv_type_id Int
+  hv_type hv_type
+  group_id Int
+  group group
+  metering_point_id Int
+  metering_point metering_point
+}
+
+Table intraday_dashboard_sent_email {
+  id Int [pk, increment]
+  subject String
+  detail String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table allowcation_management_sent_email {
+  id Int [pk, increment]
+  subject String
+  detail String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table balancing_monthly_report_approved {
+  id Int [pk, increment]
+  monthText String
+  contractCode String
+  file String
+  version String
+  typeReport String
+  jsonData String
+  del_flag Boolean
+  active Boolean
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table log_execute_eod {
+  id Int [pk, increment]
+  request_number Int
+  execute_timestamp Int
+  start_date String
+  end_date String
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table log_execute_intraday {
+  id Int [pk, increment]
+  request_number Int
+  request_number_previous_hour Int
+  request_number_eod Int
+  execute_timestamp Int
+  gas_day String
+  gas_hour Int
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table event_runnumber {
+  id Int [pk, increment]
+  event_nember String
+  event_date DateTime
+  event_status_id Int
+  event_status event_status
+  user_type_id Int
+  user_type user_type
+  group_id Int
+  group group
+  event_document event_document [not null]
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table event_status {
+  id Int [pk, increment]
+  name String
+  color String
+  event_runnumber event_runnumber [not null]
+}
+
+Table event_doc_status {
+  id Int [pk, increment]
+  name String
+  color String
+  event_document event_document [not null]
+  event_document_action event_document_action [not null]
+}
+
+Table event_doc_master {
+  id Int [pk, increment]
+  doc String
+  event_document event_document [not null]
+  event_document_action event_document_action [not null]
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table event_document {
+  id Int [pk, increment]
+  event_runnumber_id Int
+  event_runnumber event_runnumber
+  event_doc_status_id Int
+  event_doc_status event_doc_status
+  user_type_id Int
+  user_type user_type
+  group_id Int
+  group group
+  event_document_file event_document_file [not null]
+  event_document_file_pdf event_document_file_pdf [not null]
+  input_delivery_point_at_the_scene String
+  input_date_time_of_the_incident String
+  input_gas_quality_is_not_in_the_gas_quality_requirements String
+  input_more String
+  input_reason_the_gas_quality_requirements String
+  input_duration_that_is_expected_to_be_completed String
+  input_note String
+  doc2_input_delivery_point_at_the_scene String
+  doc2_input_date_time_of_the_incident String
+  doc2_input_gas_quality_is_not_in_the_gas_quality_requirements String
+  doc2_input_reason_the_gas_quality_requirements String
+  doc2_input_duration_that_is_expected_to_be_completed String
+  doc2_input_duration_of_the_gas_travel_to_various_points String
+  doc2_input_note String
+  ref_document Int
+  ref_document_in Int
+  ref_runnumber_flag Boolean
+  event_doc_master_id Int
+  event_doc_master event_doc_master
+  event_document_action event_document_action [not null]
+  event_document_log_history event_document_log_history [not null]
+  event_document_cc_email event_document_cc_email [not null]
+  event_document_email_group_for_event event_document_email_group_for_event [not null]
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table event_document_email_group_for_event {
+  id Int [pk, increment]
+  event_document_id Int
+  event_document event_document
+  edit_email_group_for_event_id Int
+  edit_email_group_for_event edit_email_group_for_event
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table event_document_cc_email {
+  id Int [pk, increment]
+  email String
+  event_document_id Int
+  event_document event_document
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table event_document_file {
+  id Int [pk, increment]
+  url String
+  event_document_id Int
+  event_document event_document
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table event_document_file_pdf {
+  id Int [pk, increment]
+  url String
+  buffer Bytes
+  name String
+  event_document_id Int
+  event_document event_document
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table event_document_action {
+  id Int [pk, increment]
+  event_document_id Int
+  event_document event_document
+  event_doc_status_id Int
+  event_doc_status event_doc_status
+  user_type_id Int
+  user_type user_type
+  group_id Int
+  group group
+  input_note String
+  event_doc_master_id Int
+  event_doc_master event_doc_master
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table event_document_log_history {
+  id Int [pk, increment]
+  temp String
+  event_document_id Int
+  event_document event_document
+  user_type_id Int
+  user_type user_type
+  group_id Int
+  group group
+  create_date DateTime
+  update_date DateTime
+  create_date_num Int
+  update_date_num Int
+  create_by Int
+  create_by_account account
+  update_by Int
+  update_by_account account
+}
+
+Table created_by_account {
+  system_login_createdId Int [ref: > system_login.id]
+  role_createdId Int [ref: > role.id]
+}
+
+Table updated_by_account {
+  system_login_updatedId Int [ref: > system_login.id]
+  role_updatedId Int [ref: > role.id]
+}
+
+Table NomAndContractPoint {
+  nomination_point_listId Int [ref: > nomination_point.id]
+  contract_point_listId Int [ref: > contract_point.id]
+}
+
+Ref: account.type_account_id > type_account.id
+
+Ref: account.create_by - account.id
+
+Ref: account.update_by - account.id
+
+Ref: login_logs.account_id > account.id
+
+Ref: account_reason.account_id > account.id
+
+Ref: account_reason.create_by > account.id
+
+Ref: account_reason.update_by > account.id
+
+Ref: account_password_check.account_id > account.id
+
+Ref: system_login.role_id > role.id
+
+Ref: system_login.mode_account_id > mode_account.id
+
+Ref: system_login.create_by > account.id
+
+Ref: system_login.update_by > account.id
+
+Ref: system_login_account.system_login_id > system_login.id
+
+Ref: system_login_account.account_id > account.id
+
+Ref: system_login_account.create_by > account.id
+
+Ref: system_login_account.update_by > account.id
+
+Ref: column_table_config.user_type_id > user_type.id
+
+Ref: column_table_config.column_table_id > column_table.id
+
+Ref: column_table_config.column_field_id > column_field.id
+
+Ref: role.user_type_id > user_type.id
+
+Ref: role.create_by > account.id
+
+Ref: role.update_by > account.id
+
+Ref: role_default.role_id > role.id
+
+Ref: role_default.group_id > group.id
+
+Ref: menus_config.role_id > role.id
+
+Ref: menus_config.menus_id > menus.id
+
+Ref: division.group_id > group.id
+
+Ref: division.create_by > account.id
+
+Ref: division.update_by > account.id
+
+Ref: history.create_by > account.id
+
+Ref: history.update_by > account.id
+
+Ref: group.user_type_id > user_type.id
+
+Ref: group.bank_master_id > bank_master.id
+
+Ref: group.create_by > account.id
+
+Ref: group.update_by > account.id
+
+Ref: account_manage.account_id > account.id
+
+Ref: account_manage.mode_account_id > mode_account.id
+
+Ref: account_manage.division_id > division.id
+
+Ref: account_manage.user_type_id > user_type.id
+
+Ref: account_manage.group_id > group.id
+
+Ref: account_role.account_manage_id > account_manage.id
+
+Ref: account_role.role_id > role.id
+
+Ref: t_and_c.create_by > account.id
+
+Ref: t_and_c.update_by > account.id
+
+Ref: entry_exit.create_by > account.id
+
+Ref: entry_exit.update_by > account.id
+
+Ref: zone.create_by > account.id
+
+Ref: zone.update_by > account.id
+
+Ref: zone.entry_exit_id > entry_exit.id
+
+Ref: zone_master_quality.create_by > account.id
+
+Ref: zone_master_quality.update_by > account.id
+
+Ref: zone_master_quality.zone_id > zone.id
+
+Ref: area.create_by > account.id
+
+Ref: area.update_by > account.id
+
+Ref: area.zone_id > zone.id
+
+Ref: area.entry_exit_id > entry_exit.id
+
+Ref: area.supply_reference_quality_area - area.id
+
+Ref: config_master_path.create_by > account.id
+
+Ref: config_master_path.update_by > account.id
+
+Ref: revised_capacity_path.create_by > account.id
+
+Ref: revised_capacity_path.update_by > account.id
+
+Ref: revised_capacity_path.config_master_path_id > config_master_path.id
+
+Ref: revised_capacity_path.area_id > area.id
+
+Ref: revised_capacity_path.revised_capacity_path_type_id > revised_capacity_path_type.id
+
+Ref: revised_capacity_path_edges.create_by > account.id
+
+Ref: revised_capacity_path_edges.update_by > account.id
+
+Ref: revised_capacity_path_edges.config_master_path_id > config_master_path.id
+
+Ref: revised_capacity_path_edges.source_id > area.id
+
+Ref: revised_capacity_path_edges.target_id > area.id
+
+Ref: contract_point.entry_exit_id > entry_exit.id
+
+Ref: contract_point.zone_id > zone.id
+
+Ref: contract_point.area_id > area.id
+
+Ref: contract_point.create_by > account.id
+
+Ref: contract_point.update_by > account.id
+
+Ref: contract_nomination_point.nomination_point_id > nomination_point.id
+
+Ref: contract_nomination_point.contract_point_id > contract_point.id
+
+Ref: contract_nomination_point.create_by > account.id
+
+Ref: contract_nomination_point.update_by > account.id
+
+Ref: nomination_point.entry_exit_id > entry_exit.id
+
+Ref: nomination_point.zone_id > zone.id
+
+Ref: nomination_point.area_id > area.id
+
+Ref: nomination_point.contract_point_id > contract_point.id
+
+Ref: nomination_point.create_by > account.id
+
+Ref: nomination_point.update_by > account.id
+
+Ref: nomination_point.customer_type_id > customer_type.id
+
+Ref: customer_type.entry_exit_id > entry_exit.id
+
+Ref: customer_type.create_by > account.id
+
+Ref: customer_type.update_by > account.id
+
+Ref: non_tpa_point.area_id > area.id
+
+Ref: non_tpa_point.nomination_point_id > nomination_point.id
+
+Ref: non_tpa_point.create_by > account.id
+
+Ref: non_tpa_point.update_by > account.id
+
+Ref: metering_point.create_by > account.id
+
+Ref: metering_point.update_by > account.id
+
+Ref: metering_point.point_type_id > point_type.id
+
+Ref: metering_point.entry_exit_id > entry_exit.id
+
+Ref: metering_point.zone_id > zone.id
+
+Ref: metering_point.area_id > area.id
+
+Ref: metering_point.non_tpa_point_id > non_tpa_point.id
+
+Ref: metering_point.nomination_point_id > nomination_point.id
+
+Ref: metering_point.customer_type_id > customer_type.id
+
+Ref: concept_point.create_by > account.id
+
+Ref: concept_point.update_by > account.id
+
+Ref: concept_point.type_concept_point_id > type_concept_point.id
+
+Ref: type_concept_point.group_type_concept_point_id > group_type_concept_point.id
+
+Ref: limit_concept_point.concept_point_id > concept_point.id
+
+Ref: limit_concept_point.group_id > group.id
+
+Ref: limit_concept_point.create_by > account.id
+
+Ref: limit_concept_point.update_by > account.id
+
+Ref: new_nomination_deadline.create_by > account.id
+
+Ref: new_nomination_deadline.update_by > account.id
+
+Ref: new_nomination_deadline.process_type_id > process_type.id
+
+Ref: new_nomination_deadline.nomination_type_id > nomination_type.id
+
+Ref: new_nomination_deadline.user_type_id > user_type.id
+
+Ref: planning_deadline.create_by > account.id
+
+Ref: planning_deadline.update_by > account.id
+
+Ref: planning_deadline.term_type_id > term_type.id
+
+Ref: announcement.create_by > account.id
+
+Ref: announcement.update_by > account.id
+
+Ref: sub_system_parameter.menus_id > menus.id
+
+Ref: sub_email_notification_management.menus_id > menus.id
+
+Ref: system_parameter.menus_id > menus.id
+
+Ref: system_parameter.system_parameter_id > sub_system_parameter.id
+
+Ref: system_parameter.create_by > account.id
+
+Ref: system_parameter.update_by > account.id
+
+Ref: email_notification_management.menus_id > menus.id
+
+Ref: email_notification_management.activity_id > sub_email_notification_management.id
+
+Ref: email_notification_management.create_by > account.id
+
+Ref: email_notification_management.update_by > account.id
+
+Ref: user_guide.create_by > account.id
+
+Ref: user_guide.update_by > account.id
+
+Ref: user_guide_match.role_id > role.id
+
+Ref: user_guide_match.user_guide_id > user_guide.id
+
+Ref: user_guide_match.create_by > account.id
+
+Ref: user_guide_match.update_by > account.id
+
+Ref: capacity_publication_remark.create_by > account.id
+
+Ref: capacity_publication_remark.update_by > account.id
+
+Ref: setup_background.create_by > account.id
+
+Ref: setup_background.update_by > account.id
+
+Ref: check_condition.create_by > account.id
+
+Ref: check_condition.update_by > account.id
+
+Ref: booking_template.create_by > account.id
+
+Ref: booking_template.update_by > account.id
+
+Ref: booking_template.term_type_id > term_type.id
+
+Ref: config_mode_zone_base_inventory.zone_id > zone.id
+
+Ref: config_mode_zone_base_inventory.create_by > account.id
+
+Ref: config_mode_zone_base_inventory.update_by > account.id
+
+Ref: mode_zone_base_inventory.zone_id > zone.id
+
+Ref: mode_zone_base_inventory.mode_id > config_mode_zone_base_inventory.id
+
+Ref: mode_zone_base_inventory.create_by > account.id
+
+Ref: mode_zone_base_inventory.update_by > account.id
+
+Ref: edit_email_group_for_event.create_by > account.id
+
+Ref: edit_email_group_for_event.update_by > account.id
+
+Ref: edit_email_group_for_event_match.edit_email_group_for_event_id > edit_email_group_for_event.id
+
+Ref: edit_email_group_for_event_match.create_by > account.id
+
+Ref: edit_email_group_for_event_match.update_by > account.id
+
+Ref: shipper_contract_point.group_id > group.id
+
+Ref: shipper_contract_point.contract_point_id > contract_point.id
+
+Ref: shipper_contract_point.create_by > account.id
+
+Ref: shipper_contract_point.update_by > account.id
+
+Ref: contract_code.group_id > group.id
+
+Ref: contract_code.type_account_id > type_account.id
+
+Ref: contract_code.status_capacity_request_management_id > status_capacity_request_management.id
+
+Ref: contract_code.create_by > account.id
+
+Ref: contract_code.update_by > account.id
+
+Ref: contract_code.term_type_id > term_type.id
+
+Ref: contract_code.ref_contract_code_by_id - contract_code.id
+
+Ref: contract_code.ref_contract_code_by_main_id - contract_code.id
+
+Ref: contract_code.status_capacity_request_management_process_id > status_capacity_request_management_process.id
+
+Ref: booking_version.contract_code_id > contract_code.id
+
+Ref: booking_version.create_by > account.id
+
+Ref: booking_version.update_by > account.id
+
+Ref: booking_version.status_capacity_request_management_id > status_capacity_request_management.id
+
+Ref: booking_version.type_account_id > type_account.id
+
+Ref: booking_version_edit_temp.booking_version_id > booking_version.id
+
+Ref: booking_version_edit_temp.create_by > account.id
+
+Ref: booking_version_edit_temp.update_by > account.id
+
+Ref: booking_version_comment.create_by > account.id
+
+Ref: booking_version_comment.update_by > account.id
+
+Ref: booking_version_comment.booking_version_id > booking_version.id
+
+Ref: booking_full_json.booking_version_id > booking_version.id
+
+Ref: booking_full_json.create_by > account.id
+
+Ref: booking_full_json.update_by > account.id
+
+Ref: booking_row_json.booking_version_id > booking_version.id
+
+Ref: booking_row_json.entry_exit_id > entry_exit.id
+
+Ref: booking_row_json.create_by > account.id
+
+Ref: booking_row_json.update_by > account.id
+
+Ref: booking_full_json_release.booking_version_id > booking_version.id
+
+Ref: booking_full_json_release.create_by > account.id
+
+Ref: booking_full_json_release.update_by > account.id
+
+Ref: booking_row_json_release.booking_version_id > booking_version.id
+
+Ref: booking_row_json_release.entry_exit_id > entry_exit.id
+
+Ref: booking_row_json_release.create_by > account.id
+
+Ref: booking_row_json_release.update_by > account.id
+
+Ref: submission_comment_capacity_request_management.contract_code_id > contract_code.id
+
+Ref: submission_comment_capacity_request_management.create_by > account.id
+
+Ref: submission_comment_capacity_request_management.update_by > account.id
+
+Ref: file_capacity_request_management.contract_code_id > contract_code.id
+
+Ref: file_capacity_request_management.create_by > account.id
+
+Ref: file_capacity_request_management.update_by > account.id
+
+Ref: extend_contract_capacity_request_management.contract_code_id > contract_code.id
+
+Ref: extend_contract_capacity_request_management.create_by > account.id
+
+Ref: extend_contract_capacity_request_management.update_by > account.id
+
+Ref: book_capacity_request_management.contract_code_id > contract_code.id
+
+Ref: book_capacity_request_management.create_by > account.id
+
+Ref: book_capacity_request_management.update_by > account.id
+
+Ref: comment_book_capacity_request_management.book_capacity_request_management_id > book_capacity_request_management.id
+
+Ref: comment_book_capacity_request_management.create_by > account.id
+
+Ref: comment_book_capacity_request_management.update_by > account.id
+
+Ref: log_book_capacity_request_management.book_capacity_request_management_id > book_capacity_request_management.id
+
+Ref: log_book_capacity_request_management.create_by > account.id
+
+Ref: log_book_capacity_request_management.update_by > account.id
+
+Ref: path_management.create_by > account.id
+
+Ref: path_management.update_by > account.id
+
+Ref: path_management_config.path_management_id > path_management.id
+
+Ref: path_management_config.config_master_path_id > config_master_path.id
+
+Ref: path_management_config.create_by > account.id
+
+Ref: path_management_config.update_by > account.id
+
+Ref: capacity_detail.contract_code_id > contract_code.id
+
+Ref: capacity_detail.booking_version_id > booking_version.id
+
+Ref: capacity_detail.create_by > account.id
+
+Ref: capacity_detail.update_by > account.id
+
+Ref: capacity_detail_point.capacity_detail_id > capacity_detail.id
+
+Ref: capacity_detail_point.area_id > area.id
+
+Ref: capacity_detail_point.create_by > account.id
+
+Ref: capacity_detail_point.update_by > account.id
+
+Ref: capacity_detail_point_date.capacity_detail_point_id > capacity_detail_point.id
+
+Ref: capacity_detail_point_date.area_id > area.id
+
+Ref: capacity_detail_point_date.create_by > account.id
+
+Ref: capacity_detail_point_date.update_by > account.id
+
+Ref: capacity_publication.entry_exit_id > entry_exit.id
+
+Ref: capacity_publication.zone_id > zone.id
+
+Ref: capacity_publication.area_id > area.id
+
+Ref: capacity_publication.create_by > account.id
+
+Ref: capacity_publication.update_by > account.id
+
+Ref: capacity_publication_warning.contract_code_id > contract_code.id
+
+Ref: capacity_publication_warning.create_by > account.id
+
+Ref: capacity_publication_warning.update_by > account.id
+
+Ref: capacity_publication_detail.area_id > area.id
+
+Ref: capacity_publication_detail.create_by > account.id
+
+Ref: capacity_publication_detail.update_by > account.id
+
+Ref: capacity_publication_date.capacity_publication_id > capacity_publication.id
+
+Ref: release_capacity_submission.contract_code_id > contract_code.id
+
+Ref: release_capacity_submission.create_by > account.id
+
+Ref: release_capacity_submission.update_by > account.id
+
+Ref: release_capacity_submission.release_capacity_status_id > release_capacity_status.id
+
+Ref: release_capacity_submission.group_id > group.id
+
+Ref: release_capacity_submission_file_document.create_by > account.id
+
+Ref: release_capacity_submission_file_document.update_by > account.id
+
+Ref: release_capacity_submission_file_document.release_capacity_submission_id > release_capacity_submission.id
+
+Ref: release_capacity_submission_file_document.contract_code_id > contract_code.id
+
+Ref: release_capacity_active.release_capacity_submission_id > release_capacity_submission.id
+
+Ref: release_capacity_active.release_capacity_status_id > release_capacity_status.id
+
+Ref: release_capacity_active.create_by > account.id
+
+Ref: release_capacity_active.update_by > account.id
+
+Ref: release_capacity_submission_detail.release_capacity_submission_id > release_capacity_submission.id
+
+Ref: release_capacity_submission_detail.create_by > account.id
+
+Ref: release_capacity_submission_detail.update_by > account.id
+
+Ref: release_capacity_submission_detail.booking_row_json_id > booking_row_json.id
+
+Ref: release_capacity_submission_detail.entry_exit_id > entry_exit.id
+
+Ref: release_capacity_submission_detail.path_management_config_id > path_management_config.id
+
+Ref: release_capacity_submission_file.create_by > account.id
+
+Ref: release_capacity_submission_file.update_by > account.id
+
+Ref: release_capacity_submission_file.release_capacity_submission_id > release_capacity_submission.id
+
+Ref: release_summary.create_by > account.id
+
+Ref: release_summary.update_by > account.id
+
+Ref: release_summary.contract_code_id > contract_code.id
+
+Ref: release_summary.group_id > group.id
+
+Ref: release_summary.release_type_id > release_type.id
+
+Ref: release_summary_confirm_log.create_by > account.id
+
+Ref: release_summary_confirm_log.update_by > account.id
+
+Ref: release_summary_confirm_log.release_summary_id > release_summary.id
+
+Ref: release_summary_detail.create_by > account.id
+
+Ref: release_summary_detail.update_by > account.id
+
+Ref: release_summary_detail.release_summary_id > release_summary.id
+
+Ref: release_summary_detail.booking_row_json_id > booking_row_json.id
+
+Ref: release_summary_detail.entry_exit_id > entry_exit.id
+
+Ref: release_summary_detail.path_management_config_id > path_management_config.id
+
+Ref: release_summary_comment.create_by > account.id
+
+Ref: release_summary_comment.update_by > account.id
+
+Ref: release_summary_comment.release_summary_id > release_summary.id
+
+Ref: reserve_balancing_gas_contract.create_by > account.id
+
+Ref: reserve_balancing_gas_contract.update_by > account.id
+
+Ref: reserve_balancing_gas_contract.group_id > group.id
+
+Ref: reserve_balancing_gas_contract_comment.reserve_balancing_gas_contract_id > reserve_balancing_gas_contract.id
+
+Ref: reserve_balancing_gas_contract_comment.create_by > account.id
+
+Ref: reserve_balancing_gas_contract_comment.update_by > account.id
+
+Ref: reserve_balancing_gas_contract_files.reserve_balancing_gas_contract_id > reserve_balancing_gas_contract.id
+
+Ref: reserve_balancing_gas_contract_files.create_by > account.id
+
+Ref: reserve_balancing_gas_contract_files.update_by > account.id
+
+Ref: reserve_balancing_gas_contract_detail.reserve_balancing_gas_contract_id > reserve_balancing_gas_contract.id
+
+Ref: reserve_balancing_gas_contract_detail.create_by > account.id
+
+Ref: reserve_balancing_gas_contract_detail.update_by > account.id
+
+Ref: reserve_balancing_gas_contract_detail.area_id > area.id
+
+Ref: reserve_balancing_gas_contract_detail.zone_id > zone.id
+
+Ref: reserve_balancing_gas_contract_detail.entry_exit_id > entry_exit.id
+
+Ref: reserve_balancing_gas_contract_detail.nomination_point_id > nomination_point.id
+
+Ref: planning_file_submission_template.create_by > account.id
+
+Ref: planning_file_submission_template.update_by > account.id
+
+Ref: planning_file_submission_template.term_type_id > term_type.id
+
+Ref: planning_file_submission_template.group_id > group.id
+
+Ref: planning_file_submission_template_nom.create_by > account.id
+
+Ref: planning_file_submission_template_nom.update_by > account.id
+
+Ref: planning_file_submission_template_nom.planning_file_submission_template_id > planning_file_submission_template.id
+
+Ref: planning_file_submission_template_nom.nomination_point_id > nomination_point.id
+
+Ref: query_shipper_planning_files.create_by > account.id
+
+Ref: query_shipper_planning_files.update_by > account.id
+
+Ref: query_shipper_planning_files.term_type_id > term_type.id
+
+Ref: query_shipper_planning_files.group_id > group.id
+
+Ref: query_shipper_planning_files_file.create_by > account.id
+
+Ref: query_shipper_planning_files_file.update_by > account.id
+
+Ref: query_shipper_planning_files_file.query_shipper_planning_files_id > query_shipper_planning_files.id
+
+Ref: query_shipper_planning_files_temp_row.entry_exit_id > entry_exit.id
+
+Ref: query_shipper_planning_files_temp_row.create_by > account.id
+
+Ref: query_shipper_planning_files_temp_row.update_by > account.id
+
+Ref: query_shipper_planning_files_temp_row.query_shipper_planning_files_id > query_shipper_planning_files.id
+
+Ref: query_shipper_planning_files_temp_long.create_by > account.id
+
+Ref: query_shipper_planning_files_temp_long.update_by > account.id
+
+Ref: query_shipper_planning_files_temp_long.query_shipper_planning_files_id > query_shipper_planning_files.id
+
+Ref: query_shipper_planning_files_temp_medium.create_by > account.id
+
+Ref: query_shipper_planning_files_temp_medium.update_by > account.id
+
+Ref: query_shipper_planning_files_temp_medium.query_shipper_planning_files_id > query_shipper_planning_files.id
+
+Ref: query_shipper_planning_files_temp_short.create_by > account.id
+
+Ref: query_shipper_planning_files_temp_short.update_by > account.id
+
+Ref: query_shipper_planning_files_temp_short.query_shipper_planning_files_id > query_shipper_planning_files.id
+
+Ref: newpoint.create_by > account.id
+
+Ref: newpoint.update_by > account.id
+
+Ref: newpoint.term_type_id > term_type.id
+
+Ref: newpoint.group_id > group.id
+
+Ref: newpoint.query_shipper_planning_files_id > query_shipper_planning_files.id
+
+Ref: newpoint_file.create_by > account.id
+
+Ref: newpoint_file.update_by > account.id
+
+Ref: newpoint_file.newpoint_id > newpoint.id
+
+Ref: newpoint_detail.create_by > account.id
+
+Ref: newpoint_detail.update_by > account.id
+
+Ref: newpoint_detail.newpoint_id > newpoint.id
+
+Ref: newpoint_detail.entry_exit_id > entry_exit.id
+
+Ref: area_data_kml_full.create_by > account.id
+
+Ref: area_data_kml_full.update_by > account.id
+
+Ref: area_data_kml_row.create_by > account.id
+
+Ref: area_data_kml_row.update_by > account.id
+
+Ref: upload_template_for_shipper.create_by > account.id
+
+Ref: upload_template_for_shipper.update_by > account.id
+
+Ref: upload_template_for_shipper.group_id > group.id
+
+Ref: upload_template_for_shipper.contract_code_id > contract_code.id
+
+Ref: upload_template_for_shipper.nomination_type_id > nomination_type.id
+
+Ref: upload_template_for_shipper_file.create_by > account.id
+
+Ref: upload_template_for_shipper_file.update_by > account.id
+
+Ref: upload_template_for_shipper_file.upload_template_for_shipper_id > upload_template_for_shipper.id
+
+Ref: upload_template_for_shipper_comment.create_by > account.id
+
+Ref: upload_template_for_shipper_comment.update_by > account.id
+
+Ref: upload_template_for_shipper_comment.upload_template_for_shipper_id > upload_template_for_shipper.id
+
+Ref: metered_run_number.create_by > account.id
+
+Ref: metered_run_number.update_by > account.id
+
+Ref: metered_retrieving.create_by > account.id
+
+Ref: metered_retrieving.update_by > account.id
+
+Ref: metered_retrieving.metered_run_number_id > metered_run_number.id
+
+Ref: query_shipper_nomination_file.create_by > account.id
+
+Ref: query_shipper_nomination_file.update_by > account.id
+
+Ref: query_shipper_nomination_file.nomination_type_id > nomination_type.id
+
+Ref: query_shipper_nomination_file.query_shipper_nomination_status_id > query_shipper_nomination_status.id
+
+Ref: query_shipper_nomination_file.contract_code_id > contract_code.id
+
+Ref: query_shipper_nomination_file.group_id > group.id
+
+Ref: query_shipper_nomination_file.query_shipper_nomination_file_renom_id > query_shipper_nomination_file_renom.id
+
+Ref: nomination_version.query_shipper_nomination_file_id > query_shipper_nomination_file.id
+
+Ref: nomination_version.create_by > account.id
+
+Ref: nomination_version.update_by > account.id
+
+Ref: nomination_full_json.nomination_version_id > nomination_version.id
+
+Ref: nomination_full_json.create_by > account.id
+
+Ref: nomination_full_json.update_by > account.id
+
+Ref: nomination_full_json_sheet2.nomination_version_id > nomination_version.id
+
+Ref: nomination_full_json_sheet2.create_by > account.id
+
+Ref: nomination_full_json_sheet2.update_by > account.id
+
+Ref: nomination_row_json.nomination_version_id > nomination_version.id
+
+Ref: nomination_row_json.entry_exit_id > entry_exit.id
+
+Ref: nomination_row_json.create_by > account.id
+
+Ref: nomination_row_json.update_by > account.id
+
+Ref: nomination_row_json.query_shipper_nomination_type_id > query_shipper_nomination_type.id
+
+Ref: query_shipper_nomination_file_url.create_by > account.id
+
+Ref: query_shipper_nomination_file_url.update_by > account.id
+
+Ref: query_shipper_nomination_file_url.query_shipper_nomination_file_id > query_shipper_nomination_file.id
+
+Ref: query_shipper_nomination_file_url.query_shipper_nomination_status_id > query_shipper_nomination_status.id
+
+Ref: query_shipper_nomination_file_url.nomination_version_id > nomination_version.id
+
+Ref: query_shipper_nomination_file_comment.create_by > account.id
+
+Ref: query_shipper_nomination_file_comment.update_by > account.id
+
+Ref: query_shipper_nomination_file_comment.query_shipper_nomination_file_id > query_shipper_nomination_file.id
+
+Ref: query_shipper_nomination_file_comment.query_shipper_nomination_status_id > query_shipper_nomination_status.id
+
+Ref: query_shipper_nomination_file_comment.nomination_version_id > nomination_version.id
+
+Ref: query_shipper_nomination_file_comment.query_shipper_nomination_type_comment_id > query_shipper_nomination_type_comment.id
+
+Ref: submission_comment_query_shipper_nomination_file.query_shipper_nomination_file_id > query_shipper_nomination_file.id
+
+Ref: submission_comment_query_shipper_nomination_file.create_by > account.id
+
+Ref: submission_comment_query_shipper_nomination_file.update_by > account.id
+
+Ref: daily_adjustment.daily_adjustment_status_id > daily_adjustment_status.id
+
+Ref: daily_adjustment.create_by > account.id
+
+Ref: daily_adjustment.update_by > account.id
+
+Ref: daily_adjustment.entry_exit_id > entry_exit.id
+
+Ref: daily_adjustment.area_id > area.id
+
+Ref: daily_adjustment_nom.daily_adjustment_id > daily_adjustment.id
+
+Ref: daily_adjustment_nom.nomination_point_id > nomination_point.id
+
+Ref: daily_adjustment_nom.create_by > account.id
+
+Ref: daily_adjustment_nom.update_by > account.id
+
+Ref: daily_adjustment_group.daily_adjustment_id > daily_adjustment.id
+
+Ref: daily_adjustment_group.group_id > group.id
+
+Ref: daily_adjustment_reason.daily_adjustment_id > daily_adjustment.id
+
+Ref: daily_adjustment_reason.daily_adjustment_status_id > daily_adjustment_status.id
+
+Ref: daily_adjustment_reason.create_by > account.id
+
+Ref: daily_adjustment_reason.update_by > account.id
+
+Ref: allocation_mode.allocation_mode_type_id > allocation_mode_type.id
+
+Ref: allocation_mode.create_by > account.id
+
+Ref: allocation_mode.update_by > account.id
+
+Ref: allocation_management.allocation_status_id > allocation_status.id
+
+Ref: allocation_management.create_by > account.id
+
+Ref: allocation_management.update_by > account.id
+
+Ref: allocation_management_shipper_review.allocation_status_id > allocation_status.id
+
+Ref: allocation_management_shipper_review.allocation_management_id > allocation_management.id
+
+Ref: allocation_management_shipper_review.create_by > account.id
+
+Ref: allocation_management_shipper_review.update_by > account.id
+
+Ref: allocation_management_comment.create_by > account.id
+
+Ref: allocation_management_comment.update_by > account.id
+
+Ref: allocation_management_comment.allocation_management_id > allocation_management.id
+
+Ref: allocation_management_comment.allocation_status_id > allocation_status.id
+
+Ref: closed_balancing_report.create_by > account.id
+
+Ref: closed_balancing_report.update_by > account.id
+
+Ref: park_allocated.zone_id > zone.id
+
+Ref: park_allocated.create_by > account.id
+
+Ref: park_allocated.update_by > account.id
+
+Ref: intraday_acc_imbalance_inventory.create_by > account.id
+
+Ref: intraday_acc_imbalance_inventory.update_by > account.id
+
+Ref: intraday_acc_imbalance_inventory_comment.create_by > account.id
+
+Ref: intraday_acc_imbalance_inventory_comment.update_by > account.id
+
+Ref: allocation_report.create_by > account.id
+
+Ref: allocation_report.update_by > account.id
+
+Ref: allocation_report_view.create_by > account.id
+
+Ref: allocation_report_view.update_by > account.id
+
+Ref: allocation_report_view.allocation_report_id > allocation_report.id
+
+Ref: balancing_adjustment_daily_imbalance.create_by > account.id
+
+Ref: balancing_adjustment_daily_imbalance.update_by > account.id
+
+Ref: balancing_adjust_accumulated_imbalance.create_by > account.id
+
+Ref: balancing_adjust_accumulated_imbalance.update_by > account.id
+
+Ref: publication_center.create_by > account.id
+
+Ref: publication_center.update_by > account.id
+
+Ref: allocation_monthly_report_approved.create_by > account.id
+
+Ref: allocation_monthly_report_approved.update_by > account.id
+
+Ref: vent_commissioning_other_gas.group_id > group.id
+
+Ref: vent_commissioning_other_gas.zone_id > zone.id
+
+Ref: vent_commissioning_other_gas.create_by > account.id
+
+Ref: vent_commissioning_other_gas.update_by > account.id
+
+Ref: vent_commissioning_other_gas_remark.create_by > account.id
+
+Ref: vent_commissioning_other_gas_remark.update_by > account.id
+
+Ref: vent_commissioning_other_gas_remark.vent_commissioning_other_gas_id > vent_commissioning_other_gas.id
+
+Ref: vent_commissioning_other_gas_import_log.create_by > account.id
+
+Ref: vent_commissioning_other_gas_import_log.update_by > account.id
+
+Ref: curtailments_allocation.create_by > account.id
+
+Ref: curtailments_allocation.update_by > account.id
+
+Ref: curtailments_allocation.curtailments_allocation_type_id > curtailments_allocation_type.id
+
+Ref: curtailments_allocation_calc.create_by > account.id
+
+Ref: curtailments_allocation_calc.update_by > account.id
+
+Ref: curtailments_allocation_calc.curtailments_allocation_id > curtailments_allocation.id
+
+Ref: curtailments_allocation_type.create_by > account.id
+
+Ref: curtailments_allocation_type.update_by > account.id
+
+Ref: intraday_base_inentory.create_by > account.id
+
+Ref: intraday_base_inentory.update_by > account.id
+
+Ref: intraday_base_inentory_import_log.create_by > account.id
+
+Ref: intraday_base_inentory_import_log.update_by > account.id
+
+Ref: allocation_shipper_report_approved.create_by > account.id
+
+Ref: allocation_shipper_report_approved.update_by > account.id
+
+Ref: execute_runnumber.create_by > account.id
+
+Ref: execute_runnumber.update_by > account.id
+
+Ref: execute_eod.request_number_id > execute_runnumber.id
+
+Ref: execute_eod.create_by > account.id
+
+Ref: execute_eod.update_by > account.id
+
+Ref: execute_intraday.request_number_id > execute_runnumber.id
+
+Ref: execute_intraday.request_number_eod_id > execute_eod.id
+
+Ref: execute_intraday.create_by > account.id
+
+Ref: execute_intraday.update_by > account.id
+
+Ref: operation_flow_and_instructed_flow.create_by > account.id
+
+Ref: operation_flow_and_instructed_flow.update_by > account.id
+
+Ref: operation_flow_and_instructed_flow_file.create_by > account.id
+
+Ref: operation_flow_and_instructed_flow_file.update_by > account.id
+
+Ref: operation_flow_and_instructed_flow_file.operation_flow_and_instructed_flow_id > operation_flow_and_instructed_flow.id
+
+Ref: operation_flow_and_instructed_flow_comment.create_by > account.id
+
+Ref: operation_flow_and_instructed_flow_comment.update_by > account.id
+
+Ref: operation_flow_and_instructed_flow_comment.operation_flow_and_instructed_flow_id > operation_flow_and_instructed_flow.id
+
+Ref: hv_type.create_by > account.id
+
+Ref: hv_type.update_by > account.id
+
+Ref: hv_for_peration_flow_and_instructed_flow.create_by > account.id
+
+Ref: hv_for_peration_flow_and_instructed_flow.update_by > account.id
+
+Ref: hv_for_peration_flow_and_instructed_flow.hv_type_id > hv_type.id
+
+Ref: hv_for_peration_flow_and_instructed_flow.group_id > group.id
+
+Ref: hv_for_peration_flow_and_instructed_flow.metering_point_id > metering_point.id
+
+Ref: intraday_dashboard_sent_email.create_by > account.id
+
+Ref: intraday_dashboard_sent_email.update_by > account.id
+
+Ref: allowcation_management_sent_email.create_by > account.id
+
+Ref: allowcation_management_sent_email.update_by > account.id
+
+Ref: balancing_monthly_report_approved.create_by > account.id
+
+Ref: balancing_monthly_report_approved.update_by > account.id
+
+Ref: log_execute_eod.create_by > account.id
+
+Ref: log_execute_eod.update_by > account.id
+
+Ref: log_execute_intraday.create_by > account.id
+
+Ref: log_execute_intraday.update_by > account.id
+
+Ref: event_runnumber.event_status_id > event_status.id
+
+Ref: event_runnumber.user_type_id > user_type.id
+
+Ref: event_runnumber.group_id > group.id
+
+Ref: event_runnumber.create_by > account.id
+
+Ref: event_runnumber.update_by > account.id
+
+Ref: event_doc_master.create_by > account.id
+
+Ref: event_doc_master.update_by > account.id
+
+Ref: event_document.event_runnumber_id > event_runnumber.id
+
+Ref: event_document.event_doc_status_id > event_doc_status.id
+
+Ref: event_document.user_type_id > user_type.id
+
+Ref: event_document.group_id > group.id
+
+Ref: event_document.event_doc_master_id > event_doc_master.id
+
+Ref: event_document.create_by > account.id
+
+Ref: event_document.update_by > account.id
+
+Ref: event_document_email_group_for_event.event_document_id > event_document.id
+
+Ref: event_document_email_group_for_event.edit_email_group_for_event_id > edit_email_group_for_event.id
+
+Ref: event_document_email_group_for_event.create_by > account.id
+
+Ref: event_document_email_group_for_event.update_by > account.id
+
+Ref: event_document_cc_email.event_document_id > event_document.id
+
+Ref: event_document_cc_email.create_by > account.id
+
+Ref: event_document_cc_email.update_by > account.id
+
+Ref: event_document_file.event_document_id > event_document.id
+
+Ref: event_document_file.create_by > account.id
+
+Ref: event_document_file.update_by > account.id
+
+Ref: event_document_file_pdf.event_document_id > event_document.id
+
+Ref: event_document_file_pdf.create_by > account.id
+
+Ref: event_document_file_pdf.update_by > account.id
+
+Ref: event_document_action.event_document_id > event_document.id
+
+Ref: event_document_action.event_doc_status_id > event_doc_status.id
+
+Ref: event_document_action.user_type_id > user_type.id
+
+Ref: event_document_action.group_id > group.id
+
+Ref: event_document_action.event_doc_master_id > event_doc_master.id
+
+Ref: event_document_action.create_by > account.id
+
+Ref: event_document_action.update_by > account.id
+
+Ref: event_document_log_history.event_document_id > event_document.id
+
+Ref: event_document_log_history.user_type_id > user_type.id
+
+Ref: event_document_log_history.group_id > group.id
+
+Ref: event_document_log_history.create_by > account.id
+
+Ref: event_document_log_history.update_by > account.id

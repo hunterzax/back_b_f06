@@ -1,0 +1,40 @@
+// file_service.proto
+
+syntax = "proto3";
+
+package fileService;
+
+option go_package = "/";
+
+service FileService {
+  rpc UploadFileJSONBook (FileUploadRequest) returns (FileUploadResponse) {}
+  rpc UploadFileJSON (FileUploadRequest) returns (FileUploadResponse) {}
+  rpc UploadFile (FileUploadRequest) returns (FileUploadResponse) {}
+  rpc UploadFileTemp (FileUploadRequestTemp) returns (FileUploadResponseTemp) {}
+  rpc UploadFileMultiSheetTemp (FileUploadRequestTempMultiSheetTemp) returns (FileUploadResponseMultiSheetTemp);
+
+}
+
+message FileUploadRequest {
+  bytes file_content = 1;
+}
+
+message FileUploadResponse {
+  string json_data = 1;
+}
+
+message FileUploadRequestTemp {
+  bytes file_content = 1;
+}
+
+message FileUploadResponseTemp {
+  string json_data = 1;
+}
+
+message FileUploadRequestTempMultiSheetTemp {
+  bytes file_content = 1;
+}
+
+message FileUploadResponseMultiSheetTemp {
+  string jsonDataMultiSheet = 1;
+}

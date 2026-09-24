@@ -1,0 +1,14 @@
+export COVERITY_UNSUPPORTED=1
+/Users/zax/Documents/Cov_Scan2/bin/coverity capture \
+  --project-dir /Users/zax/Documents/Project_TPA_SCAN/tp-sended/TPA-FRONTEND
+
+export COVERITY_UNSUPPORTED=1
+/Users/zax/Documents/Cov_Scan2/bin/coverity capture \
+ --dir cov-int --project-dir /Users/zax/Documents/Project_TPA_SCAN/240969/nestjs-master-back-end 2
+
+cat cov-int/output/cli-diagnostics.json | grep capture-percentage
+
+
+tar czvf myproject.tgz cov-int
+
+#Test ABC

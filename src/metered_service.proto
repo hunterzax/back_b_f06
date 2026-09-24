@@ -1,0 +1,19 @@
+// metered_service.proto
+
+syntax = "proto3";
+
+package meteredService;
+
+service MeteredService {
+  rpc SendMessage (MeteredRequest) returns (MeteredResponse) {}
+  rpc ChatStream (stream MeteredRequest) returns (stream MeteredResponse);
+}
+
+message MeteredRequest {
+    string message = 1;
+}
+
+// ข้อมูลที่ server จะตอบกลับไปหา client
+message MeteredResponse {
+    string reply = 1;
+}
