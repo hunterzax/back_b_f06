@@ -37,11 +37,8 @@ export class AppController
   ) {
     try {
       const algorithm =
-        'aes-256-cbc'
-      const secretKey =
-        process.env
-          .RESPONSE_ENCRYPT_KEY2 ||
-        'Q7mK2pL9xT4vN8cR1sD6fH3jW5yB0zAa'
+        'aes-256-gcm'
+      const secretKey = process.env.RESPONSE_ENCRYPT_KEY2 || ''
 
       const key = Buffer.from(
         secretKey,

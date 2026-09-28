@@ -349,7 +349,7 @@ private getMonthRange(
   const start = parseDate(startDate).startOf('month')
   const end = parseDate(endDate).startOf('month')
 
-  if (!start.isValid() || !end.isValid()) {
+  if (!start || !end || !start.isValid() || !end.isValid()) {
     return []
   }
 
@@ -404,7 +404,7 @@ private fillMissingMonths(
 
     conditionMap.set(
       item.month,
-      item?.value === undefined
+      item && item?.value === undefined
         ? null
         : item.value
     )
@@ -616,12 +616,12 @@ console.log(
     // file_period_mode
     let reorderedData = []
     for (let i = 0; i < resContractCode.length; i++) {
-      let bookingVersions = resContractCode[i]?.booking_version[0]
-      let bookingRowJsons = resContractCode[i]?.booking_version[0]?.booking_row_json_release?.length > 0 ? resContractCode[i]?.booking_version[0]?.booking_row_json_release : resContractCode[i]?.booking_version[0]?.booking_row_json;
+      const {booking_version, group, ...newContractCode} = resContractCode[i]
+      let bookingVersions = booking_version?.[0]
+      let { booking_row_json, booking_full_json, booking_row_json_release, booking_full_json_release, ...newBookingVersions }: any = (bookingVersions || null);
+      let bookingRowJsons = booking_row_json_release?.length > 0 ? booking_row_json_release : booking_row_json;
+      let jsonFull = JSON.parse((booking_full_json_release?.length > 0 ? booking_full_json_release : booking_full_json)?.[0]?.data_temp);
       for (let iBRJ = 0; iBRJ < bookingRowJsons.length; iBRJ++) {
-        const {booking_version, group, ...newContractCode} = resContractCode[i]
-        let { booking_row_json, booking_full_json, booking_row_json_release, booking_full_json_release, ...newBookingVersions }: any = bookingVersions;
-        let jsonFull = JSON.parse((booking_full_json_release?.length > 0 ? booking_full_json_release : booking_full_json)?.[0]?.data_temp);
         const {data_temp, ...niBRJ} = bookingRowJsons[iBRJ]
         let newiBRJ = {
           ...niBRJ,
@@ -760,7 +760,7 @@ console.log(
 
     const calcDataTermType_ = calcData.map((e: any) => {
       const area = e['area'].map((eArea: any) => {
-        const term_type = eArea['term_type'].map((eTermType: any) => {
+        const term_type = (eArea['term_type'] || []).map((eTermType: any) => {
           let filterTermType = eArea['data'].filter((f: any) => {
             return f?.contract_code?.term_type?.id === eTermType?.id
           })
@@ -769,7 +769,7 @@ console.log(
             data: filterTermType
           }
         })
-        const {data, ...neArea} = eArea
+        const {data, ...neArea} = (eArea || null)
         return {
           ...neArea,
           term_type
@@ -786,36 +786,8 @@ console.log(
         let term_type_ = term_type?.map((t: any) => {
           const {data, ...nT} = t
           let data_ = data
-          // if (t?.name === 'Short Term (Non-firm)') {
-          //   // console.log('data ; ', data);
-          //   data_ = data?.map((nDa: any) => {
-          //     const {nsetData, ...nDa_} = nDa
-          //     // let nsetData_ = nsetData
-
-          //     const maxByMonth = Object.values(
-          //       nsetData.reduce((acc: any, item: any) => {
-          //         const key = item.month
-
-          //         if (!acc[key] || item.value > acc[key].value) {
-          //           acc[key] = {
-          //             month: item.month,
-          //             value: item.value,
-          //             date: item.date
-          //           }
-          //         }
-
-          //         return acc
-          //       }, {})
-          //     )
-          //     let nsetData_ = maxByMonth
-
-          //     return {
-          //       ...nDa_,
-          //       nsetData: nsetData_
-          //     }
-          //   })
-          // }
-          if (t?.name === 'Short Term (Non-firm)') {
+          
+          if (t && t?.name === 'Short Term (Non-firm)') {
             data_ = (data ?? []).map((nDa: any) => {
               const {
                 nsetData,
@@ -846,231 +818,6 @@ console.log(
       }
     })
 
-    // const calcDatas = calcDataTermType.map((e: any) => {
-    //   const area = e['area'].map((eArea: any) => {
-    //     const term_type = eArea['term_type'].map((eTermType: any) => {
-    //       // const data = eTermType["data"].map((eTermType:any) => {
-
-    //       // })
-    //       // ดึงค่า file_period_mode จาก data
-    //       const filePeriodModes = eTermType['data'].map((item) => item.contract_code.file_period_mode)
-
-    //       // เช็คเงื่อนไข
-    //       const has1Or3 = filePeriodModes.some((mode) => mode === 1 || mode === 3)
-    //       const has2 = filePeriodModes.some((mode) => mode === 2)
-    //       const only2 = filePeriodModes.every((mode) => mode === 2)
-    //       let conditions = []
-    //       if (only2) {
-    //         //  "month"
-    //         // 1. รวมค่า value ตาม date
-    //         const dateSum = {}
-
-    //         // eTermType['data'].forEach((item) => {
-    //         //   item.nsetData.forEach(({ date, value, month }) => {
-    //         //     if (!dateSum[date]) {
-    //         //       dateSum[date] = { totalValue: 0, month };
-    //         //     }
-    //         //     dateSum[date].totalValue += value;
-    //         //   });
-    //         // });
-    //         eTermType['data'].forEach((item) => {
-    //           item.nsetData.forEach(({date, value, month}) => {
-    //             if (!dateSum[date]) {
-    //               dateSum[date] = {
-    //                 // totalValue: value ?? 0,
-    //                 totalValue: value || value === 0 ? value : null,
-    //                 month
-    //               } // ถ้าไม่มีค่าให้ใช้ 0
-    //             } else {
-    //               dateSum[date].totalValue = Math.max(dateSum[date].totalValue, value ?? 0)  // ถ้า value เป็น null/undefined ให้ใช้ 0
-    //             }
-    //           })
-    //         })
-
-    //         // 2. จัดกลุ่มตาม month และหาค่าที่ต่ำที่สุด
-    //         const monthMinValue = {}
-
-    //         Object.values(dateSum).forEach(({totalValue, month}: any) => {
-    //           if (!monthMinValue[month] || totalValue < monthMinValue[month]) {
-    //             monthMinValue[month] = totalValue
-    //           }
-    //         })
-
-    //         // 3. แปลงเป็น array ตามโครงสร้างที่ต้องการ
-    //         const result = Object.entries(monthMinValue).map(([month, value]) => ({
-    //           value,
-    //           month
-    //         }))
-
-    //         conditions = result
-    //       } else if (has2 && has1Or3) {
-    //         // "ผสม"
-    //         let daysMix = eTermType['data'].filter((item) => {
-    //           return item.contract_code.file_period_mode === 1 || item.contract_code.file_period_mode === 3
-    //         })
-    //         let monthMix = eTermType['data'].filter((item) => {
-    //           return item.contract_code.file_period_mode === 2
-    //         })
-
-    //         const dateSumDay = {}
-
-    //         // daysMix.forEach((item) => {
-    //         //   item.nsetData.forEach(({ date, value, month }) => {
-    //         //     if (!dateSumDay[date]) {
-    //         //       dateSumDay[date] = { totalValue: 0, month };
-    //         //     }
-    //         //     dateSumDay[date].totalValue += value;
-    //         //   });
-    //         // });
-    //         daysMix.forEach((item) => {
-    //           item.nsetData.forEach(({date, value, month}) => {
-    //             if (!dateSumDay[date]) {
-    //               dateSumDay[date] = {
-    //                 totalValue: value || value === 0 ? value : null,
-    //                 month
-    //               } // ถ้าไม่มีค่าให้ใช้ 0
-    //             } else {
-    //               dateSumDay[date].totalValue = Math.max(dateSumDay[date].totalValue, value ?? 0) // ถ้า value เป็น null/undefined ให้ใช้ 0
-    //             }
-    //           })
-    //         })
-
-    //         // 2. จัดกลุ่มตาม month และหาค่าที่ต่ำที่สุด
-    //         const monthMinValueDay = {}
-
-    //         Object.values(dateSumDay).forEach(({totalValue, month}: any) => {
-    //           if (!monthMinValueDay[month] || totalValue < monthMinValueDay[month]) {
-    //             monthMinValueDay[month] = totalValue
-    //           }
-    //         })
-
-    //         // 3. แปลงเป็น array ตามโครงสร้างที่ต้องการ
-    //         const resultDay = Object.entries(monthMinValueDay).map(([month, value]) => ({
-    //           value,
-    //           month
-    //         }))
-
-    //         // -------
-
-    //         const dateSumMonth = {}
-
-    //         // monthMix.forEach((item) => {
-    //         //   item.nsetData.forEach(({ date, value, month }) => {
-    //         //     if (!dateSumMonth[date]) {
-    //         //       dateSumMonth[date] = { totalValue: 0, month };
-    //         //     }
-    //         //     dateSumMonth[date].totalValue += value;
-    //         //   });
-    //         // });
-    //         monthMix.forEach((item) => {
-    //           item.nsetData.forEach(({date, value, month}) => {
-    //             if (!dateSumMonth[date]) {
-    //               dateSumMonth[date] = {
-    //                 totalValue: value || value === 0 ? value : null,
-    //                 month
-    //               } // ถ้าไม่มีค่าให้ใช้ 0
-    //             } else {
-    //               dateSumMonth[date].totalValue = Math.max(dateSumMonth[date].totalValue, value ?? 0) // ถ้า value เป็น null/undefined ให้ใช้ 0
-    //             }
-    //           })
-    //         })
-
-    //         // 2. จัดกลุ่มตาม month และหาค่าที่ต่ำที่สุด
-    //         const monthMinValueMonth = {}
-
-    //         Object.values(dateSumMonth).forEach(({totalValue, month}: any) => {
-    //           if (!monthMinValueMonth[month] || totalValue < monthMinValueMonth[month]) {
-    //             monthMinValueMonth[month] = totalValue
-    //           }
-    //         })
-
-    //         // 3. แปลงเป็น array ตามโครงสร้างที่ต้องการ
-    //         const resultMonth = Object.entries(monthMinValueMonth).map(([month, value]) => ({
-    //           value,
-    //           month
-    //         }))
-
-    //         // -------
-
-    //         const monthMap = new Map()
-
-    //         // ฟังก์ชันสำหรับใส่ค่าลงใน Map โดยเก็บค่าต่ำสุด
-    //         const addToMap = (arr) => {
-    //           arr.forEach(({month, value}) => {
-    //             if (!monthMap.has(month) || value < monthMap.get(month)) {
-    //               monthMap.set(month, value)
-    //             }
-    //           })
-    //         }
-
-    //         // เพิ่มข้อมูลจาก a และ b เข้าไป
-    //         addToMap(resultDay)
-    //         addToMap(resultMonth)
-
-    //         // แปลง Map เป็น array ตามโครงสร้างที่ต้องการ
-    //         const result = Array.from(monthMap, ([month, value]) => ({
-    //           month,
-    //           value
-    //         }))
-
-    //         conditions = result
-    //       } else {
-    //         // "day"
-    //         // 1. รวมค่า value ตาม date
-    //         const dateSum = {}
-
-    //         // eTermType['data'].forEach((item) => {
-    //         //   item.nsetData.forEach(({ date, value, month }) => {
-    //         //     if (!dateSum[date]) {
-    //         //       dateSum[date] = { totalValue: 0, month };
-    //         //     }
-    //         //     dateSum[date].totalValue += value;
-    //         //   });
-    //         // });
-    //         eTermType['data'].forEach((item) => {
-    //           item.nsetData.forEach(({date, value, month}) => {
-    //             if (!dateSum[date]) {
-    //               dateSum[date] = {
-    //                 totalValue: value || value === 0 ? value : null,
-    //                 month
-    //               } // ถ้าไม่มีค่าให้ใช้ 0
-    //             } else {
-    //               dateSum[date].totalValue = Math.max(dateSum[date].totalValue, value ?? 0) // ถ้า value เป็น null/undefined ให้ใช้ 0
-    //             }
-    //           })
-    //         })
-
-    //         // 2. จัดกลุ่มตาม month และหาค่าที่ต่ำที่สุด
-    //         const monthMinValue = {}
-
-    //         Object.values(dateSum).forEach(({totalValue, month}: any) => {
-    //           if (!monthMinValue[month] || totalValue < monthMinValue[month]) {
-    //             monthMinValue[month] = totalValue
-    //           }
-    //         })
-
-    //         // 3. แปลงเป็น array ตามโครงสร้างที่ต้องการ
-    //         const result = Object.entries(monthMinValue).map(([month, value]) => ({
-    //           value,
-    //           month
-    //         }))
-
-    //         conditions = result
-    //       }
-    //       const {...neTermType} = eTermType
-    //       return {
-    //         ...neTermType,
-    //         conditions
-    //       }
-    //     })
-    //     const {data, ...neArea} = eArea
-    //     return {
-    //       ...neArea,
-    //       term_type
-    //     }
-    //   })
-    //   return {...e, area}
-    // })
     const calcDatas = calcDataTermType.map((e: any) => {
       const area = (e?.area ?? []).map((eArea: any) => {
         const term_type = (eArea?.term_type ?? []).map(
@@ -1179,7 +926,7 @@ return {
         const {
           data,
           ...neArea
-        } = eArea
+        } = (eArea || null)
 
         return {
           ...neArea,

@@ -17,6 +17,7 @@ import {
   getTodayNowYYYYMMDDDfaultAdd7,
   getTodayStartAdd7
 } from 'src/common/utils/date.util'
+import { Prisma } from '@prisma/client'
 dayjs.extend(utc)
 dayjs.extend(timezone)
 dayjs.tz.setDefault(
@@ -29,9 +30,52 @@ export class AssetZoneService {
     private prisma: PrismaService
   ) {}
 
-  zone() {
+  zone(payload: any) {
+    const { entry_exit_id, onlyActive, start_date, end_date } = payload
+    const startDate = start_date ? getTodayNowYYYYMMDDDfaultAdd7(start_date) : getTodayStartAdd7()
+    const endDate = end_date ? getTodayNowYYYYMMDDDfaultAdd7(end_date) : undefined
+    let where : Prisma.zoneWhereInput = {}
+    if(entry_exit_id){
+      const entryExitIdNum = Number(entry_exit_id)
+      if(isNaN(entryExitIdNum)){
+        const entryExitIdObject = JSON.parse(entry_exit_id)
+        if(Array.isArray(entryExitIdObject)){
+          where.entry_exit_id = {
+            in: entryExitIdObject
+          }
+        }
+      }
+      else{
+        where.entry_exit_id = entryExitIdNum
+      }
+    }
+
+    if (onlyActive === true || onlyActive === 'true') {
+      if(where){
+        where.start_date = {
+          lte: (endDate || startDate || getTodayStartAdd7()).toDate()
+        }
+        where.OR = [
+          { end_date: null },
+          { end_date: { gte: startDate.toDate() } }
+        ]
+      }
+      else{
+        where = {
+          start_date: {
+            lte: (endDate || startDate || getTodayStartAdd7()).toDate()
+          },
+          OR: [
+            { end_date: null },
+            { end_date: { gte: startDate.toDate() } }
+          ]
+        }
+      }
+    }
+
     return this.prisma.zone.findMany(
       {
+        where: where,
         include: {
           entry_exit: true,
           zone_master_quality: true,

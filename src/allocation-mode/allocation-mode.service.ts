@@ -14,6 +14,7 @@ import * as dayjs from 'dayjs'
 import * as utc from 'dayjs/plugin/utc'
 import * as timezone from 'dayjs/plugin/timezone'
 import {getTodayNowAdd7} from 'src/common/utils/date.util'
+import { Prisma } from '@prisma/client'
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -55,8 +56,8 @@ export class AllocationModeService {
     )
   }
 
-  findAll() {
-    return this.prisma.allocation_mode.findMany(
+  async findAll() {
+    const data = await this.prisma.allocation_mode.findMany(
       {
         where: {},
         include: {
@@ -78,9 +79,32 @@ export class AllocationModeService {
             }
           }
         },
-        orderBy: {id: 'desc'}
+        orderBy: [
+          {start_date: 'desc'},
+        ]
       }
     )
+
+    data.sort((a, b) => {
+      const dateA = a.update_date ?? a.create_date;
+      const dateB = b.update_date ?? b.create_date;
+      if (a.start_date.getTime() !== b.start_date.getTime()) {
+        return b.start_date.getTime() - a.start_date.getTime();
+      }
+      return (dateB?.getTime() ?? 0) - (dateA?.getTime() ?? 0);
+    });
+
+    data.map((item, index) => {
+      if(index > 0) {
+        item.end_date = data[index - 1].start_date
+      }
+      else{
+        item.end_date = null
+      }
+      return item
+    })
+
+    return data
   }
 
   allocationModeType() {

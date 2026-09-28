@@ -43,7 +43,8 @@ import {
   getAdjustNom2,
   getNominationPointListFromActiveContractCode,
   readNomFromJsonAs3Decimal,
-  sumValueByTimeShow
+  sumValueByTimeShow,
+  sumValueMmscfAfterGrouped
 } from 'src/common/utils/nomination.util'
 import { meteringPointPopulate } from '@type/prisma.type'
 import {Prisma} from '@prisma/client'
@@ -70,7 +71,7 @@ export class DailyAdjustmentService {
     payload: any,
     userId: any
   ) {
-    const {gas_day, excludeReverseBal, month} = payload
+    const {gas_day, excludeReverseBal, month, start_date, end_date} = payload
     let start =
       getTodayStartAdd7()
     let end =
@@ -112,6 +113,18 @@ export class DailyAdjustmentService {
         endOfWeek = endOfMonth
       }
     }
+    else {
+      const startOfGasday = getTodayStartYYYYMMDDDfaultAdd7(start_date)
+      const endOfGasday = getTodayEndYYYYMMDDDfaultAdd7(end_date)
+      if (startOfGasday.isValid()) {
+        start = startOfGasday
+        starOfWeek = startOfGasday.startOf('week')
+      }
+      if (endOfGasday.isValid()) {
+        end = endOfGasday
+        endOfWeek = endOfGasday.endOf('week')
+      }
+    }
     // const { weekStart: targetWeekStart } = getWeekRange(start.toDate());
     // const { weekEnd: targetWeekEnd } = getWeekRange(end.toDate());
 
@@ -134,7 +147,7 @@ export class DailyAdjustmentService {
         }
       }
     })
-    const userTypeId = group.user_type?.id
+    const userTypeId = group?.user_type?.id
     const groupId = group?.id
     
     const groups =
@@ -142,7 +155,7 @@ export class DailyAdjustmentService {
         {
           where: {
             user_type_id: 3,
-            ...((userTypeId === 3 || userTypeId === 4) && {
+            ...(userTypeId === 3 && {
               id: groupId
             }),
             // query_shipper_nomination_file: {
@@ -404,6 +417,7 @@ export class DailyAdjustmentService {
             },
             reserve_balancing_gas_contract: {
               include: {
+                group: true,
                 reserve_balancing_gas_contract_comment: true,
                 reserve_balancing_gas_contract_detail: {
                   include: {
@@ -566,8 +580,7 @@ export class DailyAdjustmentService {
                                   return (
                                     f?.name ===
                                       area_text &&
-                                    f?.entry_exit_id ===
-                                      entry_exit_id &&
+                                    f?.entry_exit_id === entry_exit_id &&
                                     f
                                       ?.zone
                                       ?.name ===
@@ -1499,9 +1512,9 @@ export class DailyAdjustmentService {
 
     const nomData = await this.prisma.query_shipper_nomination_file.findMany({
       where: {
-        NOT: {
-          contract_code_id: null,
-        }, // revers bal ไม่แสดง effect
+        // NOT: {
+        //   contract_code_id: null,
+        // }, // revers bal ไม่แสดง effect
         query_shipper_nomination_status: {
           id: {
             in: [2, 5],
@@ -1704,7 +1717,7 @@ export class DailyAdjustmentService {
       // Fill dateArray with all dates between getMeterFrom and getMeterTo (inclusive) in YYYY-MM-DD format
       let current = yesterday.clone();
       while (current.isSameOrBefore(gasDay, 'day')) {
-        dateArray.push(current.format('YYYY-MM-DD'));
+        dateArray.push(current && current.format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD'))
         activeData.push({
           date: current.format('YYYY-MM-DD'),
           activeMeteringPoints: meteringPointMaster.filter((meteringPoint) => meteringPoint.start_date <= current.toDate() && (meteringPoint.end_date === null || meteringPoint.end_date > current.toDate())),
@@ -2091,21 +2104,21 @@ export class DailyAdjustmentService {
     const todayEnd =
       getTodayEndAdd7().toDate()
 
-    const userType =
-      await this.prisma.user_type.findFirst(
-        {
-          where: {
-            account_manage: {
-              some: {
-                account_id:
-                  Number(
-                    userId
-                  )
-              }
-            }
-          }
-        }
-      )
+    // const userType =
+    //   await this.prisma.user_type.findFirst(
+    //     {
+    //       where: {
+    //         account_manage: {
+    //           some: {
+    //             account_id:
+    //               Number(
+    //                 userId
+    //               )
+    //           }
+    //         }
+    //       }
+    //     }
+    //   )
 
     const nominationPoint =
       await this.prisma.nomination_point.findMany(
@@ -2201,13 +2214,8 @@ export class DailyAdjustmentService {
                 daily_adjustment_status:
                   {
                     connect: {
-                      id:
-                        userType?.id ===
-                          3 ||
-                        userType?.id ===
-                          4
-                          ? 1
-                          : 2
+                      // id: userType?.id === 3 || userType?.id === 4 ? 1 : 2
+                      id: 1
                     }
                   },
                 // area: {
@@ -2548,7 +2556,7 @@ export class DailyAdjustmentService {
 
     const grouped = {}
     for (const curr of nominationData) {
-      const key = `${curr.gas_day}|${curr.group?.name}|${curr?.nomination_type?.id}`
+      const key = curr && `${curr.gas_day}|${curr.group?.name}|${curr?.nomination_type?.id}` || ""
 
       if (!grouped[key]) {
         grouped[key] = {
@@ -2786,12 +2794,12 @@ export class DailyAdjustmentService {
                     i
                   ],
                 gasDayUse:
-                  e
+                  e && (e
                     ?.nomVersionFull
                     ?.data_temp
                     ?.headData[
                     `${14 + i}`
-                  ],
+                  ]) || "",
                 HV:
                   Number(
                     e[
@@ -3678,8 +3686,7 @@ export class DailyAdjustmentService {
                           'shipper_name'
                         ]
                       ) &&
-                    f?.area
-                      ?.name ===
+                    (f && f?.area?.name) ===
                       e[
                         'area_text'
                       ] &&
@@ -3826,8 +3833,7 @@ export class DailyAdjustmentService {
           : calcAdjustFind?.filter(
               (f: any) => {
                 return (
-                  f?.contract ===
-                  contractCode
+                  f?.contract === contractCode
                 )
               }
             )
@@ -4043,12 +4049,12 @@ export class DailyAdjustmentService {
                         adjustValue
                     }
                     const calcStep2 =
-                      calcStep1 *
+                      item && (calcStep1 *
                       ((item.minute -
                         oldMinute) /
-                        60)
+                        60)) || 0
                     oldMinute =
-                      item.minute
+                      item && item.minute || 0
                     minuteSum +=
                       calcStep2
                   }
@@ -4226,9 +4232,9 @@ export class DailyAdjustmentService {
     // ดึงข้อมูลการเสนอราคา (nomination) ทั้งรายวันและรายสัปดาห์
     const nominationData = await this.prisma.query_shipper_nomination_file.findMany({
       where: {
-        NOT: {
-          contract_code_id: null,
-        }, // revers bal ไม่แสดง effect
+        // NOT: {
+        //   contract_code_id: null,
+        // }, // revers bal ไม่แสดง effect
         AND: [
           {
             OR: [
@@ -4279,6 +4285,7 @@ export class DailyAdjustmentService {
         group: true,
         query_shipper_nomination_status: true,
         contract_code: true,
+        reserve_balancing_gas_contract: true,
         nomination_type: true,
         nomination_version: {
           include: {
@@ -4339,9 +4346,14 @@ export class DailyAdjustmentService {
       });
 
       let onlyActiveContractNominationList = nominationData.filter(nominationFile => {
+        if(nominationFile.contract_code){
         const contractStartDate = dayjs(nominationFile.contract_code?.contract_start_date);
         const contractEndDate = dayjs(nominationFile.contract_code?.terminate_date || nominationFile.contract_code?.extend_deadline || nominationFile.contract_code?.contract_end_date);
         return currentDate.isSameOrAfter(contractStartDate) && currentDate.isBefore(contractEndDate);
+        }
+        else{
+          return true
+        }
       })
 
       // กรองข้อมูลการเสนอราคารายวันสำหรับวันที่ปัจจุบัน
@@ -4364,7 +4376,7 @@ export class DailyAdjustmentService {
         // กรองข้อมูลการปรับแต่งที่ตรงกับสัญญาและผู้ใช้
         const adjustListOfContract =
           adjustList?.filter((adjust: any) => {
-            return adjust.gas_day === currentDate.format('YYYY-MM-DD') && adjust.contract === dailyNomination.contract_code?.contract_code && adjust.shipper === dailyNomination.group?.id_name;
+            return adjust.gas_day === currentDate.format('YYYY-MM-DD') && (adjust.contract === dailyNomination.contract_code?.contract_code || adjust.contract === dailyNomination.reserve_balancing_gas_contract?.res_bal_gas_contract) && adjust.shipper === dailyNomination.group?.id_name;
           }) ?? [];
 
         const dailyNominationVersion = dailyNomination.nomination_version.map((nominationVersion) => {
@@ -4417,7 +4429,7 @@ export class DailyAdjustmentService {
               rowId: nominationRowJson.id,
               nomination_code: dailyNomination.nomination_code,
               HV: hv,
-              contract: dailyNomination.contract_code?.contract_code,
+              contract: dailyNomination.contract_code?.contract_code || dailyNomination.reserve_balancing_gas_contract?.res_bal_gas_contract,
               gasDayUse: currentDate.format('DD/MM/YYYY'),
               shipper_name: dailyNomination.group?.name,
               shipper_id_name: dailyNomination.group?.id_name,
@@ -4429,6 +4441,7 @@ export class DailyAdjustmentService {
               total: total,
               totalType: 'daily',
               contract_code_id: dailyNomination.contract_code?.id,
+              reserve_balancing_gas_contract_id: dailyNomination.reserve_balancing_gas_contract?.id,
               areaObj: areaObj,
               entryExitObj: entryExitObj,
               term: dailyNomination.contract_code?.term_type_id === 4 ? 'non-firm' : 'firm',
@@ -4536,7 +4549,7 @@ export class DailyAdjustmentService {
       weeklyNominationList.map((weeklyNomination) => {
         const adjustListOfContract =
           adjustList?.filter((adjust: any) => {
-            return adjust.gas_day === currentDate.format('YYYY-MM-DD') && adjust.contract === weeklyNomination.contract_code?.contract_code && adjust.shipper === weeklyNomination.group?.id_name;
+            return adjust.gas_day === currentDate.format('YYYY-MM-DD') && (adjust.contract === weeklyNomination.contract_code?.contract_code || adjust.contract === weeklyNomination.reserve_balancing_gas_contract?.res_bal_gas_contract) && adjust.shipper === weeklyNomination.group?.id_name;
           }) ?? [];
 
         const weeklyNominationVersion = weeklyNomination.nomination_version.map((nominationVersion) => {
@@ -4567,7 +4580,10 @@ export class DailyAdjustmentService {
                   f?.entryExit === entryExit &&
                   f?.gasDayUse === currentDate.format('DD/MM/YYYY') &&
                   f?.shipper_name === weeklyNomination.group?.name &&
-                  f?.contract_code_id === weeklyNomination.contract_code?.id &&
+                  (
+                    f?.contract_code_id === weeklyNomination.contract_code?.id ||
+                    (weeklyNomination.reserve_balancing_gas_contract?.id && f?.reserve_balancing_gas_contract_id === weeklyNomination.reserve_balancing_gas_contract?.id)
+                  ) &&
                   f?.totalType === 'daily' &&
                   (f?.nomination_type_id === 1 || f?.nomination_type_id === '1')
                 );
@@ -4595,7 +4611,7 @@ export class DailyAdjustmentService {
               rowId: nominationRowJson.id,
               nomination_code: weeklyNomination.nomination_code,
               HV: hv,
-              contract: weeklyNomination.contract_code?.contract_code,
+              contract: weeklyNomination.contract_code?.contract_code || weeklyNomination.reserve_balancing_gas_contract?.res_bal_gas_contract,
               gasDayUse: currentDate.format('DD/MM/YYYY'),
               shipper_name: weeklyNomination.group?.name,
               shipper_id_name: weeklyNomination.group?.id_name,
@@ -4607,6 +4623,7 @@ export class DailyAdjustmentService {
               total: thisDayValue3Decimal,
               totalType: currentDate.format('dddd'),
               contract_code_id: weeklyNomination.contract_code?.id,
+              reserve_balancing_gas_contract_id: weeklyNomination.reserve_balancing_gas_contract?.id,
               areaObj: areaObj,
               entryExitObj: entryExitObj,
               term: weeklyNomination.contract_code?.term_type_id === 4 ? 'non-firm' : 'firm',
@@ -5081,8 +5098,7 @@ export class DailyAdjustmentService {
                   (
                     timeShow: any
                   ) =>
-                    timeShow.time ===
-                    time
+                    timeShow.time === time
                 )
               }
             )
@@ -5175,13 +5191,13 @@ export class DailyAdjustmentService {
                       null
                   },
             zone_text:
-              data?.zone_text,
+              data && data?.zone_text || null,
             gas_day:
-              data?.gas_day,
+              data && data?.gas_day || null,
             entry_exit_name:
-              data?.entry_exit_name,
+              data && data?.entry_exit_name || null,
             area_text:
-              data?.area_text
+              data && data?.area_text || null
           }
         })
         .sort(
@@ -5214,7 +5230,7 @@ export class DailyAdjustmentService {
       })
 
     // รวมผลลัพธ์ตาม nomination point (รวม contract ต่างๆ ของ shipper เดียวกัน ที่มี point, zone, area, entry/exit, gas_day เดียวกัน)
-    const groupByNomPoint = []
+    const groupByNomPoint : groupedAdjustNomDataType[] = []
     for (const item of result) {
       // หาว่ามี point นี้ใน groupByNomPoint แล้วหรือยัง
       const existPointIndex =
@@ -5271,33 +5287,16 @@ export class DailyAdjustmentService {
               (
                 existTimeShow: any
               ) =>
-                existTimeShow.time ===
-                timeShow.time
+                existTimeShow.time === timeShow.time
             )
           if (
             timeShowIndex >= 0
           ) {
             // ถ้ามีเวลานี้แล้ว ให้บวกค่าเข้าไป
-            let timeShowValue =
-              existPoint
-                .timeShow[
-                timeShowIndex
-              ].value
-            let timeShowValueMmscfd =
-              existPoint
-                .timeShow[
-                timeShowIndex
-              ].valueMmscfd
-            let timeShowValuePerHour =
-              existPoint
-                .timeShow[
-                timeShowIndex
-              ].valuePerHour
-            let timeShowValueMmscfh =
-              existPoint
-                .timeShow[
-                timeShowIndex
-              ].valueMmscfh
+            let timeShowValue = parseToNumber3Decimal(existPoint.timeShow[timeShowIndex].value)
+            let timeShowValueMmscfd = parseToNumber6Decimal(existPoint.timeShow[timeShowIndex].valueMmscfd)
+            let timeShowValuePerHour = parseToNumber3Decimal(existPoint.timeShow[timeShowIndex].valuePerHour)
+            let timeShowValueMmscfh = parseToNumber6Decimal(existPoint.timeShow[timeShowIndex].valueMmscfh)
             if (
               timeShowValue !=
               null
@@ -5306,8 +5305,7 @@ export class DailyAdjustmentService {
                 timeShow.value !=
                 null
               ) {
-                timeShowValue +=
-                  timeShow.value
+                timeShowValue = parseToNumber3Decimal(timeShowValue + parseToNumber3Decimal(timeShow.value))
               }
             } else {
               timeShowValue =
@@ -5321,8 +5319,7 @@ export class DailyAdjustmentService {
                 timeShow.valueMmscfd !=
                 null
               ) {
-                timeShowValueMmscfd +=
-                  timeShow.valueMmscfd
+                timeShowValueMmscfd = parseToNumber6Decimal(timeShowValueMmscfd + parseToNumber6Decimal(timeShow.valueMmscfd))
               }
             } else {
               timeShowValueMmscfd =
@@ -5336,8 +5333,7 @@ export class DailyAdjustmentService {
                 timeShow.valuePerHour !=
                 null
               ) {
-                timeShowValuePerHour +=
-                  timeShow.valuePerHour
+                timeShowValuePerHour = parseToNumber3Decimal(timeShowValuePerHour + parseToNumber3Decimal(timeShow.valuePerHour))
               }
             } else {
               timeShowValuePerHour =
@@ -5351,8 +5347,7 @@ export class DailyAdjustmentService {
                 timeShow.valueMmscfh !=
                 null
               ) {
-                timeShowValueMmscfh +=
-                  timeShow.valueMmscfh
+                timeShowValueMmscfh = parseToNumber6Decimal(timeShowValueMmscfh + parseToNumber6Decimal(timeShow.valueMmscfh))
               }
             } else {
               timeShowValueMmscfh =
@@ -5428,6 +5423,8 @@ export class DailyAdjustmentService {
         )
       }
     }
+
+    sumValueMmscfAfterGrouped(groupByNomPoint)
 
     // Sort groupByNomPoint by gas_day, point, and shipper_name
     groupByNomPoint.sort(

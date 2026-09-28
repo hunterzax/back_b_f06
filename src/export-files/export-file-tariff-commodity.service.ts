@@ -221,7 +221,7 @@ export class ExportFileTariffCommodityService {
 
       // หาวันแรกและวันสุดท้ายของเดือนเดียวกัน
       // // data
-      const gDay = `${params.year}-${params.month}-01`
+      const gDay = params && `${params.year}-${params.month}-01` || ""
       const start = dayjs(gDay).startOf('month')
       const end = dayjs(gDay).endOf('month')
 
@@ -233,7 +233,7 @@ export class ExportFileTariffCommodityService {
         daysInMonth.push(current.format('YYYY-MM-DD'))
         current = current.add(1, 'day')
       }
-      const pointNames: string[] = pointData.map(pointInfo => pointInfo?.point)
+      const pointNames: string[] = (pointData || []).map(pointInfo => pointInfo?.point)
       const activeMeteringPoint = await this.prisma.metering_point.findMany({
         where: {
           AND: [
@@ -396,7 +396,7 @@ export class ExportFileTariffCommodityService {
 
     // Statement of Gas Allocation title
     const titleCell = worksheet.getCell('A2')
-    titleCell.value = `Statement of Gas Allocation for: ${params?.shipperName || '-'}`
+    titleCell.value = `Statement of Gas Allocation for: ${params && params?.shipperName || '-'}`
     titleCell.font = {
       bold: true,
       size: 12

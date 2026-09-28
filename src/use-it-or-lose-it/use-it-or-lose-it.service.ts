@@ -112,7 +112,7 @@ export class UseItOrLoseItService {
     }
     let resArr: any = []
     for (let ic = 0; ic < contractCode.length; ic++) {
-      const useData = contractCode[ic]?.booking_version[0]?.booking_row_json
+      const useData = contractCode?.[ic]?.booking_version?.[0]?.booking_row_json || []
       const convertData = useData.map((e: any) => {
         return {
           ...e,
@@ -359,7 +359,7 @@ export class UseItOrLoseItService {
     }
     let resArr: any = []
     for (let ic = 0; ic < contractCode.length; ic++) {
-      const useData = contractCode[ic]?.booking_version[0]?.booking_row_json
+      const useData = contractCode?.[ic]?.booking_version?.[0]?.booking_row_json || []
       const convertData = useData.map((e: any) => {
         return {
           ...e,
@@ -1016,7 +1016,7 @@ export class UseItOrLoseItService {
         if (Array.isArray(resToGetLimit.data) && resToGetLimit.data.length > 0) {
           let total_record = undefined
           resToGetLimit.data.map((resEvidenData: any) => {
-            if (resEvidenData?.total_record) {
+            if (resEvidenData && resEvidenData?.total_record) {
               try {
                 const total = Number(resEvidenData?.total_record)
                 if (!Number.isNaN(total)) {
@@ -1055,10 +1055,10 @@ export class UseItOrLoseItService {
 
       const resEviden = await axios.request(config)
       if (resEviden?.status === 200 && !!resEviden?.data) {
-        if (Array.isArray(resEviden.data) && resEviden.data.length > 0) {
+        if (resEviden && Array.isArray(resEviden.data) && resEviden.data.length > 0) {
           let total_record = undefined
           resEviden.data.map((resEvidenData: any) => {
-            if (resEvidenData?.total_record) {
+            if (resEvidenData && resEvidenData?.total_record) {
               try {
                 const totalRecord = Number(resEvidenData?.total_record)
                 if (!Number.isNaN(totalRecord)) {
@@ -1074,12 +1074,12 @@ export class UseItOrLoseItService {
                 }
               }
             }
-            if (resEvidenData?.data && Array.isArray(resEvidenData.data) && resEvidenData.data.length > 0) {
+            if (resEvidenData && resEvidenData?.data && Array.isArray(resEvidenData.data) && resEvidenData.data.length > 0) {
               evidenData.push(...resEvidenData.data)
             }
           })
         } else {
-          evidenData = resEviden?.data?.data
+          evidenData = resEviden && resEviden?.data?.data || []
         }
       }
     } catch (error) {
@@ -1143,7 +1143,7 @@ export class UseItOrLoseItService {
         return f?.entry_exit_id === 2
       })
 
-      const setData = convertData.map((eSum: any) => {
+      const setData = (convertData || []).map((eSum: any) => {
         const result = Object.keys(eSum['data_temp'])
           .filter((key) => Number(key) >= fromTo + 2)
           .reduce((acc, key) => {
@@ -1698,7 +1698,7 @@ export class UseItOrLoseItService {
           if (Array.isArray(resToGetLimit.data) && resToGetLimit.data.length > 0) {
             let total_record = undefined
             resToGetLimit.data.map((resEvidenData: any) => {
-              if (resEvidenData?.total_record) {
+              if (resEvidenData && resEvidenData?.total_record) {
                 try {
                   const total = Number(resEvidenData?.total_record)
                   if (!Number.isNaN(total)) {
@@ -1737,10 +1737,10 @@ export class UseItOrLoseItService {
 
         const resEviden = await axios.request(config)
         if (resEviden?.status === 200 && !!resEviden?.data) {
-          if (Array.isArray(resEviden.data) && resEviden.data.length > 0) {
+          if (resEviden && Array.isArray(resEviden.data) && resEviden.data.length > 0) {
             let total_record = undefined
             resEviden.data.map((resEvidenData: any) => {
-              if (resEvidenData?.total_record) {
+              if (resEvidenData && resEvidenData?.total_record) {
                 try {
                   const totalRecord = Number(resEvidenData?.total_record)
                   if (!Number.isNaN(totalRecord)) {
@@ -1756,12 +1756,12 @@ export class UseItOrLoseItService {
                   }
                 }
               }
-              if (resEvidenData?.data && Array.isArray(resEvidenData.data) && resEvidenData.data.length > 0) {
+              if (resEvidenData && resEvidenData?.data && Array.isArray(resEvidenData.data) && resEvidenData.data.length > 0) {
                 eodEviden.push(...resEvidenData.data)
               }
             })
           } else {
-            eodEviden = resEviden?.data?.data
+            eodEviden = resEviden && resEviden?.data?.data || []
           }
         }
       } catch (error) {
@@ -1808,7 +1808,7 @@ export class UseItOrLoseItService {
         return executeEodList?.some((executeData: any) => {
           const executeStart = getTodayNowAdd7(executeData?.start_date_date)
           const executeEnd = getTodayNowAdd7(executeData?.end_date_date)
-          return executeData.request_number_id == item.request_number && executeStart.isSameOrBefore(itemGasDay, 'day') && executeEnd.isSameOrAfter(itemGasDay, 'day')
+          return executeData?.request_number_id == item?.request_number && executeStart?.isSameOrBefore(itemGasDay, 'day') && executeEnd?.isSameOrAfter(itemGasDay, 'day')
         })
       })
 
@@ -1867,8 +1867,8 @@ export class UseItOrLoseItService {
           }
         })
 
-        const headMMBTU = fullData['headerEntry']['Capacity Daily Booking (MMBTU/d)']
-        const headMMSCFD = fullData['headerEntry']['Capacity Daily Booking (MMscfd)']
+        const headMMBTU = fullData?.['headerEntry']?.['Capacity Daily Booking (MMBTU/d)']
+        const headMMSCFD = fullData?.['headerEntry']?.['Capacity Daily Booking (MMscfd)']
         // const headMMBTUH = fullData['headerEntry']['Maximum Hour Booking (MMBTU/h)'];
         // const headMMSCFH = fullData['headerEntry']['Maximum Hour Booking (MMscfh)'];
 
@@ -2286,7 +2286,7 @@ export class UseItOrLoseItService {
           if (Array.isArray(resToGetLimit.data) && resToGetLimit.data.length > 0) {
             let total_record = undefined
             resToGetLimit.data.map((resEvidenData: any) => {
-              if (resEvidenData?.total_record) {
+              if (resEvidenData && resEvidenData?.total_record) {
                 try {
                   const total = Number(resEvidenData?.total_record)
                   if (!Number.isNaN(total)) {
@@ -2325,10 +2325,10 @@ export class UseItOrLoseItService {
 
         const resEviden = await axios.request(config)
         if (resEviden?.status === 200 && !!resEviden?.data) {
-          if (Array.isArray(resEviden.data) && resEviden.data.length > 0) {
+          if (resEviden && Array.isArray(resEviden.data) && resEviden.data.length > 0) {
             let total_record = undefined
             resEviden.data.map((resEvidenData: any) => {
-              if (resEvidenData?.total_record) {
+              if (resEvidenData && resEvidenData?.total_record) {
                 try {
                   const totalRecord = Number(resEvidenData?.total_record)
                   if (!Number.isNaN(totalRecord)) {
@@ -2344,12 +2344,12 @@ export class UseItOrLoseItService {
                   }
                 }
               }
-              if (resEvidenData?.data && Array.isArray(resEvidenData.data) && resEvidenData.data.length > 0) {
+              if (resEvidenData && resEvidenData?.data && Array.isArray(resEvidenData.data) && resEvidenData.data.length > 0) {
                 eodEviden.push(...resEvidenData.data)
               }
             })
           } else {
-            eodEviden = resEviden?.data?.data
+            eodEviden = resEviden && resEviden?.data?.data || []
           }
         }
       } catch (error) {
@@ -2398,7 +2398,7 @@ export class UseItOrLoseItService {
         return executeEodList?.some((executeData: any) => {
           const executeStart = getTodayNowAdd7(executeData?.start_date_date)
           const executeEnd = getTodayNowAdd7(executeData?.end_date_date)
-          return executeData.request_number_id == item.request_number && executeStart.isSameOrBefore(itemGasDay, 'day') && executeEnd.isSameOrAfter(itemGasDay, 'day')
+          return executeData?.request_number_id == item?.request_number && executeStart?.isSameOrBefore(itemGasDay, 'day') && executeEnd?.isSameOrAfter(itemGasDay, 'day')
         })
       })
 
@@ -2457,8 +2457,8 @@ export class UseItOrLoseItService {
           }
         })
 
-        const headMMBTU = fullData['headerEntry']['Capacity Daily Booking (MMBTU/d)']
-        const headMMSCFD = fullData['headerEntry']['Capacity Daily Booking (MMscfd)']
+        const headMMBTU = fullData?.['headerEntry']?.['Capacity Daily Booking (MMBTU/d)']
+        const headMMSCFD = fullData?.['headerEntry']?.['Capacity Daily Booking (MMscfd)']
         // const headMMBTUH = fullData['headerEntry']['Maximum Hour Booking (MMBTU/h)'];
         // const headMMSCFH = fullData['headerEntry']['Maximum Hour Booking (MMscfh)'];
 

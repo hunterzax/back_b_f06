@@ -404,18 +404,18 @@ export class CapacityService {
     if (
       file_period_mode === 1
     ) {
-      diff = ends.diff(
-        starts,
+      diff = (ends || dayjs()).diff(
+        (starts || dayjs()),
         'day'
       ) // คำนวณต่างกันเป็นจำนวนวัน
     } else if (
       file_period_mode === 2
     ) {
-      // diff = ends.diff(starts, 'month'); // คำนวณต่างกันเป็นจำนวนเดือน
-      diff = ends
+      
+      diff = (ends || dayjs())
         .endOf('month')
         .diff(
-          starts.startOf(
+          (starts || dayjs()).startOf(
             'month'
           ),
           'month'
@@ -423,7 +423,7 @@ export class CapacityService {
     } else if (
       file_period_mode === 3
     ) {
-      diff = ends.diff(
+      diff = (ends || dayjs()).diff(
         starts,
         'year'
       ) // คำนวณต่างกันเป็นจำนวนปี
@@ -3399,17 +3399,219 @@ export class CapacityService {
     return newData || []
   }
 
-  async pureContract() {
+  async pureContract(payload: any, userId: any) {
+    let group_id = null
+    if (userId) {
+      const userType = await this.prisma.user_type?.findFirst({
+        where: {
+          account_manage: {
+            some: {
+              account_id: Number(userId)
+            }
+          }
+        }
+      })
+      if (userType?.id === 3) {
+        const group_ = await this.prisma.group?.findFirst({
+          where: {
+            account_manage: {
+              some: {
+                account_id: Number(userId)
+              }
+            }
+          },
+          include:{
+            shipper_contract_point:{
+              include:{
+                contract_point:{
+                  include:{
+                    nomination_point_list:{
+                      include:{
+                        metering_point:true,
+                      },
+                    },
+                  }
+                }
+              },
+            },
+          },
+        })
+        group_id = group_?.id
+      }
+    }
     // const contractCode = await this.prisma.contract_code.findMany({})
     const contractCode =
       await this.prisma.contract_code.findMany(
         {
+          where: {
+            ...(group_id && {
+              group_id: group_id
+            })
+          },
           include: {
             group: true
           }
         }
       )
+    const reserveBalancingGasContract = await this.prisma.reserve_balancing_gas_contract.findMany(
+      {
+        where: {
+          ...(group_id && {
+            group_id: group_id
+          })
+        },
+        include: {
+          group: true,
+          reserve_balancing_gas_contract_detail: true
+        }
+      }
+    )
 
-    return contractCode
+    const formattedReserveBalancingGasContract = reserveBalancingGasContract.map(({reserve_balancing_gas_contract_detail, ...rest}) => {
+      let reserveStartDate : Date | null = null
+      let reserveEndDate : Date | null = null
+      reserve_balancing_gas_contract_detail.map(detail => {
+        if(detail.start_date){
+          if(reserveStartDate){
+            if(detail.start_date < reserveStartDate){
+              reserveStartDate = detail.start_date
+            }
+          }
+          else{
+            reserveStartDate = detail.start_date
+          }
+        }
+        
+        if(detail.end_date){
+          if(reserveEndDate){
+            if(detail.end_date > reserveEndDate){
+              reserveEndDate = detail.end_date
+            }
+          }
+          else{
+            reserveEndDate = detail.end_date
+          }
+        }
+      })
+      return {
+        ...rest,
+        contract_code: rest.res_bal_gas_contract,
+        contract_start_date: reserveStartDate,
+        contract_end_date: reserveEndDate
+      }
+    });
+
+    return [...contractCode, ...formattedReserveBalancingGasContract]
+  }
+
+  async pureContractRefNom(payload: any, userId: any) {
+    // nomination_type_id
+    let group_id = null
+    if (userId) {
+      const userType = await this.prisma.user_type?.findFirst({
+        where: {
+          account_manage: {
+            some: {
+              account_id: Number(userId)
+            }
+          }
+        }
+      })
+      if (userType?.id === 3) {
+        const group_ = await this.prisma.group?.findFirst({
+          where: {
+            account_manage: {
+              some: {
+                account_id: Number(userId)
+              }
+            }
+          },
+          include:{
+            shipper_contract_point:{
+              include:{
+                contract_point:{
+                  include:{
+                    nomination_point_list:{
+                      include:{
+                        metering_point:true,
+                      },
+                    },
+                  }
+                }
+              },
+            },
+          },
+        })
+        group_id = group_?.id
+      }
+    }
+    // const contractCode = await this.prisma.contract_code.findMany({})
+    const contractCode =
+      await this.prisma.contract_code.findMany(
+        {
+          where: {
+            ...(group_id && {
+              group_id: group_id
+            }),
+            query_shipper_nomination_file: {
+              some: {}
+            },
+
+            
+          },
+          include: {
+            group: true
+          }
+        }
+      )
+    const reserveBalancingGasContract = await this.prisma.reserve_balancing_gas_contract.findMany(
+      {
+        where: {
+          ...(group_id && {
+            group_id: group_id
+          })
+        },
+        include: {
+          group: true,
+          reserve_balancing_gas_contract_detail: true
+        }
+      }
+    )
+
+    const formattedReserveBalancingGasContract = reserveBalancingGasContract.map(({reserve_balancing_gas_contract_detail, ...rest}) => {
+      let reserveStartDate : Date | null = null
+      let reserveEndDate : Date | null = null
+      reserve_balancing_gas_contract_detail.map(detail => {
+        if(detail.start_date){
+          if(reserveStartDate){
+            if(detail.start_date < reserveStartDate){
+              reserveStartDate = detail.start_date
+            }
+          }
+          else{
+            reserveStartDate = detail.start_date
+          }
+        }
+        
+        if(detail.end_date){
+          if(reserveEndDate){
+            if(detail.end_date > reserveEndDate){
+              reserveEndDate = detail.end_date
+            }
+          }
+          else{
+            reserveEndDate = detail.end_date
+          }
+        }
+      })
+      return {
+        ...rest,
+        contract_code: rest.res_bal_gas_contract,
+        contract_start_date: reserveStartDate,
+        contract_end_date: reserveEndDate
+      }
+    });
+
+    return [...contractCode, ...formattedReserveBalancingGasContract]
   }
 }

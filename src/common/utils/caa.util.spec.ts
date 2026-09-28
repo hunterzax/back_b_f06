@@ -15,7 +15,7 @@ const flushBackground = () => new Promise((resolve) => setImmediate(resolve));
 function loadCaa() {
     jest.resetModules();
     process.env.CAA_PROJECT_CODE = 'CL6600001-TES';
-    process.env.CAA_PROJECT_PWD = 'project-password';
+    process.env.CAA_PROJECT_PWD = process.env.TEST_CAA_PWD || '';
     process.env.CAA_HOST = 'https://caa.example.test';
     process.env.AD_NAME = 'AD-CL6600001-TES-NON-PRD';
     process.env.AD_TENANT = 'ad-tenant-id';
@@ -80,7 +80,7 @@ describe('CAA syncLoginUserRole', () => {
     it('stops when getUser fails before role lookup', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_CAA_TOKEN || '' }) } })
             .mockRejectedValueOnce(new Error('getUser failed'));
         const caa = new CAA();
 
@@ -101,7 +101,7 @@ describe('CAA syncLoginUserRole', () => {
     it('stops when CA&A role lookup does not find the local role', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64({ value: { mail: 'user@example.com', displayName: 'Example User' } }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64([]) } });
         const caa = new CAA();
@@ -122,7 +122,7 @@ describe('CAA syncLoginUserRole', () => {
     it('stops when clear user roles fails before assigning role', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64({ value: { mail: 'user@example.com', displayName: 'Example User' } }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64([{ id: 'role-id', name: 'TSO Admin', status: 'ACTIVE' }]) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64(userRoleData('Other Role')) } })
@@ -145,7 +145,7 @@ describe('CAA syncLoginUserRole', () => {
     it('skips clear and assign when getUserRole already matches the local role', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64({ value: { mail: 'user@example.com', displayName: 'Example User' } }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64([{ id: 'role-id', name: 'TSO Admin', status: 'ACTIVE' }]) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64(userRoleData('TSO Admin')) } });
@@ -167,7 +167,7 @@ describe('CAA syncLoginUserRole', () => {
     it('calls getUserRole, F100048 clear, and F100049 assign when CA&A role differs', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64({ value: { mail: 'user@example.com', displayName: 'Example User' } }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64([{ id: 'role-id', name: 'TSO Admin', status: 'ACTIVE' }]) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64(userRoleData('Other Role')) } })
@@ -199,7 +199,7 @@ describe('CAA syncLoginUserRole', () => {
     it('clears and assigns when getUserRole verification fails', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64({ value: { mail: 'user@example.com', displayName: 'Example User' } }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64([{ id: 'role-id', name: 'TSO Admin', status: 'ACTIVE' }]) } })
             .mockRejectedValueOnce(new Error('getUserRole failed'))
@@ -224,10 +224,10 @@ describe('CAA syncLoginUserRole', () => {
     it('refreshes CA&A token once when role lookup returns normalized expired code', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'old-caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_OLD_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64({ value: { mail: 'user@example.com', displayName: 'Example User' } }) } })
             .mockResolvedValueOnce({ data: { respCode: '447', respDesc: 'Invalid token or expired', namespace: 'AZT' } })
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'new-caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_NEW_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64([{ id: 'role-id', name: 'TSO Admin', status: 'ACTIVE' }]) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64(userRoleData('Other Role')) } })
             .mockResolvedValueOnce({ data: { result_code: '1', response_message: encodeBase64('SUCCESS'), resp_parameters: [] } })
@@ -254,10 +254,10 @@ describe('CAA syncLoginUserRole', () => {
     it('stops when refreshed CA&A token still returns expired code', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'old-caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_OLD_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64({ value: { mail: 'user@example.com', displayName: 'Example User' } }) } })
             .mockResolvedValueOnce({ data: { respCode: '447', respDesc: 'Invalid token or expired', namespace: 'AZT' } })
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'new-caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_NEW_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { RespCode: '447', RespDesc: 'Invalid token or expired', Namespace: 'AZT' } });
         const caa = new CAA();
 
@@ -277,12 +277,12 @@ describe('CAA syncLoginUserRole', () => {
     it('refreshes CA&A token when F100048 clear returns expired code', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'old-caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_OLD_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64({ value: { mail: 'user@example.com', displayName: 'Example User' } }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64([{ id: 'role-id', name: 'TSO Admin', status: 'ACTIVE' }]) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64(userRoleData('Other Role')) } })
             .mockResolvedValueOnce({ data: { respCode: '447', respDesc: 'Invalid token or expired', namespace: 'AZT' } })
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'new-caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_NEW_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { result_code: '1', response_message: encodeBase64('SUCCESS'), resp_parameters: [] } })
             .mockResolvedValueOnce({ data: { result_code: '1', response_message: encodeBase64('SUCCESS'), resp_parameters: [] } });
         const caa = new CAA();
@@ -313,7 +313,7 @@ describe('CAA syncUserRole', () => {
     it('@pttplc.com account uses AD user lookup and syncs changed role', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64(caaUserData('user@pttplc.com')) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64([{ id: 'role-id', name: 'TSO Admin', status: 'ACTIVE' }]) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64(userRoleData('Other Role')) } })
@@ -348,7 +348,7 @@ describe('CAA syncUserRole', () => {
     it('non-PTT account uses B2C user lookup', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64(caaUserData('user@example.com')) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64([{ id: 'role-id', name: 'TSO Admin', status: 'ACTIVE' }]) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64(userRoleData('Other Role')) } })
@@ -375,7 +375,7 @@ describe('CAA syncUserRole', () => {
     it('local-login mode still triggers sync', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64(caaUserData('local@example.com')) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64([{ id: 'role-id', name: 'TSO Admin', status: 'ACTIVE' }]) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64(userRoleData('Other Role')) } })
@@ -408,7 +408,7 @@ describe('CAA syncUserRole', () => {
     it('stops when user lookup does not find CA&A user', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64({ value: [] }) } });
         const caa = new CAA();
 
@@ -426,7 +426,7 @@ describe('CAA syncUserRole', () => {
     it('stops when CA&A role lookup misses before clear and assign', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64(caaUserData('user@pttplc.com')) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64([]) } });
         const caa = new CAA();
@@ -444,7 +444,7 @@ describe('CAA syncUserRole', () => {
     it('skips clear and assign when current CA&A role matches local role', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64(caaUserData('user@pttplc.com')) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64([{ id: 'role-id', name: 'TSO Admin', status: 'ACTIVE' }]) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64(userRoleData('TSO Admin')) } });
@@ -463,7 +463,7 @@ describe('CAA syncUserRole', () => {
     it('syncUserRoleInBackground does not throw on CA&A failure', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_CAA_TOKEN || '' }) } })
             .mockRejectedValueOnce(new Error('user lookup failed'));
         const caa = new CAA();
 
@@ -486,7 +486,7 @@ describe('CAA createRole', () => {
         jest.useFakeTimers().setSystemTime(new Date(2026, 5, 4, 11, 3, 25, 144));
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { result_code: '1', response_message: encodeBase64('SUCCESS'), resp_parameters: [] } });
         const caa = new CAA();
 
@@ -521,7 +521,7 @@ describe('CAA createRole', () => {
     it('createRoleInBackground catches CA&A failure and does not throw', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_CAA_TOKEN || '' }) } })
             .mockRejectedValueOnce(new Error('create role failed'));
         const caa = new CAA();
 
@@ -544,7 +544,7 @@ describe('CAA updateRole', () => {
     it('sends F100039 role update payload with actor email', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { result_code: '1', response_message: encodeBase64('SUCCESS'), resp_parameters: [] } });
         const caa = new CAA();
 
@@ -578,7 +578,7 @@ describe('CAA updateRole', () => {
     it('updateRoleInBackground stops before F100039 when CA&A role lookup misses', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64([]) } });
         const caa = new CAA();
 
@@ -593,7 +593,7 @@ describe('CAA updateRole', () => {
     it('updateRoleInBackground looks up old name and sends F100039 with fallback actor', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64([{ id: 'caa-role-id', name: 'Old Role', status: 'ACTIVE' }]) } })
             .mockResolvedValueOnce({ data: { result_code: '1', response_message: encodeBase64('SUCCESS'), resp_parameters: [] } });
         const caa = new CAA();
@@ -618,7 +618,7 @@ describe('CAA updateRole', () => {
     it('updateRoleInBackground catches CA&A update failure and does not throw', async () => {
         const { CAA, mockAxios } = loadCaa();
         mockAxios.request
-            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: 'caa-jwt' }) } })
+            .mockResolvedValueOnce({ data: { Data: encodeBase64({ access_token: process.env.TEST_CAA_TOKEN || '' }) } })
             .mockResolvedValueOnce({ data: { RespCode: '1', Data: encodeBase64([{ id: 'caa-role-id', name: 'Old Role', status: 'ACTIVE' }]) } })
             .mockRejectedValueOnce(new Error('update role failed'));
         const caa = new CAA();

@@ -1063,14 +1063,13 @@ export class AccountManageRoleMasterService {
     const {
       id,
       ...dataWithoutId
-    } = payload
+    } = (payload || {})
     const roleActivePermission =
       await this.prisma.menus_config.update(
         {
           where: {
             id:
-              payload?.id ??
-              -1
+              payload && payload?.id || -1
           },
           data: {
             ...dataWithoutId
@@ -1089,10 +1088,10 @@ export class AccountManageRoleMasterService {
           data: {
             update_permission_by:
               Number(userId),
-            update_date:
-              getTodayNowAdd7().toDate(),
-            update_date_num:
-              getTodayNowAdd7().unix(),
+            // update_date:
+            //   getTodayNowAdd7().toDate(), // https://app.clickup.com/t/9018502823/86erp01ba
+            // update_date_num:
+            //   getTodayNowAdd7().unix(), // https://app.clickup.com/t/9018502823/86erp01ba
             update_permission_date:
               getTodayNowAdd7().toDate(),
             update_permission_date_num:

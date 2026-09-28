@@ -77,6 +77,9 @@ export class AccountManageService {
     console.log(`[INFO][conSyncAccount]: start account_count=${accounts.length} sleep_ms=${sleepMs}`);
     for (let i = 0; i < accounts.length; i++) {
       const account = accounts[i];
+      if (account === null || account === undefined) {
+        continue;
+      }
       const email = this.normalizeEmail(account?.email);
       if (!email) {
         console.log(`[WARN][conSyncAccount]: skip account_id=${account?.id} reason=missing_email`);
@@ -87,8 +90,7 @@ export class AccountManageService {
         await this.sleep(sleepMs);
       }
 
-      console.log(`[INFO][conSyncAccount]: process ${i + 1}/${accounts.length} account_id=${account.id} email=${email}`);
-      let roleName = account?.account_manage?.[0]?.account_role?.[0]?.role?.name;
+      let roleName = account && account?.account_manage?.[0]?.account_role?.[0]?.role?.name || "";
       let pisUpdated = false;
       let caaUpdated = false;
 
@@ -210,8 +212,8 @@ export class AccountManageService {
   }
 
   async accountSSO_internal(payload: any) {
-    const { access_token } = payload
-    const inputEmail = this.normalizeEmail(payload?.email);
+    const { access_token } = (payload ?? {})
+    const inputEmail = payload && this.normalizeEmail(payload?.email) || "";
     /*
     STEP
      1 Resolve PIS employee, division, and local group
@@ -222,8 +224,6 @@ export class AccountManageService {
      4  Verify access_token from sso && Sync with CA&A
      5 Prepare Response
     */
-    console.log(`[INFO][accountSSO_internal] input parameter: has_access_token=${!!access_token}`);
-    console.log(`[INFO][accountSSO_internal] input parameter: email=${inputEmail}`);
 
     if (!inputEmail) {
       console.log(`[ERROR][accountSSO_internal] Missing Email`);
@@ -275,7 +275,7 @@ export class AccountManageService {
         })
 
         const baseAccountManageData = {
-          account_id: account?.id,
+          account_id: account && account?.id || -1,
           mode_account_id: 1, // 1 SSO, 2 LOCAL
           division_id: localDivisionId,
           user_type_id: group?.user_type_id,
@@ -289,13 +289,13 @@ export class AccountManageService {
         updateData.update_date_num = getTodayNowAdd7().unix()
 
         const account_manage = await this.prisma.account_manage.upsert({
-          where: { account_id: account.id },
+          where: { account_id: account && account.id || -1 },
           create: createData,
           update: updateData
         })
 
         const baseAccountRoleData = {
-          account_manage_id: account_manage?.id,
+          account_manage_id: account_manage?.id ?? -1,
           role_id: group?.role_default?.[0]?.role_id
         }
         createData = { ...baseAccountRoleData }
@@ -306,7 +306,7 @@ export class AccountManageService {
         updateData.update_date_num = getTodayNowAdd7().unix()
 
         await this.prisma.account_role.upsert({
-          where: { account_manage_id: account_manage.id },
+          where: { account_manage_id: account_manage.id ?? -1 },
           create: createData,
           update: updateData
         })
@@ -744,11 +744,11 @@ export class AccountManageService {
       // create account for AD
       return null
     }
-    const { password, ...account_without_pwd } = account || {}
+    const { password, ...account_without_pwd } = (account || {})
 
     // 2 Is account active
     const nowAt = getTodayNowAdd7()
-    const startDate = getTodayStartAdd7(account?.start_date).toDate()
+    const startDate = getTodayStartAdd7(account && account?.start_date || undefined).toDate()
     const endDate = account?.end_date ? getTodayEndAdd7(account?.end_date).toDate() : null
     const isInRange = nowAt.isAfter(startDate) && (endDate === null || nowAt.isBefore(dayjs(endDate)))
     if (!isInRange || !account?.status) {
@@ -1095,7 +1095,7 @@ export class AccountManageService {
         }
       })
 
-      if (account?.account_password_check.length > 0) {
+      if (account && account?.account_password_check?.length > 0) {
         const dateCk = account?.account_password_check[account?.account_password_check.length - 1]?.create_date
         const isMoreThan90Days = dayjs(getTodayNowAdd7().toDate()).diff(dayjs(dateCk), 'day') > 90
         if (isMoreThan90Days) {
@@ -1110,7 +1110,7 @@ export class AccountManageService {
         }
       }
 
-      const { password, ...newAccount } = account
+      const { password, ...newAccount } = (account ?? null)
       return newAccount
     } catch (error) {
       if (error?.response?.error === 1) {
@@ -1542,7 +1542,7 @@ export class AccountManageService {
 
   //
   async accountReasonCreate(payload: any, userId: any) {
-    const { account_id, id, ...withPayload } = payload
+    const { account_id, id, ...withPayload } = (payload ?? {})
 
     // await this.prisma.$executeRawUnsafe(`
     //   SELECT setval(
@@ -1589,7 +1589,7 @@ export class AccountManageService {
     })
     await this.prisma.account.update({
       where: {
-        id: Number(payload?.account_id ?? -1)
+        id: payload && payload?.account_id && Number(payload?.account_id ?? -1) || -1
       },
       data: {
         status: payload?.status,
@@ -2360,127 +2360,18 @@ export class AccountManageService {
           take: 1
         }
       }
-      // skip: Number(offset),
-      // take: Number(limit),
-      // orderBy: { id: 'desc' },
-      // orderBy: { account_manage: { _min: { mode_account_id: "asc" } } },
-      // take: 1
+    
     });
-    // console.timeEnd("acc")
 
-    const page = orderAndPaginateAccounts(account, {
+    const page = account && orderAndPaginateAccounts(account, {
       sortBy: orderByName, // หรือ 'last_login' / 'email' / 'id' ...
       sortDir: orderBy,
       offset: Number(offset),
       limit: Number(limit)
-    })
-
-    // const count = await this.prisma.account.count({
-    //   where: {
-    //     id: { not: 1 },
-    //     account_manage: {
-    //       some: {
-    //         account_role: {
-    //           some: {
-    //             role: {
-    //               id: { not: 1 },
-    //             },
-    //           },
-    //         },
-    //       },
-    //     },
-    //      ...(q
-    //   ? {
-    //       OR: [
-    //         { email: { contains: q, mode: 'insensitive' } },
-    //         { first_name: { contains: q, mode: 'insensitive' } },
-    //         { last_name: { contains: q, mode: 'insensitive' } },
-    //         { telephone: { contains: q, mode: 'insensitive' } },
-    //         {
-    //           account_manage: {
-    //             some: {
-    //               account_role: {
-    //                 some: { role: { name: { contains: q, mode: 'insensitive' } } },
-    //               },
-    //             },
-    //           },
-    //         },
-    //         {
-    //           account_manage: {
-    //             some: { division: { division_name: { contains: q, mode: 'insensitive' } } },
-    //           },
-    //         },
-    //         {
-    //           account_manage: {
-    //             some: { group: { name: { contains: q, mode: 'insensitive' } } },
-    //           },
-    //         },
-    //       ],
-    //     }
-    //   : {}),
-    //   ...(type && {
-    //       type_account:{
-    //         id:{
-    //           in: toNumArr(type)
-    //         }
-    //       }
-    //     }),
-    //   ...(loginMode && {
-    //     account_manage:{
-    //         some:{
-    //           mode_account_id: Number(loginMode)
-    //         }
-    //       }
-    //     }),
-    //   ...(userId && {
-    //       user_id: {
-    //         contains: userId,
-    //         mode: 'insensitive'
-    //       }
-    //     }),
-    //   ...(firstName && {
-    //       first_name: {
-    //         contains: firstName,
-    //         mode: 'insensitive'
-    //       }
-    //     }),
-    //   ...(userType && {
-    //       account_manage:{
-    //         some:{
-    //           group:{
-    //             id:{
-    //               in: toNumArr(userType)
-    //             }
-    //           }
-    //         }
-    //       }
-    //     }),
-    //   ...(startDate && {
-    //       start_date:{
-    //         gte: startDate_
-    //       }
-    //     }),
-    //   ...(endDate && {
-    //         OR: [
-    //           { end_date: null },
-    //           { end_date: { lte: endDate_ } },
-    //         ],
-    //       })
-    //   },
-    //   orderBy: { id: 'desc' },
-    //   // orderBy: {
-    //   //   id: 'asc',
-    //   // },
-    // });
-    // return {
-    //   total: count,
-    //   data: account,
-    //   limit: Number(limit),
-    //   offset: Number(offset),
-    // };
+    }) || []
 
     return {
-      total: account?.length,
+      total: account && account?.length || 0,
       data: page,
       limit: Number(limit),
       offset: Number(offset)
@@ -2562,7 +2453,7 @@ export class AccountManageService {
       })
       const accountManage = await this.prisma.account_manage.create({
         data: {
-          account_id: account?.id,
+          account_id: account && account?.id || -1,
           ...account_manage
         }
       })
@@ -2701,7 +2592,7 @@ export class AccountManageService {
 
         const accountManage = await this.prisma.account_manage.create({
           data: {
-            account_id: account?.id,
+            account_id: account && account?.id || -1,
             ...account_manage
           }
         })
@@ -2793,7 +2684,7 @@ export class AccountManageService {
         })
         const accountManage = await this.prisma.account_manage.create({
           data: {
-            account_id: account?.id,
+            account_id: account && account?.id || -1,
             ...account_manage
           }
         })
@@ -2809,7 +2700,7 @@ export class AccountManageService {
         }
       }
       const roleOld = (findAcc?.account_manage[0]?.account_role || []).map((e: any) => e?.role_id)
-      const roleNew = (payload?.role_manage || []).map((e: any) => e?.id)
+      const roleNew = (payload && payload?.role_manage || []).map((e: any) => e?.id)
 
       // (หายไป)
       const removedItems = roleOld.filter((item: any) => {

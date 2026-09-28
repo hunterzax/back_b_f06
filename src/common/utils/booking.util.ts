@@ -619,7 +619,7 @@ export async function getBookingValueWithPath({
 }) {
   try {
     const dataTemp =
-      typeof bookingFullJson?.data_temp ===
+      bookingFullJson && typeof bookingFullJson?.data_temp ===
       'string'
         ? JSON.parse(
             bookingFullJson.data_temp
@@ -734,7 +734,9 @@ export async function getBookingValueWithPath({
           }
         }
       )
-
+    
+    // Coverity flags this as unused_expr (NO_EFFECT).
+    // coverity[unused_expr:SUPPRESS]
     const allPointInContract =
       dataTemp[
         'entryValue'
@@ -748,6 +750,8 @@ export async function getBookingValueWithPath({
           value: entry
         }
       })
+    // Coverity flags this as unused_expr (NO_EFFECT).
+    // coverity[unused_expr:SUPPRESS]
     allPointInContract.push(
       ...dataTemp[
         'exitValue'

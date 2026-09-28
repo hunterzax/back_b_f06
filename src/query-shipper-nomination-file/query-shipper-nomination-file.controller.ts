@@ -61,6 +61,12 @@ export class QueryShipperNominationFileController {
   }
 
   @UseGuards(AuthGuard)
+  @Delete('query_shipper_nomination_file_comment/:id')
+  query_shipper_nomination_file_comment_delete(@Req() req: any, @Param('id') id: any) {
+    return this.queryShipperNominationFileService.query_shipper_nomination_file_comment_delete(id, req?.user?.sub)
+  }
+
+  @UseGuards(AuthGuard)
   @Get('status')
   status(@Req() req: any) {
     return this.queryShipperNominationFileService.status()

@@ -260,6 +260,7 @@ export class DailyAdjustmentController {
     )
   }
 
+
   @Get(
     'nomination-point-data'
   )

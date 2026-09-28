@@ -40,7 +40,7 @@ export class PlanningSubmissionFileService {
     const starts = startDate ? getTodayNowDDMMYYYYAdd7(startDate) : null
     const ends = endDate ? getTodayNowDDMMYYYYAdd7(endDate) : null
     let result = []
-    let current = starts.clone()
+    let current = (starts || dayjs()).clone()
 
     while (current.isBefore(ends, 'month') || current.isSame(ends, 'month')) {
       // กำหนดวันที่เป็น fixDay หรือวันสุดท้ายของเดือนถ้า fixDay ไม่มีในเดือนนั้น
@@ -61,7 +61,7 @@ export class PlanningSubmissionFileService {
     const starts = startDate ? getTodayNowDDMMYYYYAdd7(startDate) : null
     const ends = endDate ? getTodayNowDDMMYYYYAdd7(endDate) : null
     let result = []
-    let current = starts.clone()
+    let current = (starts || dayjs()).clone()
 
     while (current.isBefore(ends, 'day') || current.isSame(ends, 'day')) {
       result.push(current.format('DD/MM/YYYY'))
@@ -105,11 +105,11 @@ export class PlanningSubmissionFileService {
 
     // คำนวณความแตกต่างตามโหมดที่กำหนด
     if (file_period_mode === 1) {
-      diff = ends.diff(starts, 'day') // คำนวณต่างกันเป็นจำนวนวัน
+      diff = (ends || dayjs()).diff((starts || dayjs()), 'day') // คำนวณต่างกันเป็นจำนวนวัน
     } else if (file_period_mode === 2) {
-      diff = ends.diff(starts, 'month') // คำนวณต่างกันเป็นจำนวนเดือน
+      diff = (ends || dayjs()).diff((starts || dayjs()), 'month') // คำนวณต่างกันเป็นจำนวนเดือน
     } else if (file_period_mode === 3) {
-      diff = ends.diff(starts, 'year') // คำนวณต่างกันเป็นจำนวนปี
+      diff = (ends || dayjs()).diff((starts || dayjs()), 'year') // คำนวณต่างกันเป็นจำนวนปี
     } else {
       return false // กรณี mode ไม่ตรงกับเงื่อนไขที่กำหนด
     }
@@ -3579,6 +3579,829 @@ export class PlanningSubmissionFileService {
         },
         HttpStatus.BAD_REQUEST
       )
+    }
+  }
+
+  /**
+   * คืนค่า config ตามประเภท term ของ planning (Long/Medium/Short)
+   * เช่น typeId, รหัสท้าย planning code, ตาราง temp สำหรับ Low/Normal/High และ key ของ total entry/exit
+   * @param type - ประเภทสัญญา: 'Long Term' | 'Medium Term' | 'Short Term'
+   * @returns object config ของ term หรือ null ถ้า type ไม่ตรง
+   */
+  getUploadElsx2TermConfig(type: string) {
+    if (type === 'Long Term') {
+      return {
+        typeId: 1,
+        codeSuffix: 'LT',
+        tempTables: (tx: any) => [tx.query_shipper_planning_files_temp_long_low, tx.query_shipper_planning_files_temp_long, tx.query_shipper_planning_files_temp_long_high],
+        totalEntryKey: 'totalResultYearEntryTotal',
+        totalExitKey: 'totalResultYearExitTotal',
+        exitAreaMismatchError: 'value not match'
+      }
+    }
+    if (type === 'Medium Term') {
+      return {
+        typeId: 2,
+        codeSuffix: 'MT',
+        tempTables: (tx: any) => [tx.query_shipper_planning_files_temp_medium_low, tx.query_shipper_planning_files_temp_medium, tx.query_shipper_planning_files_temp_medium_high],
+        totalEntryKey: 'totalResultMonthEntryTotal',
+        totalExitKey: 'totalResultMonthExitTotal',
+        exitAreaMismatchError: 'value not match'
+      }
+    }
+    if (type === 'Short Term') {
+      return {
+        typeId: 3,
+        codeSuffix: 'ST',
+        tempTables: (tx: any) => [tx.query_shipper_planning_files_temp_short_low, tx.query_shipper_planning_files_temp_short, tx.query_shipper_planning_files_temp_short_high],
+        totalEntryKey: 'totalResultDayEntryTotal',
+        totalExitKey: 'totalResultDayExitTotal',
+        exitAreaMismatchError: 'Nomination Point does not match the existing Area in the system. Please verify and try again.'
+      }
+    }
+    return null
+  }
+
+  /**
+   * คำนวณวันสิ้นสุดของ planning / new point จากวันที่สุดท้ายในไฟล์ ตามประเภท term
+   * Long = ต้นปีถัดไป, Medium = ต้นเดือนถัดไป, Short = วันถัดไป
+   * @param type - ประเภทสัญญา: 'Long Term' | 'Medium Term' | 'Short Term'
+   * @param resultDateForPrisma - map ของวันที่จาก header ในไฟล์
+   * @param maxDateKeyForPrisma - key ของวันที่สุดท้ายใน resultDateForPrisma
+   * @returns วันที่สิ้นสุดในรูปแบบ string และ Date สำหรับ planning/newpoint
+   */
+  getUploadElsx2EndDates(type: string, resultDateForPrisma: any, maxDateKeyForPrisma: number) {
+    if (type === 'Long Term') {
+      const nextYearDate = dayjs(`${Number(resultDateForPrisma[`${maxDateKeyForPrisma}`]) + 1}-01-01`)
+      return {
+        formattedDate: nextYearDate.format('DD/MM/YYYY'),
+        planningEndDate: getTodayNowDDMMYYYYDfaultAdd7(nextYearDate.format('DD/MM/YYYY')).toDate(),
+        newpointEndDate: nextYearDate.toDate()
+      }
+    }
+    if (type === 'Medium Term') {
+      const nextMonthDate = dayjs(resultDateForPrisma[`${maxDateKeyForPrisma}`], 'DD/MM/YYYY').add(1, 'month').startOf('month')
+      return {
+        formattedDate: nextMonthDate.format('DD/MM/YYYY'),
+        planningEndDate: nextMonthDate.toDate(),
+        newpointEndDate: nextMonthDate.toDate()
+      }
+    }
+    const nextDay = dayjs(resultDateForPrisma[`${maxDateKeyForPrisma}`], 'DD/MM/YYYY').add(1, 'day')
+    return {
+      formattedDate: nextDay.format('DD/MM/YYYY'),
+      planningEndDate: nextDay.toDate(),
+      newpointEndDate: nextDay.toDate()
+    }
+  }
+
+  /**
+   * แปลงแถวข้อมูลจาก Excel (คอลัมน์ 0-5) เป็น object ของ planning point
+   * @param row - แถวข้อมูลจาก sheet (key เป็น string ของ index คอลัมน์)
+   * @returns object ที่มี new_point, point_type, nomination_point, customer, area, unit
+   */
+  extractPlanningPointRow(row: any) {
+    return {
+      new_point: !!row?.['0'] ? row?.['0'].toUpperCase() : '',
+      point_type: row?.['1'],
+      nomination_point: row?.['2'],
+      customer: row?.['3'],
+      area: row?.['4'],
+      unit: row?.['5']
+    }
+  }
+
+  /**
+   * รวบรวมรายการ new point จากแถว planning
+   * - ถ้า new_point = 'Y' หรือยังไม่มี nomination_point ในระบบ → เก็บไว้สร้างใหม่
+   * - ถ้ามี nomination_point แล้วแต่ area ไม่ตรง → throw error
+   * @param rows - รายการแถวจาก sheet
+   * @param entryExitId - 1 = Entry, 2 = Exit
+   * @param todayStart - วันเริ่มต้นช่วงที่เช็คสถานะ nomination_point
+   * @param todayEnd - วันสิ้นสุดช่วงที่เช็คสถานะ nomination_point
+   * @param options - requirePointType (กรองประเภทจุด), areaMismatchError (ข้อความเมื่อ area ไม่ตรง)
+   * @returns รายการแถวที่เป็น new point ที่ต้องสร้าง
+   */
+  async collectPlanningNewPoints(rows: any[], entryExitId: number, todayStart: Date, todayEnd: Date, options?: {requirePointType?: string; areaMismatchError?: string}) {
+    const newPoint = []
+    const areaMismatchError = options?.areaMismatchError ?? 'value not match'
+    for (let i = 0; i < rows.length; i++) {
+      const row = this.extractPlanningPointRow(rows[i])
+      if (options?.requirePointType && row.point_type !== options.requirePointType) {
+        continue
+      }
+      if (row?.new_point === 'Y') {
+        newPoint.push(row)
+      } else {
+        const nominationPoint = await this.prisma.nomination_point.findFirst({
+          where: {
+            nomination_point: row?.nomination_point,
+            area: {
+              name: row?.area
+            },
+            entry_exit_id: entryExitId,
+            AND: [
+              {
+                start_date: {
+                  lte: todayEnd
+                }
+              },
+              {
+                OR: [
+                  {
+                    end_date: null
+                  },
+                  {
+                    end_date: {
+                      gte: todayStart
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          select: {
+            nomination_point: true,
+            area: {
+              select: {
+                name: true
+              }
+            }
+          }
+        })
+        if (nominationPoint) {
+          if (nominationPoint?.area?.name !== row?.area) {
+            throw new HttpException(
+              {
+                status: HttpStatus.BAD_REQUEST,
+                error: areaMismatchError
+              },
+              HttpStatus.BAD_REQUEST
+            )
+          }
+        } else {
+          newPoint.push(row)
+        }
+      }
+    }
+    return newPoint
+  }
+
+  /**
+   * แปลงแถว sheet เป็นรูปแบบสำหรับเก็บใน temp table (รวม data เป็น JSON string)
+   * @param rows - รายการแถวจาก sheet
+   * @returns รายการ object พร้อม field หลักและ data ที่ stringify แล้ว
+   */
+  mapPlanningSheetRows(rows: any[]) {
+    return (rows ?? []).map((e: any) => ({
+      new_point: e['0'],
+      point_type: e['1'],
+      nomination_point: e['2'],
+      customer: e['3'],
+      area: e['4'],
+      unit: e['5'],
+      data: JSON.stringify(e)
+    }))
+  }
+
+  /**
+   * สร้าง payload สำหรับ insert ลง temp planning table จากข้อมูล Entry และ Exit
+   * @param createPlanningCodeId - id ของ planning file ที่สร้างแล้ว
+   * @param dataEntry - แถว Entry ที่ map แล้ว
+   * @param dataExit - แถว Exit ที่ map แล้ว
+   * @param userId - id ผู้สร้าง
+   * @param nowAt - เวลาสร้าง (Date)
+   * @param nowUnix - เวลาสร้าง (unix timestamp)
+   * @returns รายการแถวพร้อม entry_exit_id (1=Entry, 2=Exit) สำหรับ createMany
+   */
+  buildPlanningTempRows(createPlanningCodeId: any, dataEntry: any[], dataExit: any[], userId: any, nowAt: Date, nowUnix: number) {
+    const pEntryExit = []
+    const pushRows = (list: any[], entryExitId: number) => {
+      for (let i = 0; i < list.length; i++) {
+        pEntryExit.push({
+          query_shipper_planning_files_id: createPlanningCodeId,
+          value: list[i]?.data || null,
+          temp_new_point: list[i]?.new_point || null,
+          temp_point_type: list[i]?.point_type || null,
+          temp_nomination_point: list[i]?.nomination_point || null,
+          temp_customer: list[i]?.customer || null,
+          temp_area: list[i]?.area || null,
+          temp_unit: list[i]?.unit || null,
+          entry_exit_id: entryExitId,
+          create_by: Number(userId),
+          create_date: nowAt,
+          create_date_num: nowUnix
+        })
+      }
+    }
+    if (dataEntry.length > 0) {
+      pushRows(dataEntry, 1)
+    }
+    if (dataExit.length > 0) {
+      pushRows(dataExit, 2)
+    }
+    return pEntryExit
+  }
+
+  /**
+   * อัปโหลดและตรวจสอบไฟล์ planning Excel (Low/Normal/High) แล้วบันทึกเป็น temp ตามประเภท term
+   * ครอบคลุมการ validate วันที่/template/ค่า 0, ตรวจ new point, สร้าง planning code และ insert temp rows
+   * @param payload - ข้อมูลจากไฟล์ เช่น jsonDataMultiSheet, jsonData
+   * @param file - ไฟล์ Excel ที่อัปโหลด
+   * @param shipper_id - id ของ shipper
+   * @param userId - id ผู้ใช้งานที่อัปโหลด
+   * @param startDate - วันที่เริ่มต้น planning (DD/MM/YYYY)
+   * @param typeS - ประเภท term: 'Long Term' | 'Medium Term' | 'Short Term'
+   * @returns ผลลัพธ์การอัปโหลด (รวม warning เช่น ค่า 0 ในไฟล์ ถ้ามี)
+   */
+  async uploadElsx2(payload: any, file: any, shipper_id: any, userId: any, startDate: any, typeS: any) {
+    const {jsonDataMultiSheet, jsonData} = payload
+
+    // flag สำหรับแจ้งเตือนเมื่อพบค่า 0 ใน total หรือในแถวข้อมูล
+    let warningZero = false
+    let warningRowZero = false
+    // แถว/คอลัมน์เริ่มต้นของข้อมูลค่า (คอลัมน์ 0-5 เป็น meta: new_point, type, point, customer, area, unit)
+    const rowDataStartAt = 6
+    const columnDataStartAt = 6
+
+    const now = getTodayNowAdd7()
+    const nowAt = now.toDate()
+    const todayStart = getTodayStartAdd7().toDate()
+    const todayEnd = getTodayEndAdd7().toDate()
+
+    // helper: แปลงเลขคอลัมน์เป็นตัวอักษร Excel (0 -> A)
+    const numberToExcelColumn = (num: number) => {
+      let col = '';
+      let n = num + 1; // เพราะ Excel เริ่มที่ 1 (A=1)
+
+      while (n > 0) {
+        let rem = (n - 1) % 26;
+        col = String.fromCharCode(65 + rem) + col;
+        n = Math.floor((n - 1) / 26);
+      }
+
+      return col;
+    };
+
+    // ฟังก์ชันแปลง DD/MM/YYYY เป็น dayjs
+    const parseDayMonthYear = (str) => {
+      const [day, month, year] = str.split('/') // แก้ให้รองรับ DD/MM/YYYY
+      return dayjs(`${year}-${month}-${day}`) // ใช้รูปแบบที่ถูกต้อง
+    }
+
+    // ดึงเฉพาะค่าตั้งแต่คอลัมน์ข้อมูล (index >= 6)
+    const cellsFrom6 = (row: any) =>
+      Array.isArray(row)
+        ? row.slice(columnDataStartAt)
+        : Object.keys(row)
+            .filter((k) => Number(k) >= columnDataStartAt)
+            .map((k) => (row as any)[k]);
+
+    // เติม key ที่ขาดในแถว Entry/Exit (คอลัมน์ meta) ให้เป็นค่าว่าง
+    const fillMissingKeysEntryOrExit = (data, prefix) => {
+      return data.map((item, ix) => {
+        for (let i = 0; i <= prefix; i++) {
+          if (!item[i]) {
+            // item[i] = i > 4 ? '0' : '' // เติมค่า 0 หาก key ไม่ได้มีอยู่
+            item[i] = ''
+          }
+        }
+        return item
+      })
+    }
+
+    // ฟังก์ชันเพิ่ม key ที่ขาดไปตั้งแต่ 6 ถึง maxDateKey
+    const addMissingKeysEntryOrExit = (data, mKey) => {
+      for (let i = 6; i <= mKey; i++) {
+        if (!data[i]) {
+          data[i] = '0' // ถ้าไม่มี key นี้อยู่ในออบเจ็กต์ ให้เพิ่ม key และกำหนดค่าเป็น '0'
+        }
+      }
+      return data
+    }
+
+    // ตัดเฉพาะคอลัมน์ที่เป็นช่วงวันที่ (ตั้งแต่ columnDataStartAt)
+    const pickKeysFromColumn = (row: any) =>
+      Object.keys(row)
+        .filter((key) => parseInt(key) >= columnDataStartAt)
+        .reduce((obj, key) => {
+          obj[key] = row[key]
+          return obj
+        }, {})
+
+    // สแกนค่าในแถว: ถ้าเจอ '0' ให้ตั้ง warning และ parse ตัวเลขแบบเข้มงวด
+    const markZeroWarning = (rows: any[]) => {
+      ;(rows ?? []).some((row: any) =>
+        cellsFrom6(row).some((cell) => {
+          if (cell === '0') {
+            warningRowZero = true
+          }
+          this.parseNumericStrict(cell)
+
+          return String(cell).trim() === '0'
+        })
+      )
+    }
+
+    const badRequest = (error: string): never => {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          error
+        },
+        HttpStatus.BAD_REQUEST
+      )
+    }
+
+    // --- โหลดข้อมูล multi-sheet และกำหนดชื่อ sheet ตาม term ---
+    let newDataAll = JSON.parse(jsonDataMultiSheet)
+
+    const sheetNameLT = ['ค่าต่ำสุด Planning 20 ปี (LT)', 'ค่าปกติ Planning 20 ปี (LT)', 'ค่าสูงสุด Planning 20 ปี (LT)']
+    const sheetNameMT = ['ค่าต่ำสุด Planning 2 ปี (MT)', 'ค่าปกติ Planning 2 ปี (MT)', 'ค่าสูงสุด Planning 2 ปี (MT)']
+    const sheetNameST = ['ค่าต่ำสุด Planning 4 เดือน (ST)', 'ค่าปกติ Planning 4 เดือน (ST)', 'ค่าสูงสุด Planning 4 เดือน (ST)']
+
+    const lowNormalHigh = ['ค่าต่ำสุด Planning', 'ค่าปกติ Planning', 'ค่าสูงสุด Planning']
+
+    // typeS 1=LT, 2=MT, 3=ST — ใช้เป็นข้อความ error เมื่อ sheet หาย
+    const useErr = typeS === '1' ? sheetNameLT : typeS === '2' ? sheetNameMT : typeS === '3' ? sheetNameST : []
+
+    // อ่านประเภทสัญญาจาก sheet "ค่าปกติ Planning" แล้วเทียบกับ typeS จาก request
+    const f2 = newDataAll?.find((f: any) => f?.sheet?.includes('ค่าปกติ Planning')) // https://app.clickup.com/t/9018502823/86ev16ngb
+    const type = f2?.data?.[1]?.['1']
+    const typeOfContract = type === 'Long Term' ? 1 : type === 'Medium Term' ? 2 : type === 'Short Term' ? 3 : type === 'SHORT_NON_FIRM TERM' ? 4 : null
+
+    if (String(typeOfContract) !== typeS) {
+      badRequest('Template Date is NOT match')
+    } else if (type != 'Long Term' && type != 'Medium Term' && type != 'Short Term') {
+      badRequest('term type not match')
+    }
+
+    // หา group ของผู้ใช้ และ planning_deadline ที่ active ตาม term
+    const groupCreateFind = await this.prisma.group.findFirst({
+      where: {
+        account_manage: {
+          some: {
+            account_id: Number(userId)
+          }
+        }
+      }
+    })
+    const planningDeadline = await this.prisma.planning_deadline.findFirst({
+      where: {
+        term_type_id: Number(typeOfContract),
+        AND: [
+          {
+            start_date: {
+              lte: todayEnd // start_date ต้องก่อนหรือเท่ากับสิ้นสุดวันนี้
+            }
+          },
+          {
+            OR: [
+              {
+                end_date: null
+              }, // ถ้า end_date เป็น null
+              {
+                end_date: {
+                  gte: todayStart
+                }
+              } // ถ้า end_date ไม่เป็น null ต้องหลังหรือเท่ากับเริ่มต้นวันนี้
+            ]
+          }
+        ]
+      }
+    })
+
+    if (!!!planningDeadline) {
+      badRequest('Date is NOT match.')
+    }
+    // เดือนอ้างอิงสำหรับเช็คว่าวันที่ในไฟล์เก่าเกินไปเทียบกับ before_month ของ deadline
+    const nowAtBMMMYYYY = now.add(Number(planningDeadline?.before_month), 'month').format('MM/YYYY')
+    // แปลงค่าปัจจุบันเป็น dayjs (แก้ให้แยก MM และ YYYY ให้ถูกต้อง)
+    const [nowMonth, nowYear] = nowAtBMMMYYYY.split('/')
+    const nowDate = dayjs(`${nowYear}-${nowMonth}-01`)
+
+    const expectedSheetNames = typeOfContract === 1 ? sheetNameLT : typeOfContract === 2 ? sheetNameMT : typeOfContract === 3 ? sheetNameST : []
+    // prefix สำหรับ group วันที่: year / month / day ตามประเภท term
+    const datePrefix = type === 'Long Term' ? 'year' : type === 'Medium Term' ? 'month' : type === 'Short Term' ? 'day' : null
+    // เก็บผลลัพธ์แยกตาม sheet Low / Normal / High
+    const sheetBuckets = lowNormalHigh.map(() => ({
+      filterEntryMMBTU: [] as any[],
+      updatedDataExit: [] as any[],
+      totalResultEntryTotal: undefined as any,
+      totalResultExitTotal: undefined as any,
+      temp: [] as any[]
+    }))
+
+    let resultDateForPrisma: any = {}
+    let maxDateKeyForPrisma = 0
+
+    let validateList: string[] = []
+    // --- วน validate แต่ละ sheet (Low / Normal / High) ---
+    for (const [sheetIndex, sheetName] of lowNormalHigh.entries()) {
+      const f = newDataAll?.find((f: any) => f?.sheet?.includes(sheetName)) // https://app.clickup.com/t/9018502823/86ev16ngb
+      let newData = f?.data
+      let newDataName = f?.sheet
+      if (!!!newData) {
+        validateList.push(`Missing required sheet: "${useErr.length > sheetIndex ? useErr[sheetIndex] : ''}"`)
+        continue
+      }
+
+      let currentEntryTotal = newData[2]
+      let currentExitTotal = newData[3]
+      let currentDate = newData[5]
+
+      // แถวข้อมูลที่คอลัมน์ meta ว่างทั้งหมด แต่มีค่าวันที่ → นอกช่วงที่อนุญาต
+      const validateValueList = newData.reduce((acc: string[], data: any, index: number) => {
+        if (index >= rowDataStartAt && !data['0'] && !data['1'] && !data['2'] && !data['3'] && !data['4'] && !data['5']) {
+          const result_ = Object.fromEntries(
+            Object.entries(data).map(([k, v]) => [
+              numberToExcelColumn(Number(k)),
+              v
+            ])
+          );
+          acc.push(`The value on column ${JSON.stringify(result_)} in sheet ${newDataName} is out of the required range.`)
+        }
+        return acc
+      }, [])
+
+      if (validateValueList.length > 0) {
+        validateList.push(...validateValueList)
+        continue
+      }
+
+      // มีค่าตัวเลขในคอลัมน์วันที่หรือไม่ (ใช้เช็ค sheet ว่าง)
+      const isHasValue = newData.some((item: any, index: number) => {
+        if (index >= rowDataStartAt) {
+          return Object.keys(newData[index])
+            .filter((key) => parseInt(key) >= columnDataStartAt)
+            .some((key) => parseToNumber(newData[index][key]) != null)
+        }
+      })
+
+      if (expectedSheetNames.length > sheetIndex && expectedSheetNames[sheetIndex] !== newDataName) {
+        validateList.push(`Lack of ${expectedSheetNames[sheetIndex]} sheet`)
+        continue
+      }
+
+      const resultDate = pickKeysFromColumn(currentDate)
+      const resultDateEntry = pickKeysFromColumn(currentEntryTotal)
+      const resultDateExit = pickKeysFromColumn(currentExitTotal)
+
+      // วันแรกในไฟล์ต้องอยู่เดือนเดียวกับ startDate จาก request
+      if (!dayjs(startDate, "DD/MM/YYYY").isSame(dayjs(Object.values(resultDate)?.[0] as string, "DD/MM/YYYY"), 'month')) {
+        validateList.push(`The first date in the file (${Object.values(resultDate)?.[0] as string}) in sheet ${newDataName} must be in the same month as ${startDate}.`)
+        continue
+      }
+
+      // ฟังก์ชันที่เช็คว่ามีค่าที่น้อยกว่า nowAtBMMMYYYY หรือไม่
+      // startDate :  01/02/2026
+      const hasOlderDate = Object.values(resultDate).some((date) => parseDayMonthYear(date).isBefore(nowDate, 'month'))
+      const hasOlderDateEqa = Object.values(resultDate).some((date) => parseDayMonthYear(date).isSame(nowDate, 'month'))
+
+      // ถ้าเดือนในไฟล์ตรงกับ before_month ให้เช็ควันที่ตาม planning_deadline.day
+      // planningDeadline?.day
+      let checkEqu = true
+      if (hasOlderDateEqa) {
+        const currentDay = dayjs(nowAt).date() // ดึงวันที่ปัจจุบัน (1-31)
+        const isMatch = (planningDeadline?.day ?? Infinity) <= currentDay //true ถ้า deadline <= วันที่ปัจจุบัน
+        checkEqu = !isMatch
+      }
+      console.log('checkEqu : ', checkEqu, newDataName);
+      if (hasOlderDate && checkEqu) {
+        validateList.push(`Date is NOT match in sheet ${newDataName}.`)
+        continue
+      }
+
+      // ฟังก์ชันที่เช็คว่ามีค่าที่ตรงกับ nowAtBMMMYYYY หรือไม่
+      const hasExactDate = Object.values(resultDate).some((date) => parseDayMonthYear(date).isSame(nowDate, 'month'))
+
+      if (hasExactDate) {
+        // ถ้ายังอยู่ในเดือน deadline ให้เช็คเวลา cut-off (วัน/ชั่วโมง/นาที)
+        const targetTimeString = `${planningDeadline?.day} ${planningDeadline?.hour}:${planningDeadline?.minute}`
+        const [monthDay, time] = targetTimeString.split(' ')
+        const [hour, minute] = time.split(':')
+        const now = dayjs()
+
+        // แปลงเป็น dayjs object
+        const targetTime = dayjs().month(now.month()).date(parseInt(monthDay)).hour(parseInt(hour)).minute(parseInt(minute)).second(0)
+
+        // ตรวจสอบว่าเวลาปัจจุบันเกินเป้าหมายหรือไม่
+        const isPast = now.isAfter(targetTime)
+
+        if (isPast) {
+          // planning deadline
+          validateList.push(`Date is NOT match in sheet ${newDataName}.`)
+          continue
+        }
+      }
+
+      // หาช่วงแถว Entry / Exit จาก header ใน sheet
+      const maxDateKey = Math.max(...Object.keys(currentDate).map((key) => parseInt(key)))
+      const indexStartEntrys = newData.slice(4).findIndex((item: any) => item['1'] === 'Entry')
+      const indexStartExits = newData.slice(4).findIndex((item: any) => item['1'] === 'Exit')
+      const indexStartEntry = indexStartEntrys !== -1 ? indexStartEntrys : 0
+      const indexStartExit = indexStartExits !== -1 ? indexStartExits : 0
+      let resultStartIndexEntry = indexStartEntry !== 0 ? 4 + indexStartEntry : 0
+      let resultStartIndexExit = indexStartExit !== 0 ? 4 + indexStartEntry + Math.abs(indexStartExit - indexStartEntry) : 0
+
+      const valueEntry = resultStartIndexEntry !== 0 ? newData.slice(resultStartIndexEntry, resultStartIndexExit !== 0 ? resultStartIndexExit : newData.length) : [];
+      const valueExit = resultStartIndexEntry !== 0 ? newData.slice(resultStartIndexExit, newData.length) : [];
+
+      markZeroWarning(valueEntry)
+      markZeroWarning(valueExit)
+
+      const updatedValueEntry = fillMissingKeysEntryOrExit(valueEntry, maxDateKey)
+      const updatedValueExit = fillMissingKeysEntryOrExit(valueExit, maxDateKey)
+      const resultDateEntryUse = addMissingKeysEntryOrExit(resultDateEntry, maxDateKey)
+      const resultDateExitUse = addMissingKeysEntryOrExit(resultDateExit, maxDateKey)
+
+      // ถ้า total entry/exit มีค่า '0' ให้ตั้ง warning (ยังไม่ reject)
+      const hasZeroEntry = Object.values(resultDateEntryUse).some((value) => value === '0')
+      const hasZeroExit = Object.values(resultDateExitUse).some((value) => value === '0')
+
+      if (hasZeroEntry || hasZeroExit) {
+        warningZero = true
+      }
+
+      // https://app.clickup.com/t/86ert2k18
+      // const newArrHead = Object.values(newData[4])?.slice(6); // ของเดิม BANK พี่เห็น newData[4] มันเริ่มที่ 6 อยู่แล้ว พอ slice ไปมันก็ทำให้ newArrHead.length ไม่มีทางตรงกับ dateArr.length
+      const newArrHead = Object.values(newData[4]) // คมมาเยือน ถ้าผิดขออภัย
+      // console.log('newData[4] : ', newData[4]);
+      // จำนวนคอลัมน์วันที่ต้องตรงกับ template ของแต่ละ term
+      const sDate = startDate ? getTodayNowDDMMYYYYAdd7(startDate).format('DD/MM/YYYY') : null
+      const dateArr = typeS === '1' ? this.generateDatesLong(sDate) : typeS === '2' ? this.generateDatesMedium(sDate) : typeS === '3' ? this.generateDatesShort(sDate) : null
+
+      if (newArrHead.length !== dateArr.length) {
+        // https://app.clickup.com/t/86ev16ngc
+        let msgReturn = ''
+        switch (typeS) {
+          case '1': // long term
+            msgReturn = 'Invalid Long Term Planning File: Please ensure the file includes 60 months of monthly data and 15 years of yearly data.'
+            break
+          case '2': // med term
+            msgReturn = 'Invalid Medium Term Planning File: Please ensure the file includes 24 months of monthly data.'
+            break
+          case '3': // short term
+            msgReturn = 'Invalid Short Term Planning File: Please ensure the file include 4 months of daily data.'
+            break
+          default:
+            msgReturn = 'Invalid Planning File: Please ensure the file is valid template.'
+            break
+        }
+
+        validateList.push(`${msgReturn} in sheet ${newDataName}`)
+        continue
+      } else {
+        // const isEqual = newArrHead.every((value, index) => value === dateArr[index]); // every นี้ไม่มีทางเท่ากันอยู่แล้วเพราะ array newArrHead มีแต่ TRUE ส่วน dateArr มีแต่วันที่
+        // แถว flag ต้องเป็น TRUE/1 ทั้งหมด
+        const isEqual = newArrHead.every((value) => value === 'TRUE' || value === '1')
+
+        if (!isEqual) {
+          validateList.push(`Total Entry & Total Exit is NOT match in sheet ${newDataName}`)
+          continue
+        }
+      }
+
+      if (datePrefix) {
+        // รวมค่าตาม year/month/day แล้วเทียบกับ total entry/exit ในไฟล์
+        const resultArrEachSheet = this.groupPrefixDate(resultDate, datePrefix)
+
+        const updatedDataEntry = this.mergeDataEntryExit(updatedValueEntry, resultArrEachSheet, datePrefix)
+        const updatedDataExitEachSheet = this.mergeDataEntryExit(updatedValueExit, resultArrEachSheet, datePrefix)
+
+        const filterEntryMMBTUEachSheet = updatedDataEntry.filter((f: any) => f['5'] === 'MMBtud')
+
+        const resultCkEntry = this.checkValuesEntryOrExit(resultDateEntryUse, filterEntryMMBTUEachSheet)
+        const resultCkExit = this.checkValuesEntryOrExit(resultDateExitUse, updatedDataExitEachSheet)
+
+        const resultTotal = this.areObjectsEqual(resultDateEntryUse, resultDateExitUse)
+
+        // Total Entry & Total Exit equals zero.
+
+        if (resultCkEntry || resultCkExit || resultTotal) {
+          validateList.push(`Total Entry & Total Exit is NOT match in sheet ${newDataName}`)
+          continue
+        }
+
+        const hasGreaterThanZero = Object.values(resultDateExitUse).some((value: any) => parseFloat(value) > 0)
+
+        if (!hasGreaterThanZero && !isHasValue) {
+          validateList.push(`Upload Failed: sheet '${newDataName}' tab cannot be empty.`)
+          continue
+        }
+
+        // เก็บผลที่ผ่าน validate ไว้ใน bucket ของ sheet นี้
+        sheetBuckets[sheetIndex].filterEntryMMBTU = filterEntryMMBTUEachSheet
+        sheetBuckets[sheetIndex].updatedDataExit = updatedDataExitEachSheet
+        sheetBuckets[sheetIndex].totalResultEntryTotal = this.calculateTotalEntryOrExitTotal(filterEntryMMBTUEachSheet, resultArrEachSheet, datePrefix)
+        sheetBuckets[sheetIndex].totalResultExitTotal = this.calculateTotalEntryOrExitTotal(updatedDataExitEachSheet, resultArrEachSheet, datePrefix)
+      }
+
+      sheetBuckets[sheetIndex].temp = newData
+      // ใช้วันที่จาก sheet ปกติ (index 1) เป็นหลักตอนบันทึก DB
+      if (sheetIndex === 1) {
+        resultDateForPrisma = resultDate
+        maxDateKeyForPrisma = maxDateKey
+      }
+    }
+
+    if (validateList.length > 0) {
+      badRequest(validateList.join('<br/>'))
+    }
+
+    // --- หลัง validate ผ่าน: เตรียม config, new point, planning code ---
+    const termConfig = this.getUploadElsx2TermConfig(type)
+    if (!termConfig) {
+      badRequest('term type not match')
+    }
+
+    // รวบรวม new point จาก sheet ปกติ (Entry + Exit)
+    const newPoint = [
+      ...(await this.collectPlanningNewPoints(sheetBuckets[1].filterEntryMMBTU, 1, todayStart, todayEnd)),
+      ...(await this.collectPlanningNewPoints(sheetBuckets[1].updatedDataExit, 2, todayStart, todayEnd, {
+        requirePointType: 'Exit',
+        areaMismatchError: termConfig.exitAreaMismatchError
+      }))
+    ]
+
+    const {formattedDate, planningEndDate, newpointEndDate} = this.getUploadElsx2EndDates(type, resultDateForPrisma, maxDateKeyForPrisma)
+    const formattedStartDate = resultDateForPrisma['6']
+    const typeId = termConfig.typeId
+    const groupId = !!shipper_id ? Number(shipper_id) : groupCreateFind?.id
+
+    // สร้าง planning_code รันนิ้งต่อวันตาม term (YYYYMMDD-LT/MT/ST-xxxx)
+    const planningCode = await this.prisma.query_shipper_planning_files.count({
+      where: {
+        term_type_id: typeId,
+        create_date: {
+          gte: todayStart, // มากกว่าหรือเท่ากับเวลาเริ่มต้นของวันนี้
+          lte: todayEnd // น้อยกว่าหรือเท่ากับเวลาสิ้นสุดของวันนี้
+        }
+      }
+    })
+    const runNum = planningCode + 1
+    const runNumFormate = runNum > 999 ? runNum : runNum > 99 ? '0' + runNum : runNum > 9 ? '00' + runNum : '000' + runNum
+    const newPlanningCode = `${dayjs(todayStart).format('YYYYMMDD')}-${termConfig.codeSuffix}-${runNumFormate}`
+    const responseUpFile = await uploadFilsTemp(file)
+    let valueEntry = []
+    let valueExit = []
+
+    // --- บันทึก planning file + newpoint + temp rows (Low/Normal/High) ใน transaction ---
+    this.prisma.$transaction(async (tx) => {
+      const createPlanningCode = await tx.query_shipper_planning_files.create({
+        data: {
+          planning_code: newPlanningCode,
+          group: {
+            connect: {
+              id: groupId
+            }
+          },
+          term_type: {
+            connect: {
+              id: typeId
+            }
+          },
+          start_date: getTodayNowDDMMYYYYDfaultAdd7(formattedStartDate).toDate(),
+          end_date: planningEndDate,
+          shipper_file_submission_date: nowAt,
+          create_date: nowAt,
+          create_date_num: now.unix(),
+          create_by_account: {
+            connect: {
+              id: Number(userId)
+            }
+          }
+        }
+      })
+  
+      await tx.query_shipper_planning_files_file.create({
+        data: {
+          url: responseUpFile?.file?.url,
+          query_shipper_planning_files_id: createPlanningCode?.id,
+          create_by: Number(userId),
+          create_date: nowAt,
+          create_date_num: now.unix()
+        }
+      })
+  
+      // ถ้ามี new point ให้สร้าง newpoint header + detail
+      if (newPoint.length > 0) {
+        const newpointData = await tx.newpoint.create({
+          data: {
+            planning_code: newPlanningCode,
+            group: {
+              connect: {
+                id: groupId
+              }
+            },
+            query_shipper_planning_files: {
+              connect: {
+                id: createPlanningCode?.id
+              }
+            },
+            term_type: {
+              connect: {
+                id: typeId
+              }
+            },
+            start_date: getTodayNowDDMMYYYYDfaultAdd7(formattedStartDate).toDate(),
+            end_date: newpointEndDate,
+            shipper_file_submission_date: nowAt,
+            create_by_account: {
+              connect: {
+                id: Number(userId)
+              }
+            },
+            create_date: nowAt,
+            create_date_num: now.unix()
+          }
+        })
+        const newpointFileData = {
+          url: responseUpFile?.file?.url,
+          newpoint_id: newpointData?.id,
+          create_by: Number(userId),
+          create_date: nowAt,
+          create_date_num: now.unix()
+        }
+
+        await tx.newpoint_file.create({
+          data: newpointFileData
+        })
+  
+        const newpointArr = []
+        for (let i = 0; i < newPoint.length; i++) {
+          newpointArr.push({
+            newpoint_id: newpointData?.id,
+            point: newPoint[i]?.nomination_point || null,
+            temp_new_point: newPoint[i]?.new_point || null,
+            temp_point_type: newPoint[i]?.point_type || null,
+            temp_nomination_point: newPoint[i]?.nomination_point || null,
+            temp_customer: newPoint[i]?.customer || null,
+            temp_area: newPoint[i]?.area || null,
+            temp_unit: newPoint[i]?.unit || null,
+            entry_exit_id: newPoint[i]?.point_type === 'Entry' ? 1 : 2,
+            create_by: Number(userId),
+            create_date: nowAt,
+            create_date_num: now.unix()
+          })
+        }
+        await tx.newpoint_detail.createMany({
+          data: newpointArr
+        })
+      }
+
+      // บันทึก temp แยก Low / Normal / High ตามตารางของแต่ละ term
+      const rowTables = [tx.query_shipper_planning_files_temp_row_low, tx.query_shipper_planning_files_temp_row, tx.query_shipper_planning_files_temp_row_high]
+      const tempTables = termConfig.tempTables(tx)
+
+      for (let sheetIndex = 0; sheetIndex < lowNormalHigh.length; sheetIndex++) {
+        const dataEntry = this.mapPlanningSheetRows(sheetBuckets[sheetIndex].filterEntryMMBTU)
+        const dataExit = this.mapPlanningSheetRows(sheetBuckets[sheetIndex].updatedDataExit)
+        const pEntryExit = this.buildPlanningTempRows(createPlanningCode?.id, dataEntry, dataExit, userId, nowAt, now.unix())
+
+        if (dataEntry.length > 0 || dataExit.length > 0) {
+          await rowTables[sheetIndex].createMany({
+            data: pEntryExit
+          })
+        }
+        await tempTables[sheetIndex].create({
+          data: {
+            query_shipper_planning_files_id: Number(createPlanningCode?.id),
+            temp_full: JSON.stringify(sheetBuckets[sheetIndex].temp),
+            temp_total_entry: JSON.stringify(sheetBuckets[sheetIndex].totalResultEntryTotal),
+            temp_total_exit: JSON.stringify(sheetBuckets[sheetIndex].totalResultExitTotal),
+            create_by: Number(userId),
+            create_date: nowAt,
+            create_date_num: now.unix()
+          }
+        })
+
+        // response ใช้ข้อมูลจาก sheet ปกติ (index 1)
+        if (sheetIndex === 1) {
+          valueEntry = dataEntry
+          valueExit = dataExit
+        }
+      }
+    })
+
+    // คืนผลจาก sheet ปกติ พร้อม warning ถ้าพบค่า 0
+    return {
+      data: {
+        planningCode: newPlanningCode,
+        temp: sheetBuckets[1].temp,
+        valueEntry: valueEntry,
+        valueExit: valueExit,
+        [termConfig.totalEntryKey]: sheetBuckets[1].totalResultEntryTotal,
+        [termConfig.totalExitKey]: sheetBuckets[1].totalResultExitTotal,
+        newPoint: newPoint,
+        startDate: formattedStartDate,
+        endDate: formattedDate,
+        shipperId: groupId,
+        file,
+        typeId: typeId
+      },
+      warning: warningZero,
+      warningRowZero: warningRowZero
     }
   }
 

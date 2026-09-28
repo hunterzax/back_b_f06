@@ -14,6 +14,8 @@ import {
 } from './date.util'
 import {
   divideTo3Decimal,
+  divideTo6Decimal,
+  divideTo8Decimal,
   parseToNumber3Decimal,
   parseToNumber4Decimal,
   parseToNumber6Decimal
@@ -69,7 +71,7 @@ export function readNomFromJsonAs4Decimal(
  * @returns ค่าที่แปลงแล้วเป็น number (6 ทศนิยม) หรือ null ถ้าแปลงไม่ได้
  */
 export function readNomFromJsonAs6Decimal(nominationRowJsonDataTemp: any, key: string) {
-  return parseToNumber3Decimal(nominationRowJsonDataTemp[key])
+  return parseToNumber6Decimal(nominationRowJsonDataTemp[key])
 }
 
 function createBvw10Ra6ViAggregate(): bvw10Ra6ViAggregateType {
@@ -142,9 +144,9 @@ export async function findHvFromEntryArea({ prisma, targetArea, gasDate, dataLis
   if (dataList.length == 0) {
     const nominationData: queryShipperNominationFileWithRelationsForCal[] = await prisma.query_shipper_nomination_file.findMany({
       where: {
-        NOT: {
-          contract_code_id: null,
-        }, // revers bal ไม่แสดง effect
+        // NOT: {
+        //   contract_code_id: null,
+        // }, // revers bal ไม่แสดง effect
         AND: [
           {
             OR: [
@@ -384,8 +386,9 @@ export async function findHvFromEntryArea({ prisma, targetArea, gasDate, dataLis
               group_id: nominationFile.group_id,
               shipper_name: nominationFile.group?.name,
               shipper_id_name: nominationFile.group?.id_name,
-              contract: nominationFile.contract_code?.contract_code,
+              contract: nominationFile.contract_code?.contract_code || nominationFile.reserve_balancing_gas_contract?.res_bal_gas_contract,
               contract_code_id: nominationFile.contract_code_id,
+              reserve_balancing_gas_contract_id: nominationFile.reserve_balancing_gas_contract_id,
               nomination_id: nominationFile.id,
               nomination_code: nominationFile.nomination_code,
               zone_text: nominationRowJson.zone_text,
@@ -447,8 +450,9 @@ export async function findHvFromEntryArea({ prisma, targetArea, gasDate, dataLis
               group_id: nominationFile.group_id,
               shipper_name: nominationFile.group?.name,
               shipper_id_name: nominationFile.group?.id_name,
-              contract: nominationFile.contract_code?.contract_code,
+              contract: nominationFile.contract_code?.contract_code || nominationFile.reserve_balancing_gas_contract?.res_bal_gas_contract,
               contract_code_id: nominationFile.contract_code_id,
+              reserve_balancing_gas_contract_id: nominationFile.reserve_balancing_gas_contract_id,
               nomination_id: nominationFile.id,
               nomination_code: nominationFile.nomination_code,
               zone_text: nominationRowJson.zone_text,
@@ -497,7 +501,7 @@ export async function findHvFromEntryArea({ prisma, targetArea, gasDate, dataLis
           }
 
           exist.eachHour?.forEach((eachHourItem, key) => {
-            const viEachHour = readNomFromJsonAs6Decimal(nominationRowJsonDataTemp, `${h1Key + key}`);
+            const viEachHour = nominationFile.nomination_type_id == 2 ? (vi == null ? null : divideTo6Decimal(vi, 24)) : readNomFromJsonAs6Decimal(nominationRowJsonDataTemp, `${h1Key + key}`);
 
             if (eachHourItem.sumVi != null) {
               if (viEachHour != null) {
@@ -528,7 +532,7 @@ export async function findHvFromEntryArea({ prisma, targetArea, gasDate, dataLis
         } else {
           const eachHour = new Map<number, { sumVi: number | null, sumHvMultiplyVi: number | null, sumSgMultiplyVi: number | null }>();
           if(nominationFile.nomination_type_id == 2){
-            const viEachHour = vi == null ? null : (vi / 24);
+            const viEachHour = vi == null ? null : divideTo6Decimal(vi, 24);
             for (let i = 0; i < 24; i++) {
               eachHour.set(i, {
                 sumVi: viEachHour,
@@ -880,6 +884,815 @@ export async function findHvFromEntryArea({ prisma, targetArea, gasDate, dataLis
   return result;
 }
 
+// https://app.clickup.com/t/9018502823/86eve8pzk
+export async function findHvFromEntryArea2({ prisma, targetArea, gasDate, dataList }: { prisma: PrismaService; targetArea: string; gasDate: Date; dataList: queryShipperNominationFileWithRelationsForCal[] }) {
+  // หาช่วงสัปดาห์ที่ครอบคลุมวันที่เริ่มต้นและสิ้นสุด (สำหรับดึงข้อมูล weekly nomination)
+  const { weekStart: targetWeekStart } = getWeekRange(gasDate);
+  const { weekEnd: targetWeekEnd } = getWeekRange(gasDate);
+  const gasDayjs = dayjs(gasDate);
+  const dayOfWeek = Number(dayjs(gasDate).tz('Asia/Bangkok').format('d')); // วันในสัปดาห์ (0 = Sunday, 6 = Saturday)
+
+  let targetDataList = dataList;
+  // ดึงข้อมูล nomination files ทั้งแบบรายวัน (type 1) และรายสัปดาห์ (type 2)
+  if (dataList.length == 0) {
+    const nominationData: queryShipperNominationFileWithRelationsForCal[] = await prisma.query_shipper_nomination_file.findMany({
+      where: {
+        // NOT: {
+        //   contract_code_id: null,
+        // }, // revers bal ไม่แสดง effect
+        AND: [
+          {
+            OR: [
+              {
+                // nomination รายวัน (type 1) ที่อยู่ในช่วงวันที่ที่เลือก
+                nomination_type: { id: 1 },
+                gas_day: gasDate,
+              },
+              {
+                // nomination รายสัปดาห์ (type 2) ที่อยู่ในช่วงสัปดาห์ที่ครอบคลุมวันที่เลือก
+                nomination_type: { id: 2 },
+                gas_day: {
+                  gte: targetWeekStart,
+                  lte: targetWeekEnd,
+                },
+              },
+            ],
+          },
+          // เฉพาะรายการที่ไม่ถูกลบ
+          {
+            OR: [
+              {
+                del_flag: false,
+              },
+              {
+                del_flag: null,
+              },
+            ],
+          },
+          // เฉพาะ status 2 (Approved) และ 5 (Approved by System)
+          {
+            query_shipper_nomination_status: {
+              id: {
+                in: [2, 5],
+              },
+            },
+          },
+        ],
+      },
+      ...queryShipperNominationFilePopulateForCal,
+      orderBy: [
+        {
+          nomination_type_id: 'asc',
+        },
+        { id: 'desc' },
+      ],
+    });
+
+    // // กรอง nomination แบบรายวันสำหรับวันที่กำลังประมวลผล
+    // const dailyNominationList = nominationData.filter(
+    //   nominationFile =>
+    //     nominationFile.nomination_type_id == 1
+    // );
+
+    // // กรอง nomination แบบรายสัปดาห์สำหรับสัปดาห์ที่กำลังประมวลผล
+    // // ข้ามถ้ามี daily nomination สำหรับ contract เดียวกันแล้ว (daily nomination มีลำดับความสำคัญสูงกว่า)
+    // const weeklyNominationList = nominationData.filter(
+    //   nominationFile =>
+    //     nominationFile.nomination_type_id == 2
+    //     && !dailyNominationList.some(daily => daily.contract_code_id == nominationFile.contract_code_id)
+    // );
+
+    // targetDataList = [...dailyNominationList, ...weeklyNominationList];
+
+    targetDataList = nominationData;
+  }
+  console.log('targetDataList : ', targetDataList);
+  // 1/9/2026
+  // 20260831-DNM-0002 2026-CNF-N001
+  // 20260831-DNM-0001 2026-CSF-010
+  // 20260828-WNM-0005 2024-CLF-001_Amd02
+  // 20260828-WNM-0004 2026-CNF-011
+  // 20260828-WNM-0003 2026-CNF-012
+  // 20260828-WNM-0002 2026-CSF-010
+  // 20260828-WNM-0001 2026-CMF-001
+  // 20260827-WNM-0001 2022-CLF-018_Amd004
+
+  // X3
+  // 20260828-WNM-0004 2026-CNF-011
+  // 20260828-WNM-0003 2026-CNF-012
+  // 20260827-WNM-0001 2022-CLF-018_Amd004
+
+  // X3
+  // HV 1,072.327
+  // WI 1,400.280
+  // SG 0.6074
+
+  // Y
+  // 20260828-WNM-0004 2026-CNF-011
+  // 20260828-WNM-0003 2026-CNF-012
+  // 20260827-WNM-0001 2022-CLF-018_Amd004
+
+  // Y
+  // SG 0.6356
+
+
+  const areaMaster: areaWithRelationsForCal[] = await prisma.area.findMany({
+    where: {
+      ...(
+        targetArea ?
+        {
+          name: {
+            equals: targetArea,
+            mode: 'insensitive'
+          }
+        } :
+        {
+          zone: {
+            name: {
+              equals: 'EAST-WEST',
+              mode: 'insensitive'
+            }
+          }
+        }
+      ),
+      AND: [
+        {
+          start_date: {
+            lte: targetWeekEnd, // start_date ต้องก่อนหรือเท่ากับสิ้นสุดวันนี้
+          },
+        },
+        {
+          OR: [
+            {
+              end_date: null,
+            }, // ถ้า end_date เป็น null
+            {
+              end_date: {
+                gte: targetWeekStart,
+              },
+            }, // ถ้า end_date ไม่เป็น null ต้องหลังหรือเท่ากับเริ่มต้นวันนี้
+          ],
+        },
+      ],
+    },
+    include: {
+      zone: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      entry_exit: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      supply_reference_quality_area_by: {
+        select: {
+          id: true,
+          name: true,
+          start_date: true,
+          end_date: true,
+        },
+      },
+      owner_area: {
+        include: {
+          east_area: {
+            select: {
+              id: true,
+              name: true,
+              start_date: true,
+              end_date: true,
+            }
+          },
+          west_area: {
+            select: {
+              id: true,
+              name: true,
+              start_date: true,
+              end_date: true,
+            }
+          }
+        }
+      },
+    },
+    orderBy: {
+      id: 'desc',
+    },
+  });
+  const bvw10AndRa6List = await prisma.concept_point.findMany({
+    where: {
+      OR: [
+        {
+          concept_point: {
+            contains: 'BVW10',
+            mode: 'insensitive'
+          }
+        },
+        {
+          concept_point: {
+            contains: 'RA6',
+            mode: 'insensitive'
+          }
+        }
+      ],
+      type_concept_point_id: 2 // Nomination Physical gas concepts
+    }
+  })
+  
+  let eastWestList: any[] = [];
+  const historyBvw10AndRa6List: (adjustNomDataType & {
+    nominationRowJsonDataTemp: any;
+  })[] = [];
+
+  const historyList: adjustNomDataType[] = [];
+  const result = new Map<
+    string,
+    areaHvDataType
+  >();
+
+  const h1Key = 14;
+  targetDataList.map((nominationFile) => {
+    nominationFile.nomination_version.map((nominationVersion) => {
+      nominationVersion.nomination_row_json.map((nominationRowJson) => {
+        // แปลง JSON string เป็น object
+        const nominationRowJsonDataTemp = JSON.parse(nominationRowJson.data_temp);
+
+        // อ่านข้อมูลจาก JSON ตามตำแหน่งที่กำหนด
+        const zone = nominationRowJsonDataTemp['0'];
+        const area = nominationRowJsonDataTemp['2'];
+        const point = nominationRowJsonDataTemp['3'];
+        const unit = nominationRowJsonDataTemp['9'];
+        const entryExit = nominationRowJsonDataTemp['10'];
+        const wi = parseToNumber6Decimal(nominationRowJsonDataTemp['11']);
+        const hv = parseToNumber6Decimal(nominationRowJsonDataTemp['12']);
+        const sg = parseToNumber6Decimal(nominationRowJsonDataTemp['13']); 
+
+        
+
+        // zone East-West มีวิธีคิดแยกต่างหาก
+        if(isMatch(zone, 'EAST-WEST')){
+          if(!eastWestList.some((item: any) => isMatch(item.zone, zone) && isMatch(item.area, area) && isMatch(item.point, point) && isMatch(item.entryExit, entryExit))){
+            eastWestList.push({
+              zone: zone,
+              area: area,
+              point: point,
+              entryExit: entryExit,
+              hv: hv,
+              sg: sg,
+            });
+          }
+        }
+
+        if(bvw10AndRa6List.some(conceptPoint => isMatch(conceptPoint.concept_point, point)) && (isMatch(unit, 'MMBTU/D') || isMatch(unit, 'MMBTU/H'))){
+          if (
+            nominationFile.nomination_type_id == 2 &&
+            historyBvw10AndRa6List.some((f) => {
+              return (
+                f?.point === point &&
+                f?.zone_text === nominationRowJson.zone_text &&
+                f?.area_text === nominationRowJson.area_text &&
+                f?.entryExit === entryExit &&
+                f?.gas_day === gasDayjs.tz('Asia/Bangkok').format('DD/MM/YYYY') &&
+                f?.shipper_id_name === nominationFile.group?.id_name &&
+                f?.contract_code_id === nominationFile.contract_code_id &&
+                f?.totalType === 'daily' &&
+                f?.nomination_type_id === 1
+              );
+            })
+          ) {
+            return;
+          }
+          else{
+            historyBvw10AndRa6List.push({
+              gas_day: gasDayjs.tz('Asia/Bangkok').format('DD/MM/YYYY'),
+              group_id: nominationFile.group_id,
+              shipper_name: nominationFile.group?.name,
+              shipper_id_name: nominationFile.group?.id_name,
+              contract: nominationFile.contract_code?.contract_code || nominationFile.reserve_balancing_gas_contract?.res_bal_gas_contract,
+              contract_code_id: nominationFile.contract_code_id,
+              reserve_balancing_gas_contract_id: nominationFile.reserve_balancing_gas_contract_id,
+              nomination_id: nominationFile.id,
+              nomination_code: nominationFile.nomination_code,
+              zone_text: nominationRowJson.zone_text,
+              area_text: nominationRowJson.area_text,
+              // "unit": unit,
+              point: point,
+              entryExit: entryExit,
+              total: 0,
+              totalMmscfd: null,
+              totalType: nominationFile.nomination_type_id == 2 ? 'weekly' : 'daily',
+              nomination_type_id: nominationFile.nomination_type_id,
+              timeShow: [],
+              nominationRowJsonDataTemp: nominationRowJsonDataTemp,
+            });
+          }
+        }
+
+        // ข้ามถ้าไม่มีข้อมูล zone, area (ต้องเป็น nomination point)
+        // ข้ามถ้าไม่ใช่ entry (ต้องเป็น entry)
+        if (!zone || !area || (targetArea && !isMatch(area, targetArea)) || !isMatch(entryExit, 'Entry') || !isMatch(unit, 'MMSCFD')) {
+          return;
+        }
+        if (
+          nominationFile.nomination_type_id == 2 &&
+          historyList.some((f) => {
+            return (
+              f?.point === point &&
+              f?.zone_text === nominationRowJson.zone_text &&
+              f?.area_text === nominationRowJson.area_text &&
+              f?.entryExit === entryExit &&
+              f?.gas_day === gasDayjs.tz('Asia/Bangkok').format('DD/MM/YYYY') &&
+              f?.shipper_id_name === nominationFile.group?.id_name &&
+              f?.contract_code_id === nominationFile.contract_code_id &&
+              f?.totalType === 'daily' &&
+              f?.nomination_type_id === 1
+            );
+          })
+        ) {
+          return;
+        } else {
+          // หาว่ามี point นี้ใน historyList แล้วหรือยัง (เช็คตาม point, zone, area, entryExit, gas_day, group, contract, nomination)
+          let existPointIndex = historyList.findIndex((f: any) => {
+            return (
+              f?.point === point &&
+              f?.zone_text === nominationRowJson.zone_text &&
+              f?.area_text === nominationRowJson.area_text &&
+              f?.entryExit === entryExit &&
+              f?.gas_day === gasDayjs.tz('Asia/Bangkok').format('DD/MM/YYYY') &&
+              f?.group_id === nominationFile.group_id &&
+              f?.contract_code_id === nominationFile.contract_code_id &&
+              f?.nomination_id === nominationFile.id
+            );
+          });
+
+          // ถ้ายังไม่มี point นี้ใน result ให้สร้างใหม่
+          if (existPointIndex < 0) {
+            historyList.push({
+              gas_day: gasDayjs.tz('Asia/Bangkok').format('DD/MM/YYYY'),
+              group_id: nominationFile.group_id,
+              shipper_name: nominationFile.group?.name,
+              shipper_id_name: nominationFile.group?.id_name,
+              contract: nominationFile.contract_code?.contract_code || nominationFile.reserve_balancing_gas_contract?.res_bal_gas_contract,
+              contract_code_id: nominationFile.contract_code_id,
+              reserve_balancing_gas_contract_id: nominationFile.reserve_balancing_gas_contract_id,
+              nomination_id: nominationFile.id,
+              nomination_code: nominationFile.nomination_code,
+              zone_text: nominationRowJson.zone_text,
+              area_text: nominationRowJson.area_text,
+              // "unit": unit,
+              point: point,
+              entryExit: entryExit,
+              total: 0,
+              totalMmscfd: null,
+              totalType: nominationFile.nomination_type_id == 2 ? 'weekly' : 'daily',
+              nomination_type_id: nominationFile.nomination_type_id,
+              timeShow: [],
+            });
+          }
+        }
+
+        // ดึงค่าตามวันในสัปดาห์ (Sunday = 0, Monday = 1, ..., Saturday = 6)
+        const vi = readNomFromJsonAs6Decimal(nominationRowJsonDataTemp, nominationFile.nomination_type_id == 2 ? `${h1Key + dayOfWeek}` : '38');
+
+        const key = `${`${zone}`.trim().toLowerCase()}-${`${area}`.trim().toLowerCase()}`;
+
+        if (result.has(key)) {
+          const exist = result.get(key);
+          if(area === "X3" && unit === "MMSCFD"){
+            console.log('0@ exist : ', exist);
+            console.log('0@ vi : ', vi);
+          }
+
+          if (exist.sumVi != null) {
+            if (vi != null) {
+              exist.sumVi = parseToNumber6Decimal(exist.sumVi + vi);
+            }
+          } else {
+            exist.sumVi = vi;
+          }
+
+          if (exist.sumHvMultiplyVi != null) {
+            if (hv != null || vi != null) {
+              exist.sumHvMultiplyVi = parseToNumber6Decimal(exist.sumHvMultiplyVi + parseToNumber6Decimal((hv ?? 0) * (vi ?? 0)));
+            }
+          } else {
+            exist.sumHvMultiplyVi = (hv == null && vi == null) ? null : parseToNumber6Decimal((hv ?? 0) * (vi ?? 0));
+          }
+
+          if (exist.sumSgMultiplyVi != null) {
+            if (sg != null || vi != null) {
+              exist.sumSgMultiplyVi = parseToNumber6Decimal(exist.sumSgMultiplyVi + parseToNumber6Decimal((sg ?? 0) * (vi ?? 0)));
+            }
+          } else {
+            exist.sumSgMultiplyVi = (sg == null && vi == null) ? null : parseToNumber6Decimal((sg ?? 0) * (vi ?? 0));
+          }
+
+          exist.eachHour?.forEach((eachHourItem, key) => {
+            const viEachHour = readNomFromJsonAs6Decimal(nominationRowJsonDataTemp, `${h1Key + key}`);
+
+            if (eachHourItem.sumVi != null) {
+              if (viEachHour != null) {
+                eachHourItem.sumVi = parseToNumber6Decimal(eachHourItem.sumVi + viEachHour);
+              }
+            } else {
+              eachHourItem.sumVi = viEachHour;
+            }
+
+            if (eachHourItem.sumHvMultiplyVi != null) {
+              if (hv != null || viEachHour != null) {
+                eachHourItem.sumHvMultiplyVi = parseToNumber6Decimal(eachHourItem.sumHvMultiplyVi + parseToNumber6Decimal((hv ?? 0) * (viEachHour ?? 0)));
+              }
+            } else {
+              eachHourItem.sumHvMultiplyVi = (hv == null && viEachHour == null) ? null : parseToNumber6Decimal((hv ?? 0) * (viEachHour ?? 0));
+            }
+
+            if (eachHourItem.sumSgMultiplyVi != null) {
+              if (sg != null || viEachHour != null) {
+                eachHourItem.sumSgMultiplyVi = parseToNumber6Decimal(eachHourItem.sumSgMultiplyVi + parseToNumber6Decimal((sg ?? 0) * (viEachHour ?? 0)));
+              }
+            } else {
+              eachHourItem.sumSgMultiplyVi = (sg == null && viEachHour == null) ? null : parseToNumber6Decimal((sg ?? 0) * (viEachHour ?? 0));
+            }
+          });
+
+          result.set(key, exist);
+        } else {
+          const eachHour = new Map<number, { sumVi: number | null, sumHvMultiplyVi: number | null, sumSgMultiplyVi: number | null }>();
+          if(nominationFile.nomination_type_id == 2){
+            const viEachHour = vi == null ? null : (vi / 24);
+            if(area === "X3" && unit === "MMSCFD"){
+                console.log('W 1@ viEachHour : ', viEachHour);
+              }
+            for (let i = 0; i < 24; i++) {
+              eachHour.set(i, {
+                sumVi: viEachHour,
+                sumHvMultiplyVi: (hv == null && viEachHour == null) ? null : parseToNumber6Decimal((hv ?? 0) * (viEachHour ?? 0)),
+                sumSgMultiplyVi: (sg == null && viEachHour == null) ? null : parseToNumber6Decimal((sg ?? 0) * (viEachHour ?? 0)),
+              });
+            }
+          }
+          else{
+            for (let i = 0; i < 24; i++) {
+              const viEachHour = readNomFromJsonAs6Decimal(nominationRowJsonDataTemp, `${h1Key + i}`);
+              if(area === "X3" && unit === "MMSCFD"){
+                console.log('D 2@ viEachHour : ', viEachHour);
+              }
+              eachHour.set(i, {
+                sumVi: viEachHour,
+                sumHvMultiplyVi: (hv == null && viEachHour == null) ? null : parseToNumber6Decimal((hv ?? 0) * (viEachHour ?? 0)),
+                sumSgMultiplyVi: (sg == null && viEachHour == null) ? null : parseToNumber6Decimal((sg ?? 0) * (viEachHour ?? 0)),
+              });
+            }
+          }
+
+          result.set(key, {
+            zone_text: zone,
+            area_text: area,
+            entryExit: entryExit,
+            sumVi: vi,
+            sumHvMultiplyVi: (hv == null && vi == null) ? null : parseToNumber6Decimal((hv ?? 0) * (vi ?? 0)),
+            sumSgMultiplyVi: (sg == null && vi == null) ? null : parseToNumber6Decimal((sg ?? 0) * (vi ?? 0)),
+            eachHour: eachHour,
+          });
+        }
+
+
+         if(area === "X3" && unit === "MMSCFD"){
+          console.log('[X3] contract_code : ', nominationFile?.contract_code?.contract_code);
+          console.log('[X3] area : ', area);
+          console.log('[X3] unit : ', unit);
+          console.log('[X3] point : ', point);
+          console.log('[X3] sg : ', sg);
+          // console.log('[X3] result : ', result);
+          console.log('[X3] nominationRowJsonDataTemp : ', nominationRowJsonDataTemp);
+          console.log('- - - - -');
+        }
+
+      });
+    });
+  });
+
+  // zone East-West มีวิธีคิดแยกต่างหาก
+  if(eastWestList.length > 0){
+    try {
+      const eastToBvw10Value = aggregateHistoryBvw10Ra6Vi(
+        historyBvw10AndRa6List,
+        matchBvw10Ra6Point('bvw10', 'east'),
+        h1Key,
+        dayOfWeek,
+      );
+      const westToBvw10Value = aggregateHistoryBvw10Ra6Vi(
+        historyBvw10AndRa6List,
+        matchBvw10Ra6Point('bvw10', 'west'),
+        h1Key,
+        dayOfWeek,
+      );
+      const eastToRa6Value = aggregateHistoryBvw10Ra6Vi(
+        historyBvw10AndRa6List,
+        matchBvw10Ra6Point('ra6', 'east'),
+        h1Key,
+        dayOfWeek,
+      );
+      const westToRa6Value = aggregateHistoryBvw10Ra6Vi(
+        historyBvw10AndRa6List,
+        matchBvw10Ra6Point('ra6', 'west'),
+        h1Key,
+        dayOfWeek,
+      );
+  
+      eastWestList.sort((a: any, b: any) => {
+        const aIsE = isMatch(a.area, 'e');
+        const bIsE = isMatch(b.area, 'e');
+        if (aIsE && !bIsE) return 1;
+        if (!aIsE && bIsE) return -1;
+        return a.area.localeCompare(b.area);
+      });
+  
+      eastWestList.map((item: any) => {
+        const zone = item.zone;
+        const area = item.area;
+        // const point = item.point;
+        const entryExit = item.entryExit;
+        // const hv = item.hv;
+        // const sg = item.sg;
+  
+        const areaEastList = areaMaster.find((areaObj: any) => isMatch(areaObj.name, area) && isMatch(areaObj.zone.name, zone) && isMatch(areaObj.entry_exit.name, entryExit))?.owner_area?.map(ownerArea => ownerArea.east_area);
+        const areaWestList = areaMaster.find((areaObj: any) => isMatch(areaObj.name, area) && isMatch(areaObj.zone.name, zone) && isMatch(areaObj.entry_exit.name, entryExit))?.owner_area?.map(ownerArea => ownerArea.west_area);
+        // HV_F2 = (East_to_BVW10*HV_X1)+(West_to_BVW10*HV_Y) / (East_to_BVW10+West_to_BVW10)
+        // HV_G = (East_to_BVW10*HV_X1)+(West_to_BVW10*HV_Y) / (East_to_BVW10+West_to_BVW10)
+        // HV_E = (East_to_RA6*HV_X1)+(West_to_RA6*HV_F2) / (East_to_RA6+West_to_RA6)
+        let eastData : areaHvDataType | null = null;
+        (areaEastList || []).map(areaEast => {
+          const key = `east-${`${areaEast.name}`.trim().toLowerCase()}`;
+          const exist = result.get(key);
+          if(eastData){
+            const vi = exist.sumVi
+            const sumHvMultiplyVi = exist.sumHvMultiplyVi
+            const sumSgMultiplyVi = exist.sumSgMultiplyVi
+            const eachHour = exist.eachHour
+            if (eastData.sumVi != null) {
+              if (vi != null) {
+                eastData.sumVi = parseToNumber6Decimal(eastData.sumVi + vi);
+              }
+            } else {
+              eastData.sumVi = exist.sumVi;
+            }
+
+            if (eastData.sumHvMultiplyVi != null) {
+              if (sumHvMultiplyVi != null) {
+                eastData.sumHvMultiplyVi = parseToNumber6Decimal(eastData.sumHvMultiplyVi + sumHvMultiplyVi);
+              }
+            } else {
+              eastData.sumHvMultiplyVi = sumHvMultiplyVi;
+            }
+
+            if (eastData.sumSgMultiplyVi != null) {
+              if (sumSgMultiplyVi != null) {
+                eastData.sumSgMultiplyVi = parseToNumber6Decimal(eastData.sumSgMultiplyVi + sumSgMultiplyVi);
+              }
+            } else {
+              eastData.sumSgMultiplyVi = sumSgMultiplyVi;
+            }
+
+            eastData.eachHour?.forEach((eachHourItem, key) => {
+              const viEachHour = eachHour.get(key)?.sumVi
+              const sumHvMultiplyViEachHour = eachHour.get(key)?.sumHvMultiplyVi
+              const sumSgMultiplyViEachHour = eachHour.get(key)?.sumSgMultiplyVi
+
+              if (eachHourItem.sumVi != null) {
+                if (viEachHour != null) {
+                  eachHourItem.sumVi = parseToNumber6Decimal(eachHourItem.sumVi + viEachHour);
+                }
+              } else {
+                eachHourItem.sumVi = viEachHour;
+              }
+
+              if (eachHourItem.sumHvMultiplyVi != null) {
+                if (sumHvMultiplyViEachHour != null) {
+                  eachHourItem.sumHvMultiplyVi = parseToNumber6Decimal(eachHourItem.sumHvMultiplyVi + sumHvMultiplyViEachHour);
+                }
+              } else {
+                eachHourItem.sumHvMultiplyVi = sumHvMultiplyViEachHour;
+              }
+
+              if (eachHourItem.sumSgMultiplyVi != null) {
+                if (sumSgMultiplyViEachHour != null) {
+                  eachHourItem.sumSgMultiplyVi = parseToNumber6Decimal(eachHourItem.sumSgMultiplyVi + sumSgMultiplyViEachHour);
+                }
+              } else {
+                eachHourItem.sumSgMultiplyVi = sumSgMultiplyViEachHour;
+              }
+            });
+          }
+          else{
+            eastData = exist
+          }
+        })
+
+        switch(area.toLowerCase()){
+          case 'e': {
+            const westData = result.get('east-west-f2')
+
+            const eastHv = (eastData?.sumHvMultiplyVi == null || eastData?.sumVi == null) ? null : (eastData?.sumHvMultiplyVi / eastData?.sumVi);
+            const westHv = (westData?.sumHvMultiplyVi == null || westData?.sumVi == null) ? null : (westData?.sumHvMultiplyVi / westData?.sumVi);
+            const eastSg = (eastData?.sumSgMultiplyVi == null || eastData?.sumVi == null) ? null : (eastData?.sumSgMultiplyVi / eastData?.sumVi);
+            const westSg = (westData?.sumSgMultiplyVi == null || westData?.sumVi == null) ? null : (westData?.sumSgMultiplyVi / westData?.sumVi);
+            const sumVi = (eastToRa6Value.sumVi == null && westToRa6Value.sumVi == null) ? null : parseToNumber6Decimal((eastToRa6Value.sumVi || 0) + (westToRa6Value.sumVi || 0));
+            const sumHvMultiplyVi = (
+              (eastHv == null && eastToRa6Value.sumVi == null) || 
+              (westHv == null && westToRa6Value.sumVi == null)
+            ) ? null
+            : parseToNumber6Decimal(((eastToRa6Value.sumVi || 0) * (eastHv || 0)) + ((westToRa6Value.sumVi || 0) * (westHv || 0)));
+  
+            const sumSgMultiplyVi = (
+              (eastSg == null && eastToRa6Value.sumVi == null) || 
+              (westSg == null && westToRa6Value.sumVi == null)
+            ) ? null
+            : parseToNumber6Decimal(((eastToRa6Value.sumVi || 0) * (eastSg || 0)) + ((westToRa6Value.sumVi || 0) * (westSg || 0)));
+
+
+            const eachHour = new Map<number, { sumVi: number | null, sumHvMultiplyVi: number | null, sumSgMultiplyVi: number | null }>();
+            for (let i = 0; i < 24; i++) {
+              const eastEachHour = eastData?.eachHour?.get(i);
+              const westEachHour = westData?.eachHour?.get(i);
+              const eastToRa6EachHour = eastToRa6Value.eachHour?.get(i);
+              const westToRa6EachHour = westToRa6Value.eachHour?.get(i);
+              const eastHvEachHour = (eastEachHour?.sumHvMultiplyVi == null || eastEachHour?.sumVi == null) ? null : (eastEachHour?.sumHvMultiplyVi / eastEachHour?.sumVi);
+              const westHvEachHour = (westEachHour?.sumHvMultiplyVi == null || westEachHour?.sumVi == null) ? null : (westEachHour?.sumHvMultiplyVi / westEachHour?.sumVi);
+              const eastSgEachHour = (eastEachHour?.sumSgMultiplyVi == null || eastEachHour?.sumVi == null) ? null : (eastEachHour?.sumSgMultiplyVi / eastEachHour?.sumVi);
+              const westSgEachHour = (westEachHour?.sumSgMultiplyVi == null || westEachHour?.sumVi == null) ? null : (westEachHour?.sumSgMultiplyVi / westEachHour?.sumVi);
+              const sumViEachHour = (eastToRa6EachHour?.sumVi == null && westToRa6EachHour?.sumVi == null) ? null : parseToNumber6Decimal((eastToRa6EachHour?.sumVi || 0) + (westToRa6EachHour?.sumVi || 0));
+              const sumHvMultiplyViEachHour = (
+                (eastHvEachHour == null && eastToRa6EachHour?.sumVi == null) || 
+                (westHvEachHour == null && westToRa6EachHour?.sumVi == null)
+              ) ? null
+              : parseToNumber6Decimal(((eastToRa6EachHour?.sumVi || 0) * (eastHvEachHour || 0)) + ((westToRa6EachHour?.sumVi || 0) * (westHvEachHour || 0)));
+    
+              const sumSgMultiplyViEachHour = (
+                (eastSgEachHour == null && eastToRa6EachHour?.sumVi == null) || 
+                (westSgEachHour == null && westToRa6EachHour?.sumVi == null)
+              ) ? null
+              : parseToNumber6Decimal(((eastToRa6EachHour?.sumVi || 0) * (eastSgEachHour || 0)) + ((westToRa6EachHour?.sumVi || 0) * (westSgEachHour || 0)));
+              eachHour.set(i, {
+                sumVi: sumViEachHour,
+                sumHvMultiplyVi: sumHvMultiplyViEachHour,
+                sumSgMultiplyVi: sumSgMultiplyViEachHour,
+              });
+            }
+  
+            const key = `${`${zone}`.trim().toLowerCase()}-${`${area}`.trim().toLowerCase()}`;
+            result.set(key, {
+              zone_text: zone,
+              area_text: area,
+              entryExit: entryExit,
+              sumVi: sumVi,
+              sumHvMultiplyVi: sumHvMultiplyVi,
+              sumSgMultiplyVi: sumSgMultiplyVi,
+              eachHour: eachHour,
+            });
+
+            break;
+          }
+          default:
+            let westData : areaHvDataType | null = null;
+            (areaWestList || []).map(areaWest => {
+              const key = `west-${`${areaWest.name}`.trim().toLowerCase()}`;
+              const exist = result.get(key);
+              if(westData){
+                const vi = exist.sumVi
+                const sumHvMultiplyVi = exist.sumHvMultiplyVi
+                const sumSgMultiplyVi = exist.sumSgMultiplyVi
+                const eachHour = exist.eachHour
+                if (westData.sumVi != null) {
+                  if (vi != null) {
+                    westData.sumVi = parseToNumber6Decimal(westData.sumVi + vi);
+                  }
+                } else {
+                  westData.sumVi = exist.sumVi;
+                }
+                
+                if (westData.sumHvMultiplyVi != null) {
+                  if (sumHvMultiplyVi != null) {
+                    westData.sumHvMultiplyVi = parseToNumber6Decimal(westData.sumHvMultiplyVi + sumHvMultiplyVi);
+                  }
+                } else {
+                  westData.sumHvMultiplyVi = sumHvMultiplyVi;
+                }
+                
+                if (westData.sumSgMultiplyVi != null) {
+                  if (sumSgMultiplyVi != null) {
+                    westData.sumSgMultiplyVi = parseToNumber6Decimal(westData.sumSgMultiplyVi + sumSgMultiplyVi);
+                  }
+                } else {
+                  westData.sumSgMultiplyVi = sumSgMultiplyVi;
+                }
+                
+                westData.eachHour?.forEach((eachHourItem, key) => {
+                  const viEachHour = eachHour.get(key)?.sumVi
+                  const sumHvMultiplyViEachHour = eachHour.get(key)?.sumHvMultiplyVi
+                  const sumSgMultiplyViEachHour = eachHour.get(key)?.sumSgMultiplyVi
+  
+                  if (eachHourItem.sumVi != null) {
+                    if (viEachHour != null) {
+                      eachHourItem.sumVi = parseToNumber6Decimal(eachHourItem.sumVi + viEachHour);
+                    }
+                  } else {
+                    eachHourItem.sumVi = viEachHour;
+                  }
+  
+                  if (eachHourItem.sumHvMultiplyVi != null) {
+                    if (sumHvMultiplyViEachHour != null) {
+                      eachHourItem.sumHvMultiplyVi = parseToNumber6Decimal(eachHourItem.sumHvMultiplyVi + sumHvMultiplyViEachHour);
+                    }
+                  } else {
+                    eachHourItem.sumHvMultiplyVi = sumHvMultiplyViEachHour;
+                  }
+  
+                  if (eachHourItem.sumSgMultiplyVi != null) {
+                    if (sumSgMultiplyViEachHour != null) {
+                      eachHourItem.sumSgMultiplyVi = parseToNumber6Decimal(eachHourItem.sumSgMultiplyVi + sumSgMultiplyViEachHour);
+                    }
+                  } else {
+                    eachHourItem.sumSgMultiplyVi = sumSgMultiplyViEachHour;
+                  }
+                });
+              }
+              else{
+                westData = exist
+              }
+            })
+  
+            const eastHv = (eastData?.sumHvMultiplyVi == null || eastData?.sumVi == null) ? null : (eastData?.sumHvMultiplyVi / eastData?.sumVi);
+            const westHv = (westData?.sumHvMultiplyVi == null || westData?.sumVi == null) ? null : (westData?.sumHvMultiplyVi / westData?.sumVi);
+            const eastSg = (eastData?.sumSgMultiplyVi == null || eastData?.sumVi == null) ? null : (eastData?.sumSgMultiplyVi / eastData?.sumVi);
+            const westSg = (westData?.sumSgMultiplyVi == null || westData?.sumVi == null) ? null : (westData?.sumSgMultiplyVi / westData?.sumVi);
+            const sumVi = (eastToBvw10Value.sumVi == null && westToBvw10Value.sumVi == null) ? null : parseToNumber6Decimal((eastToBvw10Value.sumVi || 0) + (westToBvw10Value.sumVi || 0));
+            const sumHvMultiplyVi = (
+              (eastHv == null && eastToBvw10Value.sumVi == null) || 
+              (westHv == null && westToBvw10Value.sumVi == null)
+            ) ? null
+            : parseToNumber6Decimal(((eastToBvw10Value.sumVi || 0) * (eastHv || 0)) + ((westToBvw10Value.sumVi || 0) * (westHv || 0)));
+  
+            const sumSgMultiplyVi = (
+              (eastSg == null && eastToBvw10Value.sumVi == null) || 
+              (westSg == null && westToBvw10Value.sumVi == null)
+            ) ? null
+            : parseToNumber6Decimal(((eastToBvw10Value.sumVi || 0) * (eastSg || 0)) + ((westToBvw10Value.sumVi || 0) * (westSg || 0)));
+
+
+            const eachHour = new Map<number, { sumVi: number | null, sumHvMultiplyVi: number | null, sumSgMultiplyVi: number | null }>();
+            for (let i = 0; i < 24; i++) {
+              const eastEachHour = eastData?.eachHour?.get(i);
+              const westEachHour = westData?.eachHour?.get(i);
+              const eastToBvw10EachHour = eastToBvw10Value.eachHour?.get(i);
+              const westToBvw10EachHour = westToBvw10Value.eachHour?.get(i);
+              const eastHvEachHour = (eastEachHour?.sumHvMultiplyVi == null || eastEachHour?.sumVi == null) ? null : (eastEachHour?.sumHvMultiplyVi / eastEachHour?.sumVi);
+              const westHvEachHour = (westEachHour?.sumHvMultiplyVi == null || westEachHour?.sumVi == null) ? null : (westEachHour?.sumHvMultiplyVi / westEachHour?.sumVi);
+              const eastSgEachHour = (eastEachHour?.sumSgMultiplyVi == null || eastEachHour?.sumVi == null) ? null : (eastEachHour?.sumSgMultiplyVi / eastEachHour?.sumVi);
+              const westSgEachHour = (westEachHour?.sumSgMultiplyVi == null || westEachHour?.sumVi == null) ? null : (westEachHour?.sumSgMultiplyVi / westEachHour?.sumVi);
+              const sumViEachHour = (eastToBvw10EachHour?.sumVi == null && westToBvw10EachHour?.sumVi == null) ? null : parseToNumber6Decimal((eastToBvw10EachHour?.sumVi || 0) + (westToBvw10EachHour?.sumVi || 0));
+              const sumHvMultiplyViEachHour = (
+                (eastHvEachHour == null && eastToBvw10EachHour?.sumVi == null) || 
+                (westHvEachHour == null && westToBvw10EachHour?.sumVi == null)
+              ) ? null
+              : parseToNumber6Decimal(((eastToBvw10EachHour?.sumVi || 0) * (eastHvEachHour || 0)) + ((westToBvw10EachHour?.sumVi || 0) * (westHvEachHour || 0)));
+    
+              const sumSgMultiplyViEachHour = (
+                (eastSgEachHour == null && eastToBvw10EachHour?.sumVi == null) || 
+                (westSgEachHour == null && westToBvw10EachHour?.sumVi == null)
+              ) ? null
+              : parseToNumber6Decimal(((eastToBvw10EachHour?.sumVi || 0) * (eastSgEachHour || 0)) + ((westToBvw10EachHour?.sumVi || 0) * (westSgEachHour || 0)));
+              eachHour.set(i, {
+                sumVi: sumViEachHour,
+                sumHvMultiplyVi: sumHvMultiplyViEachHour,
+                sumSgMultiplyVi: sumSgMultiplyViEachHour,
+              });
+            }
+  
+            const key = `${`${zone}`.trim().toLowerCase()}-${`${area}`.trim().toLowerCase()}`;
+            result.set(key, {
+              zone_text: zone,
+              area_text: area,
+              entryExit: entryExit,
+              sumVi: sumVi,
+              sumHvMultiplyVi: sumHvMultiplyVi,
+              sumSgMultiplyVi: sumSgMultiplyVi,
+              eachHour: eachHour,
+            });
+            break;
+        }
+      })
+    } catch (error) {
+      console.log('find hv for east-west area error', error);
+    }
+  }
+
+  return result;
+}
+
+
 /**
  * ดึงค่า BTU/SCF จากสัญญา (contract) เพื่อใช้แทนกรณีไม่มี nomination ตามแต่ละ nomination point
  * @param prisma - PrismaService สำหรับดึงข้อมูลสัญญาและ nomination point
@@ -902,6 +1715,14 @@ export async function getContractCodeValueByNominationPoint({
   todayEnd: Date
   dailyAdjustGroupIDList: number[]
 }) {
+  // หาช่วงสัปดาห์ที่ครอบคลุมวันที่เริ่มต้นและสิ้นสุด (สำหรับดึงข้อมูล weekly nomination)
+  const {
+    weekStart: targetWeekStart
+  } = getWeekRange(todayStart)
+  const {
+    weekEnd: targetWeekEnd
+  } = getWeekRange(todayEnd)
+
   // ดึงข้อมูลสัญญาเพื่อนำค่ามาใช้แทนในกรณีที่ไม่มีการ nomination เข้ามา
   const contractData =
     await prisma.contract_code.findMany(
@@ -1062,6 +1883,92 @@ export async function getContractCodeValueByNominationPoint({
         }
       }
     )
+
+  const reserveBalancingGasContractData = await prisma.reserve_balancing_gas_contract.findMany({
+    where: {
+      reserve_balancing_gas_contract_detail: {
+        some: {
+          start_date: {
+            lte: todayEnd,
+          },
+          end_date: {
+            gt: todayStart,
+          },
+        },
+      },
+      query_shipper_nomination_file: {
+        some: {
+          AND: [
+            {
+              OR: [
+                {
+                  nomination_type_id: 1,
+                  gas_day: {
+                    gte: todayStart,
+                    lte: todayEnd,
+                  },
+                },
+                {
+                  AND: [
+                    {
+                      nomination_type_id: 2,
+                      gas_day: {
+                        gte: targetWeekStart,
+                        lte: targetWeekEnd,
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              query_shipper_nomination_status: {
+                id: {
+                  in: [2, 5], // ['Approved', 'Approved by System']
+                },
+              },
+            },
+            {
+              OR: [
+                {
+                  del_flag: false,
+                },
+                {
+                  del_flag: null,
+                },
+              ],
+            },
+            {
+              nomination_version: {
+                some: {
+                  flag_use: true,
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+    select: {
+      id: true,
+      res_bal_gas_contract: true,
+      reserve_balancing_gas_contract_detail: {
+        select: {
+          nomination_point_id: true,
+          nomination_point: true,
+          daily_reserve_cap_mmbtu_d: true
+        },
+      },
+      group: {
+        select: {
+          id: true,
+          name: true,
+          id_name: true,
+        },
+      },
+    },
+  })
+  
   // สร้าง Map สำหรับเก็บข้อมูล contract code ที่จัดกลุ่มตาม nomination point และ contract point
   // Key: nomination_point หรือ contract_point, Value: array ของ contract code พร้อมค่า BTU, SCF และ contract point
   const contractCodeListByNominationPoint =
@@ -1072,11 +1979,12 @@ export async function getContractCodeValueByNominationPoint({
         contractCode: string
         refContractCodeById?: number
         refContractCodeBy?: string
-        BTUD: number
-        BTUH: number
-        SCFD: number
-        SCFH: number
+        BTUD: number | null
+        BTUH: number | null
+        SCFD: number | null
+        SCFH: number | null
         contractPoint: string
+        isReserveBalancingGasContract?: boolean
       }[]
     >()
   const contractCodeListByContractPoint =
@@ -1085,10 +1993,10 @@ export async function getContractCodeValueByNominationPoint({
       {
         contractCodeId: number
         contractCode: string
-        BTUD: number
-        BTUH: number
-        SCFD: number
-        SCFH: number
+        BTUD: number | null
+        BTUH: number | null
+        SCFD: number | null
+        SCFH: number | null
         contractPoint: string
       }[]
     >()
@@ -1540,6 +2448,29 @@ export async function getContractCodeValueByNominationPoint({
       }
     )
 
+  const nominationPointNameListOfReserveBalancingGasContract = reserveBalancingGasContractData.flatMap(item => (item.reserve_balancing_gas_contract_detail || []).map(nom => nom.nomination_point?.nomination_point))
+
+  const nominationPointListForReserveBalancingGasContract = await prisma.nomination_point.findMany(
+    {
+      where: {
+        nomination_point: {
+          in: nominationPointNameListOfReserveBalancingGasContract
+        }
+      },
+      select: {
+        id: true,
+        nomination_point: true,
+        contract_point_list:
+          {
+            select: {
+              id: true,
+              contract_point: true
+            }
+          }
+      }
+    }
+  )
+
   // วนลูปเพื่อ map ข้อมูล contract code จาก contract point ไปยัง nomination point
   for (const nominationPoint of nominationPointList) {
     // วนลูป contract point ทั้งหมดที่เกี่ยวข้องกับ nomination point นี้
@@ -1609,6 +2540,94 @@ export async function getContractCodeValueByNominationPoint({
         }
       }
     )
+  }
+
+  // วนลูปเพื่อ map ข้อมูล reserve balancing gas contract ไปยัง nomination point
+  for (const nominationPoint of nominationPointListForReserveBalancingGasContract) {
+    // ดึง reserve balancing gas contract list ที่เกี่ยวข้องกับ nomination point นี้
+    const reserveBalancingGasContractList = reserveBalancingGasContractData.filter(item => (item.reserve_balancing_gas_contract_detail || []).some(nom => nom.nomination_point?.nomination_point == nominationPoint.nomination_point))
+    if (reserveBalancingGasContractList) {
+      // ดึง reserve balancing gas contract list ที่มีอยู่แล้วสำหรับ nomination point นี้
+      const existingSet = contractCodeListByNominationPoint.get(nominationPoint.nomination_point)
+      if (existingSet) {
+        // ถ้ามีข้อมูลอยู่แล้ว ให้เพิ่ม reserve balancing gas contract ที่ยังไม่มีเข้าไป (ป้องกันการซ้ำ)
+        for (let i = 0; i < reserveBalancingGasContractList.length; i++) {
+          const contractValue = reserveBalancingGasContractList[i]
+          // ตรวจสอบว่ามี reserve balancing gas contract
+          if (existingSet.find((f: {
+              contractCode: string
+              BTUD: number
+              BTUH: number
+              SCFD: number
+              SCFH: number
+              contractPoint: string
+            }) => f.contractCode == contractValue.res_bal_gas_contract)
+          ) {
+            continue // ข้ามถ้ามีอยู่แล้ว
+          }
+          const BTUD = contractValue.reserve_balancing_gas_contract_detail
+            .filter(nom => nom.nomination_point?.nomination_point == nominationPoint.nomination_point)
+            .reduce((acc: number | undefined, curr) => {
+              const value = parseToNumber6Decimal(curr.daily_reserve_cap_mmbtu_d)
+              if(value || value === 0) {
+                if(acc) {
+                  return parseToNumber6Decimal(acc + value)
+                }
+                else{
+                  return value
+                }
+              }
+              return acc
+            }, undefined)
+          existingSet.push({
+            contractCodeId: -1,
+            contractCode: contractValue.res_bal_gas_contract,
+            BTUD: BTUD,
+            BTUH: divideTo3Decimal(BTUD, 24),
+            SCFD: null,
+            SCFH: null,
+            contractPoint: '',
+            isReserveBalancingGasContract: true
+          }) // เพิ่มถ้ายังไม่มี
+        }
+        // contractCodeListByNominationPoint.set(nominationPoint.nomination_point, existingSet);
+      } else {
+        // ถ้ายังไม่มีข้อมูลสำหรับ nomination point นี้ ให้สร้างใหม่
+        let reserveBalancingGasContractValueList = []
+        for (let i = 0; i < reserveBalancingGasContractList.length; i++) {
+          const contractValue = reserveBalancingGasContractList[i]
+          const BTUD = contractValue.reserve_balancing_gas_contract_detail
+            .filter(nom => nom.nomination_point?.nomination_point == nominationPoint.nomination_point)
+            .reduce((acc: number | undefined, curr) => {
+              const value = parseToNumber6Decimal(curr.daily_reserve_cap_mmbtu_d)
+              if(value || value === 0) {
+                if(acc) {
+                  return parseToNumber6Decimal(acc + value)
+                }
+                else{
+                  return value
+                }
+              }
+              return acc
+            }, undefined)
+
+          reserveBalancingGasContractValueList.push({
+            contractCodeId: -1,
+            contractCode: contractValue.res_bal_gas_contract,
+            BTUD: BTUD,
+            BTUH: divideTo3Decimal(BTUD, 24),
+            SCFD: null,
+            SCFH: null,
+            contractPoint: '',
+            isReserveBalancingGasContract: true
+          })
+        }
+        contractCodeListByNominationPoint.set(
+          nominationPoint.nomination_point,
+          reserveBalancingGasContractValueList
+        )
+      }
+    }
   }
 
   return contractCodeListByNominationPoint
@@ -2064,6 +3083,91 @@ export async function getNominationPointListFromActiveContractCode({
         )
     }
 
+    const reserveBalancingGasContractData = await prisma.reserve_balancing_gas_contract.findMany({
+      where: {
+        reserve_balancing_gas_contract_detail: {
+          some: {
+            start_date: {
+              lte: todayEnd,
+            },
+            end_date: {
+              gt: todayStart,
+            },
+          },
+        },
+        // query_shipper_nomination_file: {
+        //   some: {
+        //     AND: [
+        //       {
+        //         OR: [
+        //           {
+        //             nomination_type_id: 1,
+        //             gas_day: {
+        //               gte: todayStart,
+        //               lte: todayEnd,
+        //             },
+        //           },
+        //           {
+        //             AND: [
+        //               {
+        //                 nomination_type_id: 2,
+        //                 gas_day: {
+        //                   gte: weekStart,
+        //                   lte: weekEnd,
+        //                 },
+        //               },
+        //             ],
+        //           },
+        //         ],
+        //       },
+        //       {
+        //         query_shipper_nomination_status: {
+        //           id: {
+        //             in: [2, 5], // ['Approved', 'Approved by System']
+        //           },
+        //         },
+        //       },
+        //       {
+        //         OR: [
+        //           {
+        //             del_flag: false,
+        //           },
+        //           {
+        //             del_flag: null,
+        //           },
+        //         ],
+        //       },
+        //       {
+        //         nomination_version: {
+        //           some: {
+        //             flag_use: true,
+        //           },
+        //         },
+        //       },
+        //     ],
+        //   },
+        // },
+      },
+      select: {
+        id: true,
+        res_bal_gas_contract: true,
+        reserve_balancing_gas_contract_detail: {
+          select: {
+            nomination_point_id: true,
+            nomination_point: true,
+            daily_reserve_cap_mmbtu_d: true
+          },
+        },
+        group: {
+          select: {
+            id: true,
+            name: true,
+            id_name: true,
+          },
+        },
+      },
+    })
+
     // ดึงรายการ nomination_point ที่ผูกกับ contract_point ที่ได้มาจากสัญญา และยัง active อยู่ในช่วงวันที่ todayStart - todayEnd
     const nominationPointList =
       await prisma.nomination_point.findMany(
@@ -2153,6 +3257,32 @@ export async function getNominationPointListFromActiveContractCode({
           area: nominationPoint.area,
           ...contractPoint
         })
+      }
+      const matchNominationPointListOfReserveBalancingGasContract = reserveBalancingGasContractData.map(item => {
+        return {
+          ...item,
+          reserve_balancing_gas_contract_detail: (item.reserve_balancing_gas_contract_detail || [])
+          .filter(nom => nom.nomination_point?.nomination_point == nominationPoint.nomination_point)
+        }
+      })
+      .filter(item => item.reserve_balancing_gas_contract_detail.length > 0)
+      
+      for (const reserveBalancingGasContract of matchNominationPointListOfReserveBalancingGasContract) {
+        for (const reserveBalancingGasContractDetail of reserveBalancingGasContract.reserve_balancing_gas_contract_detail) {
+          const {nomination_point: nominationPointData, ...detail } = reserveBalancingGasContractDetail
+          // push ข้อมูลรวม: nomination_point + reserve_balancing_gas_contract + group
+          result.push({
+            nomination_point_id:
+              nominationPoint.id,
+            nomination_point:
+              nominationPoint.nomination_point,
+            area: nominationPoint.area,
+            isReserveBalancingGasContract: true,
+            reserve_balancing_gas_contract_id: reserveBalancingGasContract.id,
+            reserve_balancing_gas_contract: reserveBalancingGasContract.res_bal_gas_contract,
+            ...detail
+          })
+        }
       }
     }
 
@@ -2545,14 +3675,12 @@ export async function getAdjustNom({
                   result.some(
                     (f) => {
                       return (
-                        f?.point ===
-                          point &&
+                        f?.point === point &&
                         f?.zone_text ===
                           nominationRowJson.zone_text &&
                         f?.area_text ===
                           nominationRowJson.area_text &&
-                        f?.entryExit ===
-                          entryExit &&
+                        f?.entryExit === entryExit &&
                         f?.gas_day ===
                           currentDate.format(
                             'DD/MM/YYYY'
@@ -2624,14 +3752,12 @@ export async function getAdjustNom({
                       f: any
                     ) => {
                       return (
-                        f?.point ===
-                          point &&
+                        f?.point === point &&
                         f?.zone_text ===
                           nominationRowJson.zone_text &&
                         f?.area_text ===
                           nominationRowJson.area_text &&
-                        f?.entryExit ===
-                          entryExit &&
+                        f?.entryExit === entryExit &&
                         f?.gas_day ===
                           currentDate
                             .tz(
@@ -2682,9 +3808,10 @@ export async function getAdjustNom({
                       contract:
                         nominationFile
                           .contract_code
-                          ?.contract_code,
+                          ?.contract_code || nominationFile.reserve_balancing_gas_contract?.res_bal_gas_contract,
                       contract_code_id:
                         nominationFile.contract_code_id,
+                      reserve_balancing_gas_contract_id: nominationFile.reserve_balancing_gas_contract_id,
                       nomination_id:
                         nominationFile.id,
                       nomination_code:
@@ -3159,6 +4286,7 @@ export async function getAdjustNom({
             SCFD: number
             SCFH: number
             contractPoint: string
+            isReserveBalancingGasContract?: boolean
           }[] = []
           // สร้าง array สำหรับเก็บ contract code ที่ไม่ซ้ำกัน
           const uniqeContractCode: string[] =
@@ -3251,10 +4379,8 @@ export async function getAdjustNom({
                                       (
                                         u: any
                                       ) =>
-                                        u.contractCode ===
-                                          contractPointData.contractCode &&
-                                        u.contractPoint ===
-                                          contractPointData.contractPoint
+                                        u.contractCode === contractPointData.contractCode &&
+                                        u.contractPoint === contractPointData.contractPoint
                                     )
                                   ) {
                                     uniqeContractPoint.push(
@@ -3777,8 +4903,9 @@ export async function getAdjustNom({
                         contractPointData.shipper_id_name,
                       contract:
                         contractPointData.contractCode,
-                      contract_code_id:
+                      contract_code_id: contractPointData.isReserveBalancingGasContract ? undefined :
                         contractPointData.contractCodeId,
+                      reserve_balancing_gas_contract_id: undefined,
                       nomination_id:
                         undefined, // nominationFile.id,
                       nomination_code:
@@ -3863,7 +4990,7 @@ export async function getAdjustNom({
               .nomination_point
               .area.name &&
           isMatch(
-            target?.entryExit,
+            target && target?.entryExit,
             dailyAdjustmentNom
               .nomination_point
               .entry_exit.name
@@ -3888,7 +5015,7 @@ export async function getAdjustNom({
             )
         ) {
           if (
-            target.timeShow &&
+            target && target.timeShow &&
             Array.isArray(
               target.timeShow
             ) &&
@@ -3917,6 +5044,7 @@ export async function getAdjustNom({
             // สำหรับ Exit point: คำนวณค่า volume (MMSCFD, MMSCFH) จาก energy (MMBTU) โดยใช้ heating value
             // และเก็บค่า adjustment ไว้ใน timeShow items ที่เกิดขึ้นก่อนเวลา adjustment
             if (
+              target && 
               isMatch(
                 target?.entryExit,
                 'Exit'
@@ -4189,6 +5317,7 @@ export async function getAdjustNom({
 
             // สำหรับ Exit point: คำนวณค่า volume จาก energy โดยใช้ heating value
             if (
+              target && 
               isMatch(
                 target?.entryExit,
                 'Exit'
@@ -4752,9 +5881,10 @@ export async function getAdjustNom({
           shipper_id_name:
             nominationPoint.group_id_name,
           contract:
-            nominationPoint.contract_code,
+            nominationPoint.contract_code || nominationPoint.reserve_balancing_gas_contract,
           contract_code_id:
             nominationPoint.contract_code_id,
+          reserve_balancing_gas_contract_id: nominationPoint.reserve_balancing_gas_contract_id,
           // "nomination_id": nominationFile.id,
           // "nomination_code": nominationFile.nomination_code,
           zone_text:
@@ -4810,9 +5940,9 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
   // ดึงข้อมูล nomination files ทั้งแบบรายวัน (type 1) และรายสัปดาห์ (type 2)
   const nominationData: queryShipperNominationFileWithRelationsForCal[] = await prisma.query_shipper_nomination_file.findMany({
     where: {
-      NOT: {
-        contract_code_id: null,
-      }, // revers bal ไม่แสดง effect
+      // NOT: {
+      //   contract_code_id: null,
+      // }, // revers bal ไม่แสดง effect
       AND: [
         {
           OR: [
@@ -5116,21 +6246,6 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
 
   // วนลูปย้อนหลังจากวันสุดท้ายไปวันแรก
   while (currentDate.isSameOrAfter(startDayjs)) {
-    // // กรอง nomination แบบรายวันสำหรับวันที่กำลังประมวลผล
-    // const dailyNominationList = nominationData.filter(
-    //   nominationFile =>
-    //     dayjs(nominationFile.gas_day).isSame(currentDate, 'day') &&
-    //     nominationFile.nomination_type_id == 1
-    // );
-
-    // // กรอง nomination แบบรายสัปดาห์สำหรับสัปดาห์ที่กำลังประมวลผล
-    // // ข้ามถ้ามี daily nomination สำหรับ contract เดียวกันแล้ว (daily nomination มีลำดับความสำคัญสูงกว่า)
-    // const weeklyNominationList = nominationData.filter(
-    //   nominationFile =>
-    //     dayjs(nominationFile.gas_day).isSame(currentDate, 'week') &&
-    //     nominationFile.nomination_type_id == 2 &&
-    //     !dailyNominationList.some(daily => daily.contract_code_id == nominationFile.contract_code_id)
-    // );
 
     const hvFromEntryArea = await findHvFromEntryArea({
       prisma,
@@ -5141,12 +6256,13 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
 
     eachDateHvFromEntryArea.set(currentDate.tz('Asia/Bangkok').format('DD/MM/YYYY'), hvFromEntryArea)
 
-    // [...dailyNominationList, ...weeklyNominationList].map(nominationFile => {
     nominationData.map((nominationFile) => {
+      if(nominationFile.contract_code){
       const contractStartDate = dayjs(nominationFile.contract_code?.contract_start_date);
       const contractEndDate = dayjs(nominationFile.contract_code?.terminate_date || nominationFile.contract_code?.extend_deadline || nominationFile.contract_code?.contract_end_date);
       if(currentDate.isBefore(contractStartDate) || currentDate.isSameOrAfter(contractEndDate)){
         return;
+      }
       }
 
       nominationFile.nomination_version.map((nominationVersion) => {
@@ -5192,8 +6308,9 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
                   group_id: nominationFile.group_id,
                   shipper_name: nominationFile.group?.name,
                   shipper_id_name: nominationFile.group?.id_name,
-                  contract: nominationFile.contract_code?.contract_code,
+                  contract: nominationFile.contract_code?.contract_code || nominationFile.reserve_balancing_gas_contract?.res_bal_gas_contract,
                   contract_code_id: nominationFile.contract_code_id,
+                  reserve_balancing_gas_contract_id: nominationFile.reserve_balancing_gas_contract_id,
                   nomination_id: nominationFile.id,
                   nomination_code: nominationFile.nomination_code,
                   zone_text: nominationRowJson.zone_text,
@@ -5275,14 +6392,14 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
             if(mmscfNominationRowJson){
               const mmscfNominationRowJsonDataTemp = JSON.parse(mmscfNominationRowJson.data_temp);
               const mmscfFromExcel = readNomFromJsonAs3Decimal(mmscfNominationRowJsonDataTemp, `${14 + dayOfWeek}`);
-              valueMmscfh = mmscfFromExcel == null ? null : divideTo3Decimal(mmscfFromExcel, 24);
+              valueMmscfh = mmscfFromExcel == null ? null : divideTo6Decimal(mmscfFromExcel, 24);
               valueMmscfd = valueMmscfh * 24;
             }
           } else {
             vi = readNomFromJsonAs3Decimal(nominationRowJsonDataTemp, '38');
             if(mmscfNominationRowJson){
               const mmscfNominationRowJsonDataTemp = JSON.parse(mmscfNominationRowJson.data_temp);
-              valueMmscfd = readNomFromJsonAs3Decimal(mmscfNominationRowJsonDataTemp, '38');
+              valueMmscfd = readNomFromJsonAs6Decimal(mmscfNominationRowJsonDataTemp, '38');
             }
           }
 
@@ -5309,8 +6426,9 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
               group_id: nominationFile.group_id,
               shipper_name: nominationFile.group?.name,
               shipper_id_name: nominationFile.group?.id_name,
-              contract: nominationFile.contract_code?.contract_code,
+              contract: nominationFile.contract_code?.contract_code || nominationFile.reserve_balancing_gas_contract?.res_bal_gas_contract,
               contract_code_id: nominationFile.contract_code_id,
+              reserve_balancing_gas_contract_id: nominationFile.reserve_balancing_gas_contract_id,
               nomination_id: nominationFile.id,
               nomination_code: nominationFile.nomination_code,
               zone_text: nominationRowJson.zone_text,
@@ -5367,6 +6485,8 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
           // ข้อมูลชั่วโมงเริ่มที่ตำแหน่ง 14 (H1 = 00:00, H2 = 01:00, ..., H24 = 23:00)
           const h1Key = 14;
           for (let i = 0; i <= 23; i++) {
+            let valueHourlyMmscfd = valueMmscfd;
+            let valueHourlyMmscfh = valueMmscfh;
             if (nominationFile.nomination_type_id == 1) {
               hourlyVi = readNomFromJsonAs3Decimal(nominationRowJsonDataTemp, `${h1Key + i}`);
             }
@@ -5387,11 +6507,11 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
                 eachHour: hvFromEntryAreaData.eachHour,
               });
               if ((hvFromEntryAreaData.sumHvMultiplyVi || hvFromEntryAreaData.sumHvMultiplyVi == 0) && hvFromEntryAreaData.sumVi) {
-                if (vi != null && !valueMmscfd && valueMmscfd != 0) {
-                  const calculatedHeatingValueFromNom = hvFromEntryAreaData.sumHvMultiplyVi / hvFromEntryAreaData.sumVi;
-                  valueMmscfd = vi / calculatedHeatingValueFromNom;
+                if (vi != null && !valueHourlyMmscfd && valueHourlyMmscfd != 0) {
+                  const calculatedHeatingValueFromNom = divideTo8Decimal(hvFromEntryAreaData.sumHvMultiplyVi, hvFromEntryAreaData.sumVi);
+                  valueHourlyMmscfd = divideTo6Decimal(vi, calculatedHeatingValueFromNom);
                 }
-                if (hourlyVi != null && !valueMmscfh && valueMmscfh != 0) {
+                if (hourlyVi != null && !valueHourlyMmscfh && valueHourlyMmscfh != 0) {
                   let sumHvMultiplyVi = hvFromEntryAreaData.eachHour?.get(i)?.sumHvMultiplyVi
                   if(!sumHvMultiplyVi && sumHvMultiplyVi != 0){
                     sumHvMultiplyVi = hvFromEntryAreaData.sumHvMultiplyVi
@@ -5400,8 +6520,8 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
                   if(!sumVi && sumVi != 0){
                     sumVi = hvFromEntryAreaData.sumVi
                   }
-                  const calculatedHeatingValueFromNom = sumHvMultiplyVi / sumVi;
-                  valueMmscfh = hourlyVi / calculatedHeatingValueFromNom;
+                  const calculatedHeatingValueFromNom = divideTo8Decimal(sumHvMultiplyVi, sumVi);
+                  valueHourlyMmscfh = divideTo6Decimal(hourlyVi, calculatedHeatingValueFromNom);
                 }
               }
             }
@@ -5416,9 +6536,9 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
                 timeShow.push({
                   time: key,
                   value: vi,
-                  valueMmscfd: valueMmscfd,
+                  valueMmscfd: valueHourlyMmscfd || valueMmscfd,
                   valuePerHour: hourlyVi,
-                  valueMmscfh: valueMmscfh,
+                  valueMmscfh: valueHourlyMmscfh || valueMmscfh,
                   heatingValueFromNomList: heatingValueFromNomList,
                   heatingValueFromAdjust: null,
                   volumeFromAdjust: null,
@@ -5445,8 +6565,8 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
                 timeShowValue = timeShow[timeShowIndex].value;
                 timeShowValuePerHour = timeShow[timeShowIndex].valuePerHour;
                 if (isMatch(entryExit, 'Exit')) {
-                  newVi = valueMmscfd;
-                  newHourlyVi = valueMmscfh;
+                  newVi = valueHourlyMmscfd || valueMmscfd;
+                  newHourlyVi = valueHourlyMmscfh || valueMmscfh;
                 }
               } else {
                 timeShowValue = timeShow[timeShowIndex].valueMmscfd;
@@ -5512,8 +6632,10 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
     // วนลูปแต่ละ nomination point ที่ต้องการ adjust
     for (const dailyAdjustmentNom of adjust.daily_adjustment_nom) {
       // ดึงค่า adjust value (ใช้ค่ารายชั่วโมงถ้ามี ถ้าไม่มีให้แบ่งค่ารายวันด้วย 24)
-      const adjustEnergy = parseToNumber3Decimal(dailyAdjustmentNom.valume_mmscfh2) ?? (parseToNumber3Decimal(dailyAdjustmentNom.valume_mmscfd2) / 24);
-      const adjustVolume = parseToNumber6Decimal(dailyAdjustmentNom.valume_mmscfh) ?? (parseToNumber6Decimal(dailyAdjustmentNom.valume_mmscfd) / 24);
+      const adjustEnergy = parseToNumber3Decimal(dailyAdjustmentNom.valume_mmscfh2) ?? divideTo3Decimal(parseToNumber3Decimal(dailyAdjustmentNom.valume_mmscfd2), 24);
+      const adjustVolume = parseToNumber6Decimal(dailyAdjustmentNom.valume_mmscfh) ?? divideTo6Decimal(parseToNumber6Decimal(dailyAdjustmentNom.valume_mmscfd), 24);
+      // const adjustEnergy24H = parseToNumber3Decimal(dailyAdjustmentNom.valume_mmscfd2) ?? parseToNumber3Decimal(parseToNumber3Decimal(dailyAdjustmentNom.valume_mmscfh2) * 24);
+      const adjustVolume24H = parseToNumber6Decimal(dailyAdjustmentNom.valume_mmscfd) ?? parseToNumber6Decimal(parseToNumber6Decimal(dailyAdjustmentNom.valume_mmscfh) * 24);
       const heatingValue = parseToNumber6Decimal(dailyAdjustmentNom.heating_value);
 
       const valueByContractCodeAndContractPoint = new Map<
@@ -5544,6 +6666,7 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
             SCFD: number;
             SCFH: number;
             contractPoint: string;
+            isReserveBalancingGasContract?: boolean
           }[] = [];
           // สร้าง array สำหรับเก็บ contract code ที่ไม่ซ้ำกัน
           const uniqeContractCode: string[] = [];
@@ -5806,7 +6929,8 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
                   shipper_name: contractPointData.shipper_name,
                   shipper_id_name: contractPointData.shipper_id_name,
                   contract: contractPointData.contractCode,
-                  contract_code_id: contractPointData.contractCodeId,
+                  contract_code_id: contractPointData.isReserveBalancingGasContract ? undefined : contractPointData.contractCodeId,
+                  reserve_balancing_gas_contract_id: undefined,
                   nomination_id: undefined, // nominationFile.id,
                   nomination_code: undefined, // nominationFile.nomination_code,
                   zone_text: dailyAdjustmentNom.nomination_point?.zone?.name,
@@ -5869,7 +6993,7 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
             result[index].timeShow[timeShowIndex].valuePerHour = valuePerHour;
 
             // สำหรับ Exit point: คำนวณค่า volume จาก energy โดยใช้ heating value
-            if (isMatch(target?.entryExit, 'Exit')) {
+            if (target && isMatch(target?.entryExit, 'Exit')) {
               if (heatingValue) {
                 // คำนวณค่า volume รายวัน (MMSCFD) = Energy (MMBTU/D) / Heating Value
                 const valueMmscfd = value.BTUD / heatingValue;
@@ -5903,10 +7027,10 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
 
       // หา result items ที่ต้องการ adjust (ต้องตรงกับ point, zone, area, entry/exit, gas_day และอยู่ใน group ที่กำหนด)
       const adjustTargetList = result.filter(target => 
-        target?.point == dailyAdjustmentNom.nomination_point?.nomination_point &&
-        isMatch(target?.zone_text, dailyAdjustmentNom.nomination_point?.zone?.name) &&
-        isMatch(target?.area_text, dailyAdjustmentNom.nomination_point?.area?.name) &&
-        isMatch(target?.entryExit, dailyAdjustmentNom.nomination_point?.entry_exit?.name) &&
+        (target && target?.point) == dailyAdjustmentNom.nomination_point?.nomination_point &&
+        isMatch((target && target?.zone_text), dailyAdjustmentNom.nomination_point?.zone?.name) &&
+        isMatch((target && target?.area_text), dailyAdjustmentNom.nomination_point?.area?.name) &&
+        isMatch((target && target?.entryExit), dailyAdjustmentNom.nomination_point?.entry_exit?.name) &&
         target?.gas_day === adjustGasDay &&
         adjust.daily_adjustment_group.map((item) => item.group.id).includes(target?.group_id) &&
         (target.timeShow && Array.isArray(target.timeShow) && target.timeShow.length > 0) 
@@ -5918,7 +7042,7 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
 
         // หาค่าล่าสุดก่อนเวลา adjustment (เพื่อใช้ในการคำนวณสัดส่วนการกระจายค่า adjust)
         // กรอง timeShow ที่มีเวลาก่อน adjustment time
-        const timeShowBeforeAdjust = target.timeShow.filter((timeItem: any) => {
+        const timeShowBeforeAdjust = (target.timeShow || []).filter((timeItem: any) => {
           const timeItemMinutes = timeToMinutes(timeItem.time);
           return timeItemMinutes < adjustTimeMinutes;
         });
@@ -5966,7 +7090,7 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
               list: resultThisRound,
               zone: target.zone_text,
               area: target.area_text,
-              entryExit: target?.entryExit,
+              entryExit: target && target?.entryExit,
               point: target.point,
               gasDay: target?.gas_day,
               time: target.timeShow[timeShowIndex].time,
@@ -6089,7 +7213,7 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
               list: resultThisRound,
               zone: target.zone_text,
               area: target.area_text,
-              entryExit: target?.entryExit,
+              entryExit: target && target?.entryExit,
               point: target.point,
               gasDay: target?.gas_day,
               time: refTimeShow.time,
@@ -6248,7 +7372,8 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
           group_id: 0,
           shipper_id_name: '',
           contract: '',
-          contract_code_id: 0,
+          contract_code_id: undefined,
+          reserve_balancing_gas_contract_id: undefined,
           total: 0,
           totalType: 'daily'
         }
@@ -6274,8 +7399,8 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
         });
 
         // คำนวณค่าใหม่ตามสัดส่วน
-        const newMmscfh = activeContractCodeList.length > 0 ? adjustVolume / activeContractCodeList.length : null;
-        const newMmbtuh = activeContractCodeList.length > 0 ? adjustEnergy / activeContractCodeList.length : null;
+        const newMmscfh = activeContractCodeList.length > 0 ? divideTo6Decimal(adjustVolume, activeContractCodeList.length) : null;
+        const newMmbtuh = activeContractCodeList.length > 0 ? divideTo6Decimal(adjustEnergy, activeContractCodeList.length) : null;
 
         if(newAdjustResultList.length > 0){
           newAdjustResultList.forEach(newItem => {
@@ -6333,6 +7458,147 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
           time: adjustTime,
         });
       }
+
+      // หา result items ที่ถูก adjust แล้ว (ต้องตรงกับ point, zone, area, entry/exit, gas_day และอยู่ใน group ที่กำหนด) เพื่อ reconcile ส่วนต่างจากการปัดเศษ/กระจายค่า
+      const adjustedList = result.filter(target => 
+        (target && target?.point) == dailyAdjustmentNom.nomination_point?.nomination_point &&
+        isMatch((target && target?.zone_text), dailyAdjustmentNom.nomination_point?.zone?.name) &&
+        isMatch((target && target?.area_text), dailyAdjustmentNom.nomination_point?.area?.name) &&
+        isMatch((target && target?.entryExit), dailyAdjustmentNom.nomination_point?.entry_exit?.name) &&
+        target?.gas_day === adjustGasDay &&
+        adjust.daily_adjustment_group.map((item) => item.group.id).includes(target?.group_id) &&
+        (target.timeShow && Array.isArray(target.timeShow) && target.timeShow.length > 0)
+      )
+      .sort((a, b) =>
+          String(a.gas_day ?? '').localeCompare(String(b.gas_day ?? '')) ||
+          String(a.contract ?? '').localeCompare(String(b.contract ?? '')) ||
+          String(a.shipper_id_name ?? '').localeCompare(String(b.shipper_id_name ?? '')),
+      )
+
+      const reconcileFromHour: number = Math.ceil(adjustTimeMinutes / 60);
+      for (let i = reconcileFromHour; i < 24; i++) {
+        // let maxMember : adjustNomDataType | undefined = undefined;
+        let maxMemberPerHour : adjustNomDataType | undefined = undefined;
+        let maxMemberMmscfd : adjustNomDataType | undefined = undefined;
+        let maxMemberMmscfh : adjustNomDataType | undefined = undefined;
+        // let maxValue : number | undefined = undefined;
+        let maxValuePerHour : number | undefined = undefined;
+        let maxValueMmscfd : number | undefined = undefined;
+        let maxValueMmscfh : number | undefined = undefined;
+        
+        const eachHourSumValue: timeShowDataType = {
+          time: `${i.toString().padStart(2, '0')}:00`,
+          value: 0,
+          valueMmscfd: null,
+          valuePerHour: null,
+          valueMmscfh: null,
+          heatingValueFromAdjust: null,
+          volumeFromAdjust: null,
+          energyFromAdjust: null,
+          isAdjust: false,
+        };
+        adjustedList.map(target => {
+          const eachHourValue = target.timeShow.find((timeShow) => timeToMinutes(timeShow.time) == i*60)
+          if(eachHourValue){
+            if(eachHourValue.energyFromAdjust || eachHourValue.energyFromAdjust == 0){
+              eachHourSumValue.energyFromAdjust = eachHourValue.energyFromAdjust
+            }
+            if(eachHourValue.volumeFromAdjust || eachHourValue.volumeFromAdjust == 0){
+              eachHourSumValue.volumeFromAdjust = eachHourValue.volumeFromAdjust
+            }
+            if(eachHourValue.heatingValueFromAdjust || eachHourValue.heatingValueFromAdjust == 0){
+              eachHourSumValue.heatingValueFromAdjust = eachHourValue.heatingValueFromAdjust
+            }
+            if(eachHourValue.isAdjust == true){
+              eachHourSumValue.isAdjust = true
+            }
+            if(eachHourValue.value || eachHourValue.value == 0){
+              // const memberValue = parseToNumber3Decimal(eachHourValue.value)
+              // if (!maxValue || memberValue > maxValue) {
+              //   maxMember = target;
+              //   maxValue = memberValue;
+              // }
+              if(eachHourSumValue.value){
+                eachHourSumValue.value = parseToNumber3Decimal(eachHourSumValue.value + eachHourValue.value)
+              }
+              else{
+                eachHourSumValue.value = parseToNumber3Decimal(eachHourValue.value)
+              }
+            }
+            if(eachHourValue.valueMmscfd || eachHourValue.valueMmscfd == 0){
+              const memberValue = parseToNumber6Decimal(eachHourValue.valueMmscfd)
+              if (!maxValueMmscfd || memberValue > maxValueMmscfd) {
+                maxMemberMmscfd = target;
+                maxValueMmscfd = memberValue;
+              }
+              if(eachHourSumValue.valueMmscfd){
+                eachHourSumValue.valueMmscfd = parseToNumber6Decimal(eachHourSumValue.valueMmscfd + eachHourValue.valueMmscfd)
+              }
+              else{
+                eachHourSumValue.valueMmscfd = parseToNumber6Decimal(eachHourValue.valueMmscfd)
+              }
+            }
+            if(eachHourValue.valuePerHour || eachHourValue.valuePerHour == 0){
+              const memberValue = parseToNumber3Decimal(eachHourValue.valuePerHour)
+              if (!maxValuePerHour || memberValue > maxValuePerHour) {
+                maxMemberPerHour = target;
+                maxValuePerHour = memberValue;
+              }
+              if(eachHourSumValue.valuePerHour){
+                eachHourSumValue.valuePerHour = parseToNumber3Decimal(eachHourSumValue.valuePerHour + eachHourValue.valuePerHour)
+              }
+              else{
+                eachHourSumValue.valuePerHour = parseToNumber3Decimal(eachHourValue.valuePerHour)
+              }
+            }
+            if(eachHourValue.valueMmscfh || eachHourValue.valueMmscfh == 0){
+              const memberValue = parseToNumber6Decimal(eachHourValue.valueMmscfh)
+              if (!maxValueMmscfh || memberValue > maxValueMmscfh) {
+                maxMemberMmscfh = target;
+                maxValueMmscfh = memberValue;
+              }
+              if(eachHourSumValue.valueMmscfh){
+                eachHourSumValue.valueMmscfh = parseToNumber6Decimal(eachHourSumValue.valueMmscfh + eachHourValue.valueMmscfh)
+              }
+              else{
+                eachHourSumValue.valueMmscfh = parseToNumber6Decimal(eachHourValue.valueMmscfh)
+              }
+            }
+          }
+        })
+
+        // if(eachHourSumValue.value != adjustEnergy24H && maxMember){
+        //   const targetTimeShowIndex = maxMember.timeShow.findIndex((timeShow) => timeToMinutes(timeShow.time) == i*60)
+        //   if(targetTimeShowIndex >= 0){
+        //     const diff = parseToNumber3Decimal(adjustEnergy24H - eachHourSumValue.value)
+        //     maxMember.timeShow[targetTimeShowIndex].value = parseToNumber3Decimal(parseToNumber3Decimal(maxMember.timeShow[targetTimeShowIndex].value) + diff)
+        //   }
+        // }
+
+        if(eachHourSumValue.valueMmscfd != adjustVolume24H && maxMemberMmscfd){
+          const targetTimeShowIndex = maxMemberMmscfd.timeShow.findIndex((timeShow) => timeToMinutes(timeShow.time) == i*60)
+          if(targetTimeShowIndex >= 0){
+            const diff = parseToNumber6Decimal(adjustVolume24H - eachHourSumValue.valueMmscfd)
+            maxMemberMmscfd.timeShow[targetTimeShowIndex].valueMmscfd = parseToNumber6Decimal(parseToNumber6Decimal(maxMemberMmscfd.timeShow[targetTimeShowIndex].valueMmscfd) + diff)
+          }
+        }
+
+        if(eachHourSumValue.valuePerHour != adjustEnergy && maxMemberPerHour){
+          const targetTimeShowIndex = maxMemberPerHour.timeShow.findIndex((timeShow) => timeToMinutes(timeShow.time) == i*60)
+          if(targetTimeShowIndex >= 0){
+            const diff = parseToNumber3Decimal(adjustEnergy - eachHourSumValue.valuePerHour)
+            maxMemberPerHour.timeShow[targetTimeShowIndex].valuePerHour = parseToNumber3Decimal(parseToNumber3Decimal(maxMemberPerHour.timeShow[targetTimeShowIndex].valuePerHour) + diff)
+          }
+        }
+
+        if(eachHourSumValue.valueMmscfh != adjustVolume && maxMemberMmscfh){
+          const targetTimeShowIndex = maxMemberMmscfh.timeShow.findIndex((timeShow) => timeToMinutes(timeShow.time) == i*60)
+          if(targetTimeShowIndex >= 0){
+            const diff = parseToNumber6Decimal(adjustVolume - eachHourSumValue.valueMmscfh)
+            maxMemberMmscfh.timeShow[targetTimeShowIndex].valueMmscfh = parseToNumber6Decimal(parseToNumber6Decimal(maxMemberMmscfh.timeShow[targetTimeShowIndex].valueMmscfh) + diff)
+          }
+        }
+      }
     }
   }
 
@@ -6382,8 +7648,9 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
           group_id: nominationPoint.group_id,
           shipper_name: nominationPoint.group_name,
           shipper_id_name: nominationPoint.group_id_name,
-          contract: nominationPoint.contract_code,
+          contract: nominationPoint.contract_code || nominationPoint.reserve_balancing_gas_contract,
           contract_code_id: nominationPoint.contract_code_id,
+          reserve_balancing_gas_contract_id: nominationPoint.reserve_balancing_gas_contract_id,
           // "nomination_id": nominationFile.id,
           // "nomination_code": nominationFile.nomination_code,
           zone_text: nominationPoint.zone_text,
@@ -6438,6 +7705,7 @@ function ensureMissingActiveContractsInAdjustResult({
     contractCode: string;
     refContractCodeById?: number;
     refContractCodeBy?: string;
+    isReserveBalancingGasContract?: boolean;
   }[];
   adjustGroupContractCodes: {
     contractCodeId: number;
@@ -6479,7 +7747,8 @@ function ensureMissingActiveContractsInAdjustResult({
       shipper_name: groupInfo.shipper_name,
       shipper_id_name: groupInfo.shipper_id_name,
       contract: activeContract.contractCode,
-      contract_code_id: activeContract.contractCodeId,
+      contract_code_id: activeContract.isReserveBalancingGasContract ? undefined : activeContract.contractCodeId,
+      reserve_balancing_gas_contract_id: undefined,
       zone_text: target.zone_text,
       area_text: target.area_text,
       point: target.point,
@@ -6881,35 +8150,57 @@ export function sumValueByTimeShow(timeShow: timeShowDataType[]) {
       }
       // สมมติค่าในแต่ละ field กระจายเท่ากันตลอดชั่วโมง → น้ำหนัก = (ค่า/60) * activeMinutes
       if (timeShowItem.value || timeShowItem.value == 0) {
-        const activeValue = (timeShowItem.value / 60) * activeMinutes;
+        const value = parseToNumber3Decimal(timeShowItem.value)
+        const activeValue = parseToNumber3Decimal(divideTo8Decimal(value, 60) * activeMinutes);
+        const reverseValue= parseToNumber3Decimal(divideTo8Decimal(activeValue, activeMinutes) * 60);
         if (sumValue) {
           sumValue = parseToNumber6Decimal(sumValue + activeValue);
         } else {
           sumValue = parseToNumber6Decimal(activeValue);
         }
+        // ตอนเทสเขาใช้ค่าที่เฉลี่ยแล้วปัดของแต่ละ contract มารวมกัน แต่ code เป็นรวมแต่ละ contract ก่อนจะเฉลี่ยเลยต้องเพิ่ม if นี้เข้ามา
+        if(orderByMinutes.length > 1 && reverseValue != value){
+          timeShowItem.value = reverseValue;
+        }
       }
       if (timeShowItem.valuePerHour || timeShowItem.valuePerHour == 0) {
-        const activeValue = (timeShowItem.valuePerHour / 60) * activeMinutes;
+        const value = parseToNumber3Decimal(timeShowItem.valuePerHour)
+        const activeValue = parseToNumber3Decimal(divideTo8Decimal(value, 60) * activeMinutes);
+        const reverseValue = parseToNumber3Decimal(divideTo8Decimal(activeValue, activeMinutes) * 60);
         if (sumValuePerHour) {
           sumValuePerHour = parseToNumber6Decimal(sumValuePerHour + activeValue);
         } else {
           sumValuePerHour = parseToNumber6Decimal(activeValue);
         }
+        // ตอนเทสเขาใช้ค่าที่เฉลี่ยแล้วปัดของแต่ละ contract มารวมกัน แต่ code เป็นรวมแต่ละ contract ก่อนจะเฉลี่ยเลยต้องเพิ่ม if นี้เข้ามา
+        if(orderByMinutes.length > 1 && reverseValue != value){
+          timeShowItem.valuePerHour = reverseValue;
+        }
       }
       if (timeShowItem.valueMmscfd || timeShowItem.valueMmscfd == 0) {
-        const activeValue = (timeShowItem.valueMmscfd / 60) * activeMinutes;
+        const value = parseToNumber6Decimal(timeShowItem.valueMmscfd)
+        const activeValue = parseToNumber6Decimal(divideTo8Decimal(value, 60) * activeMinutes);
+        const reverseValue = parseToNumber6Decimal(divideTo8Decimal(activeValue, activeMinutes) * 60);
         if (sumValueMmscfd) {
           sumValueMmscfd = parseToNumber6Decimal(sumValueMmscfd + activeValue);
         } else {
           sumValueMmscfd = parseToNumber6Decimal(activeValue);
         }
+        if(orderByMinutes.length > 1 && reverseValue != value){
+          timeShowItem.valueMmscfd = reverseValue;
+        }
       }
       if (timeShowItem.valueMmscfh || timeShowItem.valueMmscfh == 0) {
-        const activeValue = (timeShowItem.valueMmscfh / 60) * activeMinutes;
+        const value = parseToNumber6Decimal(timeShowItem.valueMmscfh)
+        const activeValue = parseToNumber6Decimal(divideTo8Decimal(value, 60) * activeMinutes);
+        const reverseValue = parseToNumber6Decimal(divideTo8Decimal(activeValue, activeMinutes) * 60);
         if (sumValueMmscfh) {
           sumValueMmscfh = parseToNumber6Decimal(sumValueMmscfh + activeValue);
         } else {
           sumValueMmscfh = parseToNumber6Decimal(activeValue);
+        }
+        if(orderByMinutes.length > 1 && reverseValue != value){
+          timeShowItem.valueMmscfh = reverseValue;
         }
       }
     });
@@ -6935,4 +8226,84 @@ export function sumValueByTimeShow(timeShow: timeShowDataType[]) {
   }
 
   return timeShow;
+}
+
+export function sumValueMmscfAfterGrouped(groupedList: groupedAdjustNomDataType[]){
+  groupedList.map((groupedItem: groupedAdjustNomDataType) => {
+    // เรียงตามเวลาเพื่อให้การคำนวณช่วง activeMinutes ถูกต้อง
+    const timeShow = groupedItem.timeShow
+      .filter(timeShowItem => timeShowItem.time != 'Total')
+      .sort((a, b) => {
+        return timeToMinutes(a.time) - timeToMinutes(b.time);
+      });
+
+    const totalTimeShowIndex = groupedItem.timeShow.findIndex((timeShowItem: timeShowDataType) => timeShowItem.time == 'Total')
+
+    // จัดกลุ่มตามชั่วโมง (ส่วน HH ของ "HH:mm") เพื่อคำนวณทีละชั่วโมง
+    const groupByHour = timeShow.reduce(
+      (acc: Record<string, timeShowDataType[]>, timeShowItem: timeShowDataType) => {
+        const hour = timeShowItem.time.split(':')[0];
+        if (!acc[hour]) {
+          acc[hour] = [];
+        }
+        acc[hour].push(timeShowItem);
+        return acc;
+      },
+      {} as Record<string, timeShowDataType[]>,
+    );
+
+    let sumValueMmscfd: number | null = null;
+    let sumValueMmscfh: number | null = null;
+    for (const [hour, timeShowItems] of Object.entries(groupByHour)) {
+      const orderByMinutes = timeShowItems.filter(item => item.time != 'Total').sort((a, b) => {
+        return timeToMinutes(a.time) - timeToMinutes(b.time);
+      });
+      orderByMinutes.map((timeShowItem: timeShowDataType, index: number) => {
+        const [hours, minutes] = timeShowItem.time.split(':').map(Number);
+  
+        // จำนวนนาทีที่ค่านี้มีผล: จนถึงจุดถัดไปในชั่วโมงเดียวกัน หรือจนสิ้นชั่วโมง (นาที 59→60)
+        let activeMinutes = 60;
+        if (index < orderByMinutes.length - 1) {
+          const nextTimeShow = orderByMinutes[index + 1];
+          const [nextHours, nextMinutes] = nextTimeShow.time.split(':').map(Number);
+          activeMinutes = nextMinutes - minutes;
+        } else {
+          activeMinutes = 60 - minutes;
+        }
+        // สมมติค่าในแต่ละ field กระจายเท่ากันตลอดชั่วโมง → น้ำหนัก = (ค่า/60) * activeMinutes
+        if (timeShowItem.valueMmscfd || timeShowItem.valueMmscfd == 0) {
+          const value = parseToNumber6Decimal(timeShowItem.valueMmscfd)
+          const activeValue = parseToNumber6Decimal(divideTo8Decimal(value, 60) * activeMinutes);
+          const activeValuePerHour = divideTo6Decimal(activeValue, 24);
+          if (sumValueMmscfd) {
+            sumValueMmscfd = parseToNumber6Decimal(sumValueMmscfd + activeValue);
+          } else {
+            sumValueMmscfd = parseToNumber6Decimal(activeValue);
+          }
+
+          if (sumValueMmscfh) {
+            sumValueMmscfh = parseToNumber6Decimal(sumValueMmscfh + activeValuePerHour);
+          } else {
+            sumValueMmscfh = parseToNumber6Decimal(activeValuePerHour);
+          }
+        }
+        // if (timeShowItem.valueMmscfh || timeShowItem.valueMmscfh == 0) {
+        //   const value = parseToNumber6Decimal(timeShowItem.valueMmscfh)
+        //   const activeValue = parseToNumber6Decimal(divideTo8Decimal(value, 60) * activeMinutes);
+        //   if (sumValueMmscfh) {
+        //     sumValueMmscfh = parseToNumber6Decimal(sumValueMmscfh + activeValue);
+        //   } else {
+        //     sumValueMmscfh = parseToNumber6Decimal(activeValue);
+        //   }
+        // }
+      });
+    }
+
+    if(totalTimeShowIndex >= 0){
+      groupedItem.timeShow[totalTimeShowIndex].valueMmscfd = sumValueMmscfd;
+      groupedItem.timeShow[totalTimeShowIndex].valueMmscfh = sumValueMmscfh;
+    }
+  })
+
+  return groupedList;
 }

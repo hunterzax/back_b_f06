@@ -44,7 +44,7 @@ import {
 } from 'src/common/utils/tariff.util'
 import {parseToNumber} from 'src/common/utils/number.util'
 import {middleNotiInapp} from 'src/common/utils/inapp.util'
-import { AllocationRepository } from 'src/allocation/allocation.repository'
+import {AllocationRepository} from 'src/allocation/allocation.repository'
 
 dayjs.extend(isBetween)
 dayjs.extend(isSameOrBefore)
@@ -65,14 +65,14 @@ export class TariffService {
     @Inject(forwardRef(() => ExportFilesService))
     private readonly exportFilesService: ExportFilesService,
     private readonly balancingService: BalancingService,
-    private readonly repo: AllocationRepository,
+    private readonly repo: AllocationRepository
   ) {}
 
   async useReqs(req: any) {
-    const ip = req.headers['x-forwarded-for'] || req.ip
+    const ip = req?.headers?.['x-forwarded-for'] || req?.ip
     return {
       ip: ip,
-      sub: req?.user?.sub,
+      sub: (req?.user?.sub || -1),
       first_name: req?.user?.first_name,
       last_name: req?.user?.last_name,
       username: req?.user?.username,
@@ -184,6 +184,7 @@ export class TariffService {
     const results = await this.prisma.tariff.findMany({
       where: {
         ...(shipper_id && {
+          tariff_invoice_sent_id: 1,
           shipper_id: Number(shipper_id)
         }),
         ...(month_year_charge && {
@@ -282,7 +283,7 @@ export class TariffService {
         id: {
           not: Number(id)
         },
-        shipper_id: resultCkSelf?.shipper_id,
+        shipper_id: resultCkSelf && resultCkSelf?.shipper_id || -1,
         month_year_charge: {
           gte: monthStart,
           lt: nextMonthStart // ใช้ lt แทน lte endOf('month') เพื่อกันเศษวินาที
@@ -374,29 +375,28 @@ export class TariffService {
         }
       }
     })
-    const userTypeId = group.user_type?.id
+    const userTypeId = group?.user_type?.id
     const groupId = group?.id
 
     const todayStartMY = (month_year_charge && getTodayStartYYYYMMDDDfaultAdd7(month_year_charge).toDate()) || null
     // const ids = (id && Number(id)) || null;
 
+    const where = {
+      ...(userTypeId === 3 && {
+        tariff_invoice_sent_id: 1,
+        shipper_id: groupId
+      }),
+      ...(todayStartMY && {
+        month_year_charge: todayStartMY
+      }),
+      ...(this.toArray(id).length > 0 && {
+        id: {
+          in: this.toArray(id)
+        }
+      })
+    }
     const results = await this.prisma.tariff.findMany({
-      where: {
-        ...(userTypeId === 3 && {
-          shipper_id: groupId
-        }),
-        ...(todayStartMY && {
-          month_year_charge: todayStartMY
-        }),
-        // ...(ids && {
-        //   id: ids,
-        // }),
-        ...(this.toArray(id).length > 0 && {
-          id: {
-            in: this.toArray(id)
-          }
-        })
-      },
+      where: where,
       skip: Number(offset_),
       take: Number(limit_),
       include: {
@@ -452,22 +452,7 @@ export class TariffService {
       }
     })
     const count = await this.prisma.tariff.count({
-      where: {
-        ...(userTypeId === 3 && {
-          shipper_id: groupId
-        }),
-        ...(todayStartMY && {
-          month_year_charge: todayStartMY
-        }),
-        // ...(ids && {
-        //   id: ids,
-        // }),
-        ...(this.toArray(id).length > 0 && {
-          id: {
-            in: this.toArray(id)
-          }
-        })
-      }
+      where: where
     })
 
     // คอลัมน์ Amount Operator (Bath) มาจากค่า Quantity Operator x Fee
@@ -512,7 +497,7 @@ export class TariffService {
         }
       }
     })
-    const userTypeId = group.user_type?.id
+    const userTypeId = group?.user_type?.id
     const groupId = group?.id
 
     const results = await this.prisma.tariff_charge.findMany({
@@ -778,7 +763,6 @@ export class TariffService {
     })
 
     try {
-     
       const nowAt = getTodayNowAdd7()
       const formateDDMMYYYY = dayjs(month_year, 'YYYY-MM-DD').format('DD/MM/YYYY')
 
@@ -794,7 +778,7 @@ export class TariffService {
       } catch (error) {}
       const monthStart = monthStartDayjs?.tz('Asia/Bangkok')?.format('YYYY-MM-DD') ?? ''
 
-      const endDayjs = (nowAt?.format('MM/YYYY') === dayjs(month_year, 'YYYY-MM-DD')?.format('MM/YYYY')) ? nowAt.endOf('day') : monthEndDayjs?.tz('Asia/Bangkok')
+      const endDayjs = nowAt?.format('MM/YYYY') === dayjs(month_year, 'YYYY-MM-DD')?.format('MM/YYYY') ? nowAt.endOf('day') : monthEndDayjs?.tz('Asia/Bangkok')
       const monthEnd = endDayjs?.format('YYYY-MM-DD') ?? ''
       // 1 System คือยังไม่มีการ Edit
       // 2 Manual คือ มีการ edit ค่าแล้ว
@@ -1062,24 +1046,12 @@ export class TariffService {
       const parseDay = (value: any, format?: string) => {
         if (!value) return null
 
-        const d = format
-          ? dayjs(value, format).startOf('day')
-          : dayjs(value).startOf('day')
+        const d = format ? dayjs(value, format).startOf('day') : dayjs(value).startOf('day')
 
         return d.isValid() ? d : null
       }
 
-      const getBookingDaysInMonth = ({
-        monthYear,
-        startDate,
-        contractEndDate,
-        terminateDate,
-      }: {
-        monthYear: string
-        startDate?: string | null
-        contractEndDate?: string | null
-        terminateDate?: string | null
-      }) => {
+      const getBookingDaysInMonth = ({monthYear, startDate, contractEndDate, terminateDate}: {monthYear: string; startDate?: string | null; contractEndDate?: string | null; terminateDate?: string | null}) => {
         const monthStart = dayjs(monthYear, 'YYYY-MM-DD').startOf('month')
         const monthEnd = dayjs(monthYear, 'YYYY-MM-DD').endOf('month')
 
@@ -1111,8 +1083,8 @@ export class TariffService {
         return calcEnd.diff(calcStart, 'day') + 1
       }
 
-      // console.log('contract_code : ', contract_code);
-      const contract_code_final = contract_code.map(e => {
+      console.log('contract_code : ', contract_code);
+      const contract_code_final = contract_code.map((e) => {
         const {booking_version, ...nE} = e
         const booking_version_use = booking_version?.[0]
         const booking_full_json_use =
@@ -1126,7 +1098,7 @@ export class TariffService {
         const keyHead = entryDailyBooking?.[formateDDMMYYYY]?.['key']
 
         let shortTermNonFirmKeyHead = []
-        if (e?.term_type_id === 4) {
+        if (e && e?.term_type_id === 4) {
           const today = dayjs().startOf('day')
           const filteredentryDailyBooking = Object.fromEntries(
             Object.entries(entryDailyBooking).filter(([dateStr]) => {
@@ -1151,15 +1123,45 @@ export class TariffService {
           }
 
           let shortTermNonFirmUseData = []
-          if (e?.term_type_id === 4) {
+          if (e && e?.term_type_id === 4) {
             if (shortTermNonFirmKeyHead.length > 0) {
+              
               let capacityMMBTUValue: number | null = null
               shortTermNonFirmUseData = shortTermNonFirmKeyHead.map((key: any) => {
-                const foundDate = Object.entries(booking_full_json_use?.headerEntry?.['Capacity Daily Booking (MMBTU/d)'] || {}).find(([_, v]: any) => v.key === key)?.[0]
-                const isDateEnd = dayjs(e?.terminate_date || e?.extend_deadline || e?.contract_end_date).isBefore(dayjs(), 'day')
-                const nDay = isDateEnd ? dayjs() : dayjs(e?.terminate_date || e?.extend_deadline || e?.contract_end_date)
-                const isPast = dayjs(foundDate, 'DD/MM/YYYY').isBefore(nDay, 'day')
+                // const foundDate = Object.entries(booking_full_json_use?.headerEntry?.['Capacity Daily Booking (MMBTU/d)'] || {}).find(([_, v]: any) => v.key === key)?.[0]
+                // const isDateEnd = dayjs(e?.terminate_date || e?.extend_deadline || e?.contract_end_date).isBefore(dayjs(), 'day')
+                // const nDay = isDateEnd ? dayjs(e?.terminate_date || e?.extend_deadline || e?.contract_end_date) : dayjs()
+                // const isPast = dayjs(foundDate, 'DD/MM/YYYY').isBefore(nDay, 'day')
+                const endDate = dayjs(
+                  e?.terminate_date ||
+                  e?.extend_deadline ||
+                  e?.contract_end_date
+                )
+
+                const foundDate = Object.entries(
+                  booking_full_json_use?.headerEntry?.['Capacity Daily Booking (MMBTU/d)'] || {}
+                ).find(([_, v]: any) => v.key === key)?.[0]
+
+                const isDateEnd = endDate.isBefore(dayjs(), 'day')
+
+                const nDay = isDateEnd ? endDate : dayjs()
+
+                const foundDay = dayjs(foundDate, 'DD/MM/YYYY')
+
+                const isPast = isDateEnd
+                  ? foundDay.isBefore(nDay, 'day')
+                  : foundDay.isSameOrBefore(nDay, 'day')
+
                 const value = row_json_use?.[key] || null
+                // if(e?.contract_code === "2026-CNF-N003"){
+                // if(e?.contract_code === "2026-CNF-N005"){
+                //   console.log('e?.contract_code : ', e?.contract_code);
+                //   console.log('nDay : ', nDay);
+                //   console.log('foundDate : ', foundDate);
+                //   console.log('isPast : ', isPast);
+                //   // capacityMMBTUValue
+                //   console.log('- - - -');
+                // }
                 if (value) {
                   let valueNumber: number | null = parseToNumber(value)
                   if (valueNumber) {
@@ -1184,35 +1186,23 @@ export class TariffService {
             const foundDateM = Object.entries(booking_full_json_use?.headerEntry?.['Capacity Daily Booking (MMBTU/d)'] || {}).find(([_, v]: any) => v.key === useData?.key)?.[0]
             const startExcelRow = row_json_use['5']
             const endExcelRow = row_json_use['6']
-            const headerDayjs = dayjs(foundDateM, "DD/MM/YYYY").startOf("day")
-            const periodFromDayjs = dayjs(startExcelRow, 'DD/MM/YYYY').startOf("day")
-            const periodToDayjs = dayjs(endExcelRow, 'DD/MM/YYYY').startOf("day")
-            const contractStartDate = dayjs(e?.contract_start_date).startOf("day")
+            const headerDayjs = dayjs(foundDateM, 'DD/MM/YYYY').startOf('day')
+            const periodFromDayjs = dayjs(startExcelRow, 'DD/MM/YYYY').startOf('day')
+            const periodToDayjs = dayjs(endExcelRow, 'DD/MM/YYYY').startOf('day')
+            const contractStartDate = dayjs(e?.contract_start_date).startOf('day')
             const contractEndDate = dayjs(e?.terminate_date || e?.extend_deadline || e?.contract_end_date)
             
-            const validStartDates = [contractStartDate, monthStartDayjs, periodFromDayjs, headerDayjs].filter((d) => d.isValid());
-            const startDate_ = validStartDates.length > 0 ?
-              validStartDates.reduce((max, current) =>
-                  current.isAfter(max, "day") ? current : max
-              )
-              : null;
-           
+            const validStartDates = [contractStartDate, monthStartDayjs, periodFromDayjs, headerDayjs].filter((d) => d.isValid())
+            const startDate_ = validStartDates.length > 0 ? validStartDates.reduce((max, current) => (current.isAfter(max, 'day') ? current : max)) : null
+
             const maxEndDate = endDayjs.clone().add(1, 'day').startOf('day')
-            const validDates = [contractEndDate, maxEndDate, periodToDayjs].filter((d) => d.isValid());
-            const endDate_ =
-                validDates.length > 0
-                    ? validDates.reduce((min, current) =>
-                        current.isBefore(min, "day") ? current : min
-                    )
-                    : null;
+            const validDates = [contractEndDate, maxEndDate, periodToDayjs].filter((d) => d.isValid())
+            const endDate_ = validDates.length > 0 ? validDates.reduce((min, current) => (current.isBefore(min, 'day') ? current : min)) : null
 
-            const diffDaysM = (endDate_ && startDate_) ? endDate_.diff(
-              startDate_,
-                "day"
-            ) : 0;
+            const diffDaysM = endDate_ && startDate_ ? endDate_.diff(startDate_, 'day') : 0
 
-            const value = parseToNumber(useData.capacityMMBTUValue) * diffDaysM;
-            useData.capacityMMBTUValue =  value
+            const value = parseToNumber(useData.capacityMMBTUValue) * diffDaysM
+            useData.capacityMMBTUValue = value
 
             // const startExcelRow = row_json_use?.['5']
             // const diffDays = getBookingDaysInMonth({
@@ -1256,7 +1246,7 @@ export class TariffService {
               }) || null
           }
         })
-
+        // terminate_date
         return {
           ...nE,
           booking_version_id: booking_version?.[0]?.id || null,
@@ -1265,7 +1255,8 @@ export class TariffService {
         }
       })
 
-      console.log('contract_code_final : ', contract_code_final);
+      // console.log('_contract_code_final : ', contract_code_final)
+      // // 50,000.000 + 50,000.000 + 85,000.000 + 85,000.000 + 85,000.000 + 85,000.000 + 80,000.000 + 80,000.000
 
       // return // test
 
@@ -1277,17 +1268,18 @@ export class TariffService {
           limit: 10000
         },
         userId
-      ) 
+      )
 
-
-      const allocationReportViewGetB = await this.allocationService.allocationReport({
-        start_date: monthStart,
-        end_date: monthEnd,
-        skip:"0",
-        limit:"100",
-        tab:"1"
-      }, userId)
-
+      const allocationReportViewGetB = await this.allocationService.allocationReport(
+        {
+          start_date: monthStart,
+          end_date: monthEnd,
+          skip: '0',
+          limit: '100',
+          tab: '1'
+        },
+        userId
+      )
 
       const allocationReportViewGetPublic = allocationReportViewGet
         ?.filter((f: any) => {
@@ -1302,7 +1294,6 @@ export class TariffService {
           }
         })
 
-
       const allocationReportViewGetPublicB = allocationReportViewGetB
         ?.filter((f: any) => {
           return f?.publication && f?.shipper === shipperMaster?.id_name && contract_code?.some((e: any) => e?.contract_code == f?.contract)
@@ -1316,8 +1307,6 @@ export class TariffService {
           }
         })
 
-
-      
       // console.log('allocationReportViewGetPublic2 : ', allocationReportViewGetPublic2);
 
       const allocationReportViewGetPublicNoFuel = allocationReportViewGetPublic?.filter((f: any) => f?.customer_type !== 'Fuel')
@@ -1515,30 +1504,29 @@ export class TariffService {
           })
 
           // const totalRoundRound = Math.round(value?.reduce((accumulator, currentValue) => accumulator + currentValue?.calc, 0))
-          const r4 = (d_:any) => Math.round(d_ * 10000) / 10000;
+          const r4 = (d_: any) => Math.round(d_ * 10000) / 10000
 
-          const totalRoundRound = Math.round((value?.reduce((accumulator, currentValue) => accumulator + r4(currentValue?.calc ?? 0), 0) ?? 0) * 10000) / 10000;
-          
+          const totalRoundRound = Math.round((value?.reduce((accumulator, currentValue) => accumulator + r4(currentValue?.calc ?? 0), 0) ?? 0) * 10000) / 10000
 
           const totalNotRound = value?.reduce((accumulator, currentValue) => accumulator + currentValue?.calcNotRound, 0)
 
-          if(dG?.gas_day === "2026-06-01" && e?.contract === '2026-CNF-008'){
-            console.log('e : ', e);
-            console.log('dG : ', dG);
-            console.log('value : ', value);
-            console.log('nom : ', nom);
-            console.log('totalRoundRound : ', totalRoundRound);
-            console.log('totalNotRound : ', totalNotRound);
+          if (dG?.gas_day === '2026-06-01' && e?.contract === '2026-CNF-008') {
+            console.log('e : ', e)
+            console.log('dG : ', dG)
+            console.log('value : ', value)
+            console.log('nom : ', nom)
+            console.log('totalRoundRound : ', totalRoundRound)
+            console.log('totalNotRound : ', totalNotRound)
 
             const t_ExitT = value?.reduce((accumulator, currentValue) => accumulator + currentValue?.calc, 0)
-            console.log('t_ExitT : ', t_ExitT);
-            console.log('--------');
+            console.log('t_ExitT : ', t_ExitT)
+            console.log('--------')
           }
 
           return {
-            gas_day: dG?.gas_day || null,
+            gas_day: dG && dG?.gas_day || null,
             value: value ?? 0,
-            totalRoundRound: totalRoundRound ?? 0,
+            totalRoundRound: totalRoundRound || 0,
             totalNotRound: totalNotRound ?? 0
           }
         })
@@ -1587,9 +1575,9 @@ export class TariffService {
 
           const totalNotRound = value?.reduce((accumulator, currentValue) => accumulator + currentValue?.calcNotRound, 0)
           return {
-            gas_day: dG?.gas_day || null,
+            gas_day: dG && dG?.gas_day || null,
             value: value ?? 0,
-            totalRoundRound: totalRoundRound ?? 0,
+            totalRoundRound: totalRoundRound || 0,
             totalNotRound: totalNotRound ?? 0
           }
         })
@@ -1651,11 +1639,11 @@ export class TariffService {
                 return findValues
               })
               ?.filter((f: any) => !!f)
-            const cK = valTag?.length === 0 ? null : valTag.reduce((accumulator, currentValue) => accumulator + currentValue, 0)
+            const cK = (!valTag || valTag?.length === 0) ? null : valTag.reduce((accumulator, currentValue) => accumulator + currentValue, 0)
             return cK
           }
-          const aip = shipperDataObj?.['values']?.find((f: any) => f?.tag === 'aip')?.value || null // row ฟ้า
-          const ain = shipperDataObj?.['values']?.find((f: any) => f?.tag === 'ain')?.value || null // row ฟ้า
+          const aip = shipperDataObj && shipperDataObj?.['values']?.find((f: any) => f?.tag === 'aip')?.value || null // row ฟ้า
+          const ain = shipperDataObj && shipperDataObj?.['values']?.find((f: any) => f?.tag === 'ain')?.value || null // row ฟ้า
 
           const getFuel = Fuel?.find((f: any) => f?.gas_day === gas_day)?.values?.find((f: any) => f?.tag === 'nominatedValue')?.value || null
           const entryValue = findTag(['total_entry_east', 'total_entry_west', 'total_entry_east-west']) ?? null // Entry =  Total Entry ของ row สีฟ้า (sum ทุก zone รวมกัน)
@@ -1874,16 +1862,16 @@ export class TariffService {
           const {data: dataMain, ...nV} = v
           const overuseGroup = groupOveruse(dataMain)
           const overuseUse = overuseGroup?.map((e: any) => {
-            const {data, ...nE} = e
+            const {data, ...nE} = (e || null)
             const bookQuantity = overuseCalcTag(data, 'contractCapacity')
             const allocationQuantity = overuseCalcTag(data, 'allocatedValue')
             const overuse = overuseCalcTag(data, 'overusage')
-            const overuseTariffTolerance = tolerance ? overuse - ((Number(tolerance) / 100) * bookQuantity) : NaN;
+            const overuseTariffTolerance = tolerance ? overuse - (Number(tolerance) / 100) * bookQuantity : NaN
             return {
               ...nE,
               bookQuantity: bookQuantity ?? 0,
               allocationQuantity: allocationQuantity ?? 0,
-              overuse: (!tolerance || (Number.isFinite(overuseTariffTolerance) && overuseTariffTolerance > 0)) ? (overuse ?? 0) : 0,
+              overuse: !tolerance || (Number.isFinite(overuseTariffTolerance) && overuseTariffTolerance > 0) ? (overuse ?? 0) : 0,
               tempDateArr: data
             }
           })
@@ -1902,6 +1890,8 @@ export class TariffService {
       const contractOveruseEntry = fnOveruse(finalContractOveruseEntry, toleranceEntryCapOverUse)
       const contractOveruseExit = fnOveruse(finalContractOveruseExit, toleranceExitCapOverUse)
 
+      // booking_row_json_use
+      // terminate_date
       // console.log('contract_code_final : ', contract_code_final);
 
       // return //test
@@ -1988,8 +1978,8 @@ export class TariffService {
               quantity: quantity || quantity === 0 ? String(quantity) : null,
               unit: 'MMBTU',
               co_efficient: null,
-              fee: (!!fee && String(fee)) || null,
-              amount: (!!amount && String(amount)) || null,
+              fee: fee ? String(fee) : null,
+              amount: amount ? String(amount) : null,
               amount_operator: null,
               amount_compare: null,
               difference: null,
@@ -2038,8 +2028,8 @@ export class TariffService {
               quantity: quantity || quantity === 0 ? String(quantity) : null,
               unit: 'MMBTU',
               co_efficient: null,
-              fee: (!!fee && String(fee)) || null,
-              amount: (!!amount && String(amount)) || null,
+              fee: fee ? String(fee) : null,
+              amount: amount ? String(amount) : null,
               amount_operator: null,
               amount_compare: null,
               difference: null,
@@ -2111,8 +2101,8 @@ export class TariffService {
               quantity: quantity || quantity === 0 ? String(quantity) : null,
               unit: 'MMBTU',
               co_efficient: null,
-              fee: (!!fee && String(fee)) || null,
-              amount: (!!amount && String(amount)) || null,
+              fee: fee ? String(fee) : null,
+              amount: amount ? String(amount) : null,
               amount_operator: null,
               amount_compare: null,
               difference: null,
@@ -2180,8 +2170,8 @@ export class TariffService {
               quantity: quantity || quantity === 0 ? String(quantity) : null,
               unit: 'MMBTU',
               co_efficient: null,
-              fee: (!!fee && String(fee)) || null,
-              amount: (!!amount && String(amount)) || null,
+              fee: fee ? String(fee) : null,
+              amount: amount ? String(amount) : null,
               amount_operator: null,
               amount_compare: null,
               difference: null,
@@ -2236,8 +2226,8 @@ export class TariffService {
               quantity: quantity || quantity === 0 ? String(quantity) : null,
               unit: 'MMBTU',
               co_efficient: null,
-              fee: (!!imbalancesPenaltyPositiveFee && String(imbalancesPenaltyPositiveFee)) || null,
-              amount: (!!amount && String(amount)) || null,
+              fee: imbalancesPenaltyPositiveFee ? String(imbalancesPenaltyPositiveFee) : null,
+              amount: amount ? String(amount) : null,
               amount_operator: null,
               amount_compare: null,
               difference: null,
@@ -2283,8 +2273,8 @@ export class TariffService {
               quantity: quantity || quantity === 0 ? String(quantity) : null,
               unit: 'MMBTU',
               co_efficient: null,
-              fee: (!!imbalancesPenaltyPositiveFee && String(imbalancesPenaltyPositiveFee)) || null,
-              amount: (!!amount && String(amount)) || null,
+              fee: imbalancesPenaltyPositiveFee ? String(imbalancesPenaltyPositiveFee) : null,
+              amount: amount ? String(amount) : null,
               amount_operator: null,
               amount_compare: null,
               difference: null,
@@ -2338,8 +2328,8 @@ export class TariffService {
               quantity: quantity || quantity === 0 ? String(quantity) : null,
               unit: 'MMBTU',
               co_efficient: null,
-              fee: (!!imbalancesPenaltyNegativeFee && String(imbalancesPenaltyNegativeFee)) || null,
-              amount: (!!amount && String(amount)) || null,
+              fee: imbalancesPenaltyNegativeFee ? String(imbalancesPenaltyNegativeFee) : null,
+              amount: amount ? String(amount) : null,
               amount_operator: null,
               amount_compare: null,
               difference: null,
@@ -2389,8 +2379,8 @@ export class TariffService {
               quantity: quantity || quantity === 0 ? String(quantity) : null,
               unit: 'MMBTU',
               co_efficient: null,
-              fee: (!!imbalancesPenaltyNegativeFee && String(imbalancesPenaltyNegativeFee)) || null,
-              amount: (!!amount && String(amount)) || null,
+              fee: imbalancesPenaltyNegativeFee ? String(imbalancesPenaltyNegativeFee) : null,
+              amount: amount ? String(amount) : null,
               amount_operator: null,
               amount_compare: null,
               difference: null,
@@ -2461,8 +2451,8 @@ export class TariffService {
               quantity: quantity || quantity === 0 ? String(quantity) : null,
               unit: 'MMBTU',
               co_efficient: entryCapOverCoEff,
-              fee: (!!fee && String(fee)) || null,
-              amount: (!!amount && String(amount)) || null,
+              fee: fee ? String(fee) : null,
+              amount: amount ? String(amount) : null,
               amount_operator: null,
               amount_compare: null,
               difference: null,
@@ -2529,8 +2519,8 @@ export class TariffService {
               quantity: quantity || quantity === 0 ? String(quantity) : null,
               unit: 'MMBTU',
               co_efficient: exitCapOverCoEff,
-              fee: (!!fee && String(fee)) || null,
-              amount: (!!amount && String(amount)) || null,
+              fee: fee ? String(fee) : null,
+              amount: amount ? String(amount) : null,
               amount_operator: null,
               amount_compare: null,
               difference: null,
@@ -2601,8 +2591,8 @@ export class TariffService {
               quantity: quantity || quantity === 0 ? String(quantity) : null,
               unit: 'MMBTU',
               co_efficient: entryCapOverCoEff,
-              fee: (!!fee && String(fee)) || null,
-              amount: (!!amount && String(amount)) || null,
+              fee: fee ? String(fee) : null,
+              amount: amount ? String(amount) : null,
               amount_operator: null,
               amount_compare: null,
               difference: null,
@@ -2669,8 +2659,8 @@ export class TariffService {
               quantity: quantity || quantity === 0 ? String(quantity) : null,
               unit: 'MMBTU',
               co_efficient: exitCapOverCoEff,
-              fee: (!!fee && String(fee)) || null,
-              amount: (!!amount && String(amount)) || null,
+              fee: fee ? String(fee) : null,
+              amount: amount ? String(amount) : null,
               amount_operator: null,
               amount_compare: null,
               difference: null,
@@ -2699,14 +2689,14 @@ export class TariffService {
           // -------
 
           // 7 Damage Charge
-          const damageChageA = [null]?.map((e: any) => {
-            const quantity = null
+          const damageChageA = [null].map(() => {
+            // const quantity = null
 
             // Quantity x Fee | ทศนิยม 2 ตำแหน่ง
             const amount =
-              damageChargeFee !== null || quantity !== null
-                ? // ? Number(quantity ?? 0) * Number(damageChargeFee ?? 0)
-                  Math.round(parseToNumber(quantity ?? 0)) * Number(damageChargeFee ?? 0)
+              damageChargeFee !== null
+                // ? Math.round(parseToNumber(quantity ?? 0)) * Number(damageChargeFee ?? 0)
+                ? 0
                 : null
 
             return {
@@ -2721,11 +2711,11 @@ export class TariffService {
                 }
               },
               quantity_operator: null,
-              quantity: quantity || quantity === 0 ? String(quantity) : null,
+              quantity: null,
               unit: 'AU',
               co_efficient: damageCoEff,
-              fee: (!!damageChargeFee && String(damageChargeFee)) || null,
-              amount: (!!amount && String(amount)) || null,
+              fee: damageChargeFee ? String(damageChargeFee) : null,
+              amount: (amount || amount === 0) ? String(amount) : null,
               amount_operator: null,
               amount_compare: null,
               difference: null,
@@ -2738,14 +2728,14 @@ export class TariffService {
               }
             }
           })
-          const damageChageB = [null]?.map((e: any) => {
-            const quantity = null
+          const damageChageB = [null].map(() => {
+            // const quantity = null
 
             // Quantity x Fee | ทศนิยม 2 ตำแหน่ง
             const amount =
-              damageChargeFee !== null || quantity !== null
-                ? // ? Number(quantity ?? 0) * Number(damageChargeFee ?? 0)
-                  Math.round(parseToNumber(quantity ?? 0)) * Number(damageChargeFee ?? 0)
+              damageChargeFee !== null
+                // ? Math.round(parseToNumber(quantity ?? 0)) * Number(damageChargeFee ?? 0)
+                ? 0
                 : null
 
             return {
@@ -2760,11 +2750,11 @@ export class TariffService {
                 }
               },
               quantity_operator: null,
-              quantity: quantity || quantity === 0 ? String(quantity) : null,
+              quantity: null,
               unit: 'AU',
               co_efficient: damageCoEff,
-              fee: (!!damageChargeFee && String(damageChargeFee)) || null,
-              amount: (!!amount && String(amount)) || null,
+              fee: damageChargeFee ? String(damageChargeFee) : null,
+              amount: (amount || amount === 0) ? String(amount) : null,
               amount_operator: null,
               amount_compare: null,
               difference: null,
@@ -3381,7 +3371,7 @@ export class TariffService {
         }
       }
     })
-    const userTypeId = group.user_type?.id
+    const userTypeId = group?.user_type?.id
     const groupId = group?.id
 
     const todayStartMY = (month_year_charge && getTodayStartYYYYMMDDDfaultAdd7(month_year_charge).toDate()) || null

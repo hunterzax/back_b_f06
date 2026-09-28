@@ -1,19 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  Query,
-  HttpException,
-  HttpStatus,
-  Put,
-  UseGuards,
-  Req,
-  HttpCode
-} from '@nestjs/common'
+import {Controller, Get, Post, Body, Patch, Param, Delete, Query, HttpException, HttpStatus, Put, UseGuards, Req, HttpCode} from '@nestjs/common'
 import {AuthGuard} from 'src/auth/auth.guard'
 import {ParameterService} from './parameter.service'
 import {writeReq} from 'src/common/utils/write-req.util'
@@ -48,9 +33,7 @@ import * as isBetween from 'dayjs/plugin/isBetween' // นำเข้า plugin
 dayjs.extend(isBetween) // เปิดใช้งาน plugin isBetween
 dayjs.extend(utc)
 dayjs.extend(timezone)
-dayjs.extend(
-  customParseFormat
-)
+dayjs.extend(customParseFormat)
 dayjs.extend(isSameOrAfter)
 dayjs.extend(isSameOrBefore)
 
@@ -90,9 +73,7 @@ export class ParameterController {
 
   @UseGuards(AuthGuard)
   @Get('process-type')
-  async processtype(
-    @Req() req: any
-  ) {
+  async processtype(@Req() req: any) {
     return this.parameterNominationDeadlineService.processtype()
   }
 
@@ -102,20 +83,9 @@ export class ParameterController {
   }
 
   @UseGuards(AuthGuard)
-  @Post(
-    'nomination-deadline-create'
-  )
-  async nominationDeadlineCreate(
-    @Body() body: any,
-    @Req() req: any
-  ) {
-    const {
-      before_gas_day,
-      user_type_id,
-      nomination_type_id,
-      process_type_id,
-      start_date
-    } = body
+  @Post('nomination-deadline-create')
+  async nominationDeadlineCreate(@Body() body: any, @Req() req: any) {
+    const {before_gas_day, user_type_id, nomination_type_id, process_type_id, start_date} = body
 
     if (
       // !before_gas_day ||
@@ -126,32 +96,16 @@ export class ParameterController {
     ) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const nominationDeadlineCreate =
-      await this.parameterNominationDeadlineService.nominationDeadlineCreate(
-        body,
-        req?.user?.sub
-      )
+    const nominationDeadlineCreate = await this.parameterNominationDeadlineService.nominationDeadlineCreate(body, req?.user?.sub)
 
-    const his =
-      await this.parameterNominationDeadlineService.nominationDeadlineOnce(
-        nominationDeadlineCreate?.id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `nomination-deadline`,
-      'create',
-      his
-    )
+    const his = await this.parameterNominationDeadlineService.nominationDeadlineOnce(nominationDeadlineCreate?.id)
+    await writeReq(this.prisma, 'DAM', req, `nomination-deadline`, 'create', his)
     try {
       await middleNotiInapp(
         this.prisma,
@@ -166,21 +120,9 @@ export class ParameterController {
   }
 
   @UseGuards(AuthGuard)
-  @Put(
-    'nomination-deadline-edit/:id'
-  )
-  async nominationDeadlineEdit(
-    @Body() body: any,
-    @Param('id') id: any,
-    @Req() req: any
-  ) {
-    const {
-      before_gas_day,
-      user_type_id,
-      nomination_type_id,
-      process_type_id,
-      start_date
-    } = body
+  @Put('nomination-deadline-edit/:id')
+  async nominationDeadlineEdit(@Body() body: any, @Param('id') id: any, @Req() req: any) {
+    const {before_gas_day, user_type_id, nomination_type_id, process_type_id, start_date} = body
 
     if (
       // !before_gas_day ||
@@ -192,32 +134,15 @@ export class ParameterController {
     ) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const nominationDeadlineEdit =
-      await this.parameterNominationDeadlineService.nominationDeadlineEdit(
-        body,
-        req?.user?.sub,
-        id
-      )
-    const his =
-      await this.parameterNominationDeadlineService.nominationDeadlineOnce(
-        id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `nomination-deadline`,
-      'edit',
-      his
-    )
+    const nominationDeadlineEdit = await this.parameterNominationDeadlineService.nominationDeadlineEdit(body, (req?.user?.sub || -1), id)
+    const his = await this.parameterNominationDeadlineService.nominationDeadlineOnce(id)
+    await writeReq(this.prisma, 'DAM', req, `nomination-deadline`, 'edit', his)
     try {
       await middleNotiInapp(
         this.prisma,
@@ -239,49 +164,22 @@ export class ParameterController {
   }
 
   @UseGuards(AuthGuard)
-  @Post(
-    'planning-deadline-create'
-  )
-  async planningDeadlineCreate(
-    @Body() body: any,
-    @Req() req: any
-  ) {
-    const {
-      term_type_id,
-      start_date
-    } = body
+  @Post('planning-deadline-create')
+  async planningDeadlineCreate(@Body() body: any, @Req() req: any) {
+    const {term_type_id, start_date} = body
 
-    if (
-      !term_type_id ||
-      !start_date
-    ) {
+    if (!term_type_id || !start_date) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const planningDeadlineCreate =
-      await this.parameterPlanningDeadlineService.planningDeadlineCreate(
-        body,
-        req?.user?.sub
-      )
-    const his =
-      await this.parameterPlanningDeadlineService.planningDeadlineOnce(
-        planningDeadlineCreate?.id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `planning-deadline`,
-      'create',
-      his
-    )
+    const planningDeadlineCreate = await this.parameterPlanningDeadlineService.planningDeadlineCreate(body, req?.user?.sub)
+    const his = await this.parameterPlanningDeadlineService.planningDeadlineOnce(planningDeadlineCreate?.id)
+    await writeReq(this.prisma, 'DAM', req, `planning-deadline`, 'create', his)
     try {
       await middleNotiInapp(
         this.prisma,
@@ -296,51 +194,22 @@ export class ParameterController {
   }
 
   @UseGuards(AuthGuard)
-  @Put(
-    'planning-deadline-edit/:id'
-  )
-  async planningDeadlineEdit(
-    @Body() body: any,
-    @Param('id') id: any,
-    @Req() req: any
-  ) {
-    const {
-      term_type_id,
-      start_date
-    } = body
+  @Put('planning-deadline-edit/:id')
+  async planningDeadlineEdit(@Body() body: any, @Param('id') id: any, @Req() req: any) {
+    const {term_type_id, start_date} = body
 
-    if (
-      !term_type_id ||
-      !start_date
-    ) {
+    if (!term_type_id || !start_date) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const planningDeadlineEdit =
-      await this.parameterPlanningDeadlineService.planningDeadlineEdit(
-        body,
-        req?.user?.sub,
-        id
-      )
-    const his =
-      await this.parameterPlanningDeadlineService.planningDeadlineOnce(
-        id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `planning-deadline`,
-      'edit',
-      his
-    )
+    const planningDeadlineEdit = await this.parameterPlanningDeadlineService.planningDeadlineEdit(body, (req?.user?.sub || -1), id)
+    const his = await this.parameterPlanningDeadlineService.planningDeadlineOnce(id)
+    await writeReq(this.prisma, 'DAM', req, `planning-deadline`, 'edit', his)
     try {
       await middleNotiInapp(
         this.prisma,
@@ -363,144 +232,81 @@ export class ParameterController {
 
   @UseGuards(AuthGuard)
   @Post('announcement-create')
-  async announcementCreate(
-    @Body() body: any,
-    @Req() req: any
-  ) {
-    const {
-      topic,
-      detail,
-      start_date,
-      end_date
-    } = body
+  async announcementCreate(@Body() body: any, @Req() req: any) {
+    const {topic, detail, start_date, end_date} = body
 
-    if (
-      !topic ||
-      !detail ||
-      !start_date
-    ) {
+    if (!topic || !detail || !start_date) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const announcementCreate =
-      await this.parameterAnnouncementService.announcementCreate(
-        body,
-        req?.user?.sub
-      )
-    const his =
-      await this.parameterAnnouncementService.announcementOnce(
-        announcementCreate?.id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `announcement`,
-      'create',
-      his
-    )
+    const announcementCreate = await this.parameterAnnouncementService.announcementCreate(body, req?.user?.sub)
+    const his = await this.parameterAnnouncementService.announcementOnce(announcementCreate?.id)
+    await writeReq(this.prisma, 'DAM', req, `announcement`, 'create', his)
 
     return announcementCreate
   }
 
   @UseGuards(AuthGuard)
-  @Put(
-    'announcement-edit/:id'
-  )
-  async announcementEdit(
-    @Body() body: any,
-    @Param('id') id: any,
-    @Req() req: any
-  ) {
-    const {
-      topic,
-      detail,
-      start_date,
-      end_date
-    } = body
+  @Put('announcement-edit/:id')
+  async announcementEdit(@Body() body: any, @Param('id') id: any, @Req() req: any) {
+    const {topic, detail, start_date, end_date} = body
 
-    if (
-      !topic ||
-      !detail ||
-      !start_date
-    ) {
+    if (!topic || !detail || !start_date) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const announcementEdit =
-      await this.parameterAnnouncementService.announcementEdit(
-        body,
-        req?.user?.sub,
-        id
-      )
-    const his =
-      await this.parameterAnnouncementService.announcementOnce(
-        id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `announcement`,
-      'edit',
-      his
-    )
+    const announcementEdit = await this.parameterAnnouncementService.announcementEdit(body, (req?.user?.sub || -1), id)
+    const his = await this.parameterAnnouncementService.announcementOnce(id)
+    await writeReq(this.prisma, 'DAM', req, `announcement`, 'edit', his)
 
     return announcementEdit
   }
 
   @UseGuards(AuthGuard)
-  @Put(
-    'announcement-status/:id'
-  )
-  async announcementStatus(
-    @Body() body: any,
-    @Param('id') id: any,
-    @Req() req: any
-  ) {
+  @Delete('announcement-delete/:id')
+  async announcementDelete(@Body() body: any, @Param('id') id: any, @Req() req: any) {
+
     if (!id) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const announcementStatus =
-      await this.parameterAnnouncementService.announcementStatus(
-        body,
-        req?.user?.sub,
-        id
+    const announcementDelete = await this.parameterAnnouncementService.announcementDelete(body, (req?.user?.sub || -1), id)
+    const his = await this.parameterAnnouncementService.announcementOnce(id)
+    await writeReq(this.prisma, 'DAM', req, `announcement`, 'delete', his)
+
+    return announcementDelete
+  }
+
+  @UseGuards(AuthGuard)
+  @Put('announcement-status/:id')
+  async announcementStatus(@Body() body: any, @Param('id') id: any, @Req() req: any) {
+    if (!id) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
+        },
+        HttpStatus.BAD_REQUEST
       )
-    const his =
-      await this.parameterAnnouncementService.announcementOnce(
-        id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `announcement`,
-      'status',
-      his
-    )
+    }
+    const announcementStatus = await this.parameterAnnouncementService.announcementStatus(body, (req?.user?.sub || -1), id)
+    const his = await this.parameterAnnouncementService.announcementOnce(id)
+    await writeReq(this.prisma, 'DAM', req, `announcement`, 'status', his)
 
     return announcementStatus
   }
@@ -525,53 +331,22 @@ export class ParameterController {
 
   // ok inapp
   @UseGuards(AuthGuard)
-  @Post(
-    'system-parameter-create'
-  )
-  async systemParameterCreate(
-    @Body() body: any,
-    @Req() req: any
-  ) {
-    const {
-      menus_id,
-      system_parameter_id,
-      value,
-      start_date
-    } = body
+  @Post('system-parameter-create')
+  async systemParameterCreate(@Body() body: any, @Req() req: any) {
+    const {menus_id, system_parameter_id, value, start_date} = body
 
-    if (
-      !menus_id ||
-      !system_parameter_id ||
-      !value ||
-      !start_date
-    ) {
+    if (!menus_id || !system_parameter_id || !value || !start_date) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const systemParameterCreate =
-      await this.parameterSystemParameterService.systemParameterCreate(
-        body,
-        req?.user?.sub
-      )
-    const his =
-      await this.parameterSystemParameterService.systemParameterOnce(
-        systemParameterCreate?.id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `system-parameter`,
-      'create',
-      his
-    )
+    const systemParameterCreate = await this.parameterSystemParameterService.systemParameterCreate(body, req?.user?.sub)
+    const his = await this.parameterSystemParameterService.systemParameterOnce(systemParameterCreate?.id)
+    await writeReq(this.prisma, 'DAM', req, `system-parameter`, 'create', his)
 
     // inapp
     try {
@@ -590,56 +365,22 @@ export class ParameterController {
 
   // ok inapp
   @UseGuards(AuthGuard)
-  @Put(
-    'system-parameter-edit/:id'
-  )
-  async systemParameterEdit(
-    @Body() body: any,
-    @Param('id') id: any,
-    @Req() req: any
-  ) {
-    const {
-      menus_id,
-      system_parameter_id,
-      value,
-      start_date
-    } = body
+  @Put('system-parameter-edit/:id')
+  async systemParameterEdit(@Body() body: any, @Param('id') id: any, @Req() req: any) {
+    const {menus_id, system_parameter_id, value, start_date} = body
 
-    if (
-      !menus_id ||
-      !system_parameter_id ||
-      !value ||
-      !start_date ||
-      !id
-    ) {
+    if (!menus_id || !system_parameter_id || !value || !start_date || !id) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const systemParameterEdit =
-      await this.parameterSystemParameterService.systemParameterEdit(
-        body,
-        req?.user?.sub,
-        id
-      )
-    const his =
-      await this.parameterSystemParameterService.systemParameterOnce(
-        id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `system-parameter`,
-      'edit',
-      his
-    )
+    const systemParameterEdit = await this.parameterSystemParameterService.systemParameterEdit(body, (req?.user?.sub || -1), id)
+    const his = await this.parameterSystemParameterService.systemParameterOnce(id)
+    await writeReq(this.prisma, 'DAM', req, `system-parameter`, 'edit', his)
 
     // inapp
     try {
@@ -658,69 +399,34 @@ export class ParameterController {
 
   // email-notification-management
 
-  @Get(
-    'sub-email-notification-management'
-  )
+  @Get('sub-email-notification-management')
   subEmailNotificationManagement() {
     return this.parameterEmailNotificationManagementService.subEmailNotificationManagement()
   }
 
-  @Get(
-    'email-notification-management'
-  )
+  @Get('email-notification-management')
   emailNotificationManagement() {
     return this.parameterEmailNotificationManagementService.emailNotificationManagement()
   }
 
   // ok inapp
   @UseGuards(AuthGuard)
-  @Post(
-    'email-notification-management-create'
-  )
-  async emailNotificationManagementCreate(
-    @Body() body: any,
-    @Req() req: any
-  ) {
-    const {
-      menus_id,
-      activity_id,
-      subject,
-      detail
-    } = body
+  @Post('email-notification-management-create')
+  async emailNotificationManagementCreate(@Body() body: any, @Req() req: any) {
+    const {menus_id, activity_id, subject, detail} = body
 
-    if (
-      !menus_id ||
-      !activity_id ||
-      !subject ||
-      !detail
-    ) {
+    if (!menus_id || !activity_id || !subject || !detail) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const emailNotificationManagementCreate =
-      await this.parameterEmailNotificationManagementService.emailNotificationManagementCreate(
-        body,
-        req?.user?.sub
-      )
-    const his =
-      await this.parameterEmailNotificationManagementService.emailNotificationManagementOnce(
-        emailNotificationManagementCreate?.id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `email-notification-management`,
-      'create',
-      his
-    )
+    const emailNotificationManagementCreate = await this.parameterEmailNotificationManagementService.emailNotificationManagementCreate(body, req?.user?.sub)
+    const his = await this.parameterEmailNotificationManagementService.emailNotificationManagementOnce(emailNotificationManagementCreate?.id)
+    await writeReq(this.prisma, 'DAM', req, `email-notification-management`, 'create', his)
 
     // inapp
     try {
@@ -739,56 +445,22 @@ export class ParameterController {
 
   // ok inapp
   @UseGuards(AuthGuard)
-  @Put(
-    'email-notification-management-edit/:id'
-  )
-  async emailNotificationManagementEdit(
-    @Body() body: any,
-    @Param('id') id: any,
-    @Req() req: any
-  ) {
-    const {
-      menus_id,
-      activity_id,
-      subject,
-      detail
-    } = body
+  @Put('email-notification-management-edit/:id')
+  async emailNotificationManagementEdit(@Body() body: any, @Param('id') id: any, @Req() req: any) {
+    const {menus_id, activity_id, subject, detail} = body
 
-    if (
-      !menus_id ||
-      !activity_id ||
-      !subject ||
-      !detail ||
-      !id
-    ) {
+    if (!menus_id || !activity_id || !subject || !detail || !id) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const emailNotificationManagementEdit =
-      await this.parameterEmailNotificationManagementService.emailNotificationManagementEdit(
-        body,
-        req?.user?.sub,
-        id
-      )
-    const his =
-      await this.parameterEmailNotificationManagementService.emailNotificationManagementOnce(
-        id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `email-notification-management`,
-      'edit',
-      his
-    )
+    const emailNotificationManagementEdit = await this.parameterEmailNotificationManagementService.emailNotificationManagementEdit(body, (req?.user?.sub || -1), id)
+    const his = await this.parameterEmailNotificationManagementService.emailNotificationManagementOnce(id)
+    await writeReq(this.prisma, 'DAM', req, `email-notification-management`, 'edit', his)
 
     // inapp
     try {
@@ -806,46 +478,23 @@ export class ParameterController {
   }
 
   @UseGuards(AuthGuard)
-  @Patch(
-    'email-notification-management-active/:id'
-  )
-  async emailNotificationManagementActive(
-    @Body() body: any,
-    @Param('id') id: any,
-    @Req() req: any
-  ) {
+  @Patch('email-notification-management-active/:id')
+  async emailNotificationManagementActive(@Body() body: any, @Param('id') id: any, @Req() req: any) {
     const {active} = body
 
     if (!id) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
 
-    const emailNotificationManagementActive =
-      await this.parameterEmailNotificationManagementService.emailNotificationManagementActive(
-        body,
-        req?.user?.sub,
-        id
-      )
-    const his =
-      await this.parameterEmailNotificationManagementService.emailNotificationManagementOnce(
-        id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `email-notification-management`,
-      `${active ? 'active' : 'inactive'}`,
-      his
-    )
+    const emailNotificationManagementActive = await this.parameterEmailNotificationManagementService.emailNotificationManagementActive(body, (req?.user?.sub || -1), id)
+    const his = await this.parameterEmailNotificationManagementService.emailNotificationManagementOnce(id)
+    await writeReq(this.prisma, 'DAM', req, `email-notification-management`, `${active ? 'active' : 'inactive'}`, his)
 
     return emailNotificationManagementActive
   }
@@ -860,55 +509,27 @@ export class ParameterController {
   @UseGuards(AuthGuard)
   @Get('user-guide')
   userGuide(@Req() req: any) {
-    return this.parameterUserGuideService.userGuide(
-      req?.user?.sub
-    )
+    return this.parameterUserGuideService.userGuide(req?.user?.sub)
   }
 
   // ok inapp
   @UseGuards(AuthGuard)
   @Post('user-guide-create')
-  async userGuideCreate(
-    @Body() body: any,
-    @Req() req: any
-  ) {
-    const {
-      document_name,
-      file,
-      description
-    } = body
+  async userGuideCreate(@Body() body: any, @Req() req: any) {
+    const {document_name, file, description} = body
 
-    if (
-      !document_name ||
-      !file
-    ) {
+    if (!document_name || !file) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const userGuideCreate =
-      await this.parameterUserGuideService.userGuideCreate(
-        body,
-        req?.user?.sub
-      )
-    const his =
-      await this.parameterUserGuideService.userGuideOnce(
-        userGuideCreate?.id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `user-guide`,
-      'create',
-      his
-    )
+    const userGuideCreate = await this.parameterUserGuideService.userGuideCreate(body, req?.user?.sub)
+    const his = await this.parameterUserGuideService.userGuideOnce(userGuideCreate?.id)
+    await writeReq(this.prisma, 'DAM', req, `user-guide`, 'create', his)
 
     // inapp
     try {
@@ -928,52 +549,23 @@ export class ParameterController {
   // ok inapp
   @UseGuards(AuthGuard)
   @Put('user-guide-edit/:id')
-  async userGuideEdit(
-    @Body() body: any,
-    @Param('id') id: any,
-    @Req() req: any
-  ) {
-    const {
-      document_name,
-      file,
-      description
-    } = body
+  async userGuideEdit(@Body() body: any, @Param('id') id: any, @Req() req: any) {
+    const {document_name, file, description} = body
 
     // v2.0.98 Add/Edit เอา Required Description ออก https://app.clickup.com/t/86euzxxnm
     // if (!document_name || !file || !description || !id) {
-    if (
-      !document_name ||
-      !file ||
-      !id
-    ) {
+    if (!document_name || !file || !id) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const userGuideEdit =
-      await this.parameterUserGuideService.userGuideEdit(
-        body,
-        req?.user?.sub,
-        id
-      )
-    const his =
-      await this.parameterUserGuideService.userGuideOnce(
-        id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `user-guide`,
-      'edit',
-      his
-    )
+    const userGuideEdit = await this.parameterUserGuideService.userGuideEdit(body, (req?.user?.sub || -1), id)
+    const his = await this.parameterUserGuideService.userGuideOnce(id)
+    await writeReq(this.prisma, 'DAM', req, `user-guide`, 'edit', his)
 
     // inapp
     try {
@@ -998,78 +590,36 @@ export class ParameterController {
   }
 
   @Get('audit-log')
-  auditLog(
-    @Query() query: any
-  ) {
-    const {id, date, module, name, q, limit, offset, orderAtColumn, orderBy} =
-      query
-    return this.parameterAuditLogService.auditLog(
-      id,
-      date,
-      module,
-      name,
-      q,
-      limit,
-      offset,
-      orderAtColumn,
-      orderBy
-    )
+  auditLog(@Query() query: any) {
+    const {id, date, module, name, q, limit, offset, orderAtColumn, orderBy} = query
+    return this.parameterAuditLogService.auditLog(id, date, module, name, q, limit, offset, orderAtColumn, orderBy)
   }
 
   // capacity-publication-remark
 
-  @Get(
-    'capacity-publication-remark'
-  )
+  @Get('capacity-publication-remark')
   capacityPublicationRemark() {
     return this.parameterCapacityPublicationRemarkService.capacityPublicationRemark()
   }
 
   // ok inapp
   @UseGuards(AuthGuard)
-  @Post(
-    'capacity-publication-remark-create'
-  )
-  async capacityPublicationRemarkCreate(
-    @Body() body: any,
-    @Req() req: any
-  ) {
-    const {
-      remark,
-      start_date
-    } = body
+  @Post('capacity-publication-remark-create')
+  async capacityPublicationRemarkCreate(@Body() body: any, @Req() req: any) {
+    const {remark, start_date} = body
 
-    if (
-      !remark ||
-      !start_date
-    ) {
+    if (!remark || !start_date) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const capacityPublicationRemarkCreate =
-      await this.parameterCapacityPublicationRemarkService.capacityPublicationRemarkCreate(
-        body,
-        req?.user?.sub
-      )
-    const his =
-      await this.parameterCapacityPublicationRemarkService.capacityPublicationRemarkOnce(
-        capacityPublicationRemarkCreate?.id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `capacity-publication-remark`,
-      'create',
-      his
-    )
+    const capacityPublicationRemarkCreate = await this.parameterCapacityPublicationRemarkService.capacityPublicationRemarkCreate(body, req?.user?.sub)
+    const his = await this.parameterCapacityPublicationRemarkService.capacityPublicationRemarkOnce(capacityPublicationRemarkCreate?.id)
+    await writeReq(this.prisma, 'DAM', req, `capacity-publication-remark`, 'create', his)
 
     // inapp
     try {
@@ -1088,52 +638,22 @@ export class ParameterController {
 
   // ok inapp
   @UseGuards(AuthGuard)
-  @Put(
-    'capacity-publication-remark-edit/:id'
-  )
-  async capacityPublicationRemarkEdit(
-    @Body() body: any,
-    @Param('id') id: any,
-    @Req() req: any
-  ) {
-    const {
-      remark,
-      start_date
-    } = body
+  @Put('capacity-publication-remark-edit/:id')
+  async capacityPublicationRemarkEdit(@Body() body: any, @Param('id') id: any, @Req() req: any) {
+    const {remark, start_date} = body
 
-    if (
-      !remark ||
-      !start_date ||
-      !id
-    ) {
+    if (!remark || !start_date || !id) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const capacityPublicationRemarkEdit =
-      await this.parameterCapacityPublicationRemarkService.capacityPublicationRemarkEdit(
-        body,
-        req?.user?.sub,
-        id
-      )
-    const his =
-      await this.parameterCapacityPublicationRemarkService.capacityPublicationRemarkOnce(
-        id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `capacity-publication-remark`,
-      'edit',
-      his
-    )
+    const capacityPublicationRemarkEdit = await this.parameterCapacityPublicationRemarkService.capacityPublicationRemarkEdit(body, (req?.user?.sub || -1), id)
+    const his = await this.parameterCapacityPublicationRemarkService.capacityPublicationRemarkOnce(id)
+    await writeReq(this.prisma, 'DAM', req, `capacity-publication-remark`, 'edit', his)
 
     // inapp
     try {
@@ -1150,9 +670,7 @@ export class ParameterController {
     return capacityPublicationRemarkEdit
   }
 
-  @Get(
-    'capacity-publication-remark-use'
-  )
+  @Get('capacity-publication-remark-use')
   capacityPublicationRemarkUse() {
     return this.parameterCapacityPublicationRemarkService.capacityPublicationRemarkUse()
   }
@@ -1163,7 +681,6 @@ export class ParameterController {
   setupBackground() {
     return this.parameterSetupBackgroundService.setupBackground()
   }
-
 
   @Get('test')
   test() {
@@ -1176,137 +693,87 @@ export class ParameterController {
         50, // menus_id | 52 Bulletin Board | 50 Capacity Contract Management
         2
       )
-   } catch (error) {
-     
-   }
+    } catch (error) {}
   }
 
   @UseGuards(AuthGuard)
-  @Post(
-    'setup-background-create'
-  )
-  async setupBackgroundCreate(
-    @Body() body: any,
-    @Req() req: any
-  ) {
+  @Post('setup-background-create')
+  async setupBackgroundCreate(@Body() body: any, @Req() req: any) {
     const {url} = body
 
     if (!url) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const setupBackgroundCreate =
-      await this.parameterSetupBackgroundService.setupBackgroundCreate(
-        body,
-        req?.user?.sub
-      )
-    const his =
-      await this.parameterSetupBackgroundService.setupBackgroundOnce(
-        setupBackgroundCreate?.id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `setup-background`,
-      'create',
-      his
-    )
+    const setupBackgroundCreate = await this.parameterSetupBackgroundService.setupBackgroundCreate(body, req?.user?.sub)
+    const his = await this.parameterSetupBackgroundService.setupBackgroundOnce(setupBackgroundCreate?.id)
+    await writeReq(this.prisma, 'DAM', req, `setup-background`, 'create', his)
 
     return setupBackgroundCreate
   }
 
   @UseGuards(AuthGuard)
-  @Put(
-    'setup-background-edit/:id'
-  )
-  async setupBackgroundEdit(
-    @Body() body: any,
-    @Param('id') id: any,
-    @Req() req: any
-  ) {
+  @Put('setup-background-edit/:id')
+  async setupBackgroundEdit(@Body() body: any, @Param('id') id: any, @Req() req: any) {
     const {url} = body
 
     if (!url || !id) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const setupBackgroundEdit =
-      await this.parameterSetupBackgroundService.setupBackgroundEdit(
-        body,
-        req?.user?.sub,
-        id
-      )
-    const his =
-      await this.parameterSetupBackgroundService.setupBackgroundOnce(
-        setupBackgroundEdit?.id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `setup-background`,
-      'edit',
-      his
-    )
+    const setupBackgroundEdit = await this.parameterSetupBackgroundService.setupBackgroundEdit(body, (req?.user?.sub || -1), id)
+    const his = await this.parameterSetupBackgroundService.setupBackgroundOnce(setupBackgroundEdit?.id)
+    await writeReq(this.prisma, 'DAM', req, `setup-background`, 'edit', his)
 
     return setupBackgroundEdit
   }
 
   @UseGuards(AuthGuard)
-  @Patch(
-    'setup-background-active/:id'
-  )
-  async setupBackgroundActive(
-    @Body() body: any,
-    @Param('id') id: any,
-    @Req() req: any
-  ) {
+  @Delete('setup-background-delete/:id')
+  async setupBackgroundDelete(@Body() body: any, @Param('id') id: any, @Req() req: any) {
+    if (!id) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
+        },
+        HttpStatus.BAD_REQUEST
+      )
+    }
+    const setupBackgroundDelete = await this.parameterSetupBackgroundService.setupBackgroundDelete(body, (req?.user?.sub || -1), id)
+    const his = await this.parameterSetupBackgroundService.setupBackgroundOnce(setupBackgroundDelete?.id)
+    await writeReq(this.prisma, 'DAM', req, `setup-background`, 'delete', his)
+
+    return setupBackgroundDelete
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch('setup-background-active/:id')
+  async setupBackgroundActive(@Body() body: any, @Param('id') id: any, @Req() req: any) {
     const {active} = body
 
     if (!id) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const setupBackgroundActive =
-      await this.parameterSetupBackgroundService.setupBackgroundActive(
-        body,
-        req?.user?.sub,
-        id
-      )
-    const his =
-      await this.parameterSetupBackgroundService.setupBackgroundOnce(
-        setupBackgroundActive?.id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `setup-background`,
-      `${active ? 'active' : 'inactive'}`,
-      his
-    )
+    const setupBackgroundActive = await this.parameterSetupBackgroundService.setupBackgroundActive(body, (req?.user?.sub || -1), id)
+    const his = await this.parameterSetupBackgroundService.setupBackgroundOnce(setupBackgroundActive?.id)
+    await writeReq(this.prisma, 'DAM', req, `setup-background`, `${active ? 'active' : 'inactive'}`, his)
 
     return setupBackgroundActive
   }
@@ -1320,55 +787,26 @@ export class ParameterController {
 
   // ok inapp
   @UseGuards(AuthGuard)
-  @Post(
-    'term-and-condition-create'
-  )
-  async termAndConditionCreate(
-    @Body() body: any,
-    @Req() req: any
-  ) {
-    const {
-      topic,
-      url,
-      start_date
-    } = body
+  @Post('term-and-condition-create')
+  async termAndConditionCreate(@Body() body: any, @Req() req: any) {
+    const {topic, url, start_date} = body
 
-    if (
-      !topic ||
-      !url ||
-      !start_date
-    ) {
+    if (!topic || !url || !start_date) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const termAndConditionCreate =
-      await this.parameterTermAndConditionService.termAndConditionCreate(
-        body,
-        req?.user?.sub
-      )
-    const his =
-      await this.parameterTermAndConditionService.termAndConditionOnce(
-        termAndConditionCreate?.id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `term-and-condition`,
-      'create',
-      his
-    )
+    const termAndConditionCreate = await this.parameterTermAndConditionService.termAndConditionCreate(body, req?.user?.sub)
+    const his = await this.parameterTermAndConditionService.termAndConditionOnce(termAndConditionCreate?.id)
+    await writeReq(this.prisma, 'DAM', req, `term-and-condition`, 'create', his)
 
     // inapp
     try {
-      const message = `Terms & Condition was created active from ${start_date} to ${body?.end_date || '-'}`
+      const message = `Terms & Condition was created active from ${start_date} to ${body && body?.end_date || '-'}`
       await middleNotiInapp(
         this.prisma,
         'DAM',
@@ -1383,57 +821,26 @@ export class ParameterController {
 
   // ok inapp
   @UseGuards(AuthGuard)
-  @Put(
-    'term-and-condition-edit/:id'
-  )
-  async termAndConditionEdit(
-    @Body() body: any,
-    @Param('id') id: any,
-    @Req() req: any
-  ) {
-    const {
-      topic,
-      url,
-      start_date
-    } = body
+  @Put('term-and-condition-edit/:id')
+  async termAndConditionEdit(@Body() body: any, @Param('id') id: any, @Req() req: any) {
+    const {topic, url, start_date} = body
 
-    if (
-      !topic ||
-      !url ||
-      !start_date
-    ) {
+    if (!topic || !url || !start_date) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const termAndConditionEdit =
-      await this.parameterTermAndConditionService.termAndConditionEdit(
-        body,
-        req?.user?.sub,
-        id
-      )
-    const his =
-      await this.parameterTermAndConditionService.termAndConditionOnce(
-        id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `term-and-condition`,
-      'edit',
-      his
-    )
+    const termAndConditionEdit = await this.parameterTermAndConditionService.termAndConditionEdit(body, (req?.user?.sub || -1), id)
+    const his = await this.parameterTermAndConditionService.termAndConditionOnce(id)
+    await writeReq(this.prisma, 'DAM', req, `term-and-condition`, 'edit', his)
 
     // inapp
     try {
-      const message = `Terms & Condition was edited active from ${start_date} to ${body?.end_date || '-'}`
+      const message = `Terms & Condition was edited active from ${start_date} to ${body && body?.end_date || '-'}`
       await middleNotiInapp(
         this.prisma,
         'DAM',
@@ -1455,43 +862,22 @@ export class ParameterController {
 
   // ok inapp
   @UseGuards(AuthGuard)
-  @Post(
-    'checking-condition-create'
-  )
-  async checkingConditionCreate(
-    @Body() body: any,
-    @Req() req: any
-  ) {
+  @Post('checking-condition-create')
+  async checkingConditionCreate(@Body() body: any, @Req() req: any) {
     const {start_date} = body
 
     if (!start_date) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const checkingConditionCreate =
-      await this.parameterCheckingConditionService.checkingConditionCreate(
-        body,
-        req?.user?.sub
-      )
-    const his =
-      await this.parameterCheckingConditionService.checkingConditionOnce(
-        checkingConditionCreate?.id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `checking-condition`,
-      'create',
-      his
-    )
+    const checkingConditionCreate = await this.parameterCheckingConditionService.checkingConditionCreate(body, req?.user?.sub)
+    const his = await this.parameterCheckingConditionService.checkingConditionOnce(checkingConditionCreate?.id)
+    await writeReq(this.prisma, 'DAM', req, `checking-condition`, 'create', his)
 
     // inapp
     try {
@@ -1510,45 +896,22 @@ export class ParameterController {
 
   // ok inapp
   @UseGuards(AuthGuard)
-  @Put(
-    'checking-condition-edit/:id'
-  )
-  async checkingConditionEdit(
-    @Body() body: any,
-    @Param('id') id: any,
-    @Req() req: any
-  ) {
+  @Put('checking-condition-edit/:id')
+  async checkingConditionEdit(@Body() body: any, @Param('id') id: any, @Req() req: any) {
     const {start_date} = body
 
     if (!start_date || !id) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const checkingConditionEdit =
-      await this.parameterCheckingConditionService.checkingConditionEdit(
-        body,
-        req?.user?.sub,
-        id
-      )
-    const his =
-      await this.parameterCheckingConditionService.checkingConditionOnce(
-        id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `checking-condition`,
-      'edit',
-      his
-    )
+    const checkingConditionEdit = await this.parameterCheckingConditionService.checkingConditionEdit(body, (req?.user?.sub || -1), id)
+    const his = await this.parameterCheckingConditionService.checkingConditionOnce(id)
+    await writeReq(this.prisma, 'DAM', req, `checking-condition`, 'edit', his)
 
     // inapp
     try {
@@ -1573,49 +936,22 @@ export class ParameterController {
   }
 
   @UseGuards(AuthGuard)
-  @Post(
-    'booking-template-create'
-  )
-  async bookingTemplateCreate(
-    @Body() body: any,
-    @Req() req: any
-  ) {
-    const {
-      term_type_id,
-      start_date
-    } = body
+  @Post('booking-template-create')
+  async bookingTemplateCreate(@Body() body: any, @Req() req: any) {
+    const {term_type_id, start_date} = body
 
-    if (
-      !term_type_id ||
-      !start_date
-    ) {
+    if (!term_type_id || !start_date) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const bookingTemplateCreate =
-      await this.parameterBookingTemplateService.bookingTemplateCreate(
-        body,
-        req?.user?.sub
-      )
-    const his =
-      await this.parameterBookingTemplateService.bookingTemplateOnce(
-        bookingTemplateCreate?.id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `booking-template`,
-      'create',
-      his
-    )
+    const bookingTemplateCreate = await this.parameterBookingTemplateService.bookingTemplateCreate(body, req?.user?.sub)
+    const his = await this.parameterBookingTemplateService.bookingTemplateOnce(bookingTemplateCreate?.id)
+    await writeReq(this.prisma, 'DAM', req, `booking-template`, 'create', his)
     try {
       await middleNotiInapp(
         this.prisma,
@@ -1630,52 +966,22 @@ export class ParameterController {
   }
 
   @UseGuards(AuthGuard)
-  @Put(
-    'booking-template-edit/:id'
-  )
-  async bookingTemplateEdit(
-    @Body() body: any,
-    @Param('id') id: any,
-    @Req() req: any
-  ) {
-    const {
-      term_type_id,
-      start_date
-    } = body
+  @Put('booking-template-edit/:id')
+  async bookingTemplateEdit(@Body() body: any, @Param('id') id: any, @Req() req: any) {
+    const {term_type_id, start_date} = body
 
-    if (
-      !term_type_id ||
-      !start_date ||
-      !id
-    ) {
+    if (!term_type_id || !start_date || !id) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const bookingTemplateEdit =
-      await this.parameterBookingTemplateService.bookingTemplateEdit(
-        body,
-        req?.user?.sub,
-        id
-      )
-    const his =
-      await this.parameterBookingTemplateService.bookingTemplateOnce(
-        id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `booking-template`,
-      'edit',
-      his
-    )
+    const bookingTemplateEdit = await this.parameterBookingTemplateService.bookingTemplateEdit(body, (req?.user?.sub || -1), id)
+    const his = await this.parameterBookingTemplateService.bookingTemplateOnce(id)
+    await writeReq(this.prisma, 'DAM', req, `booking-template`, 'edit', his)
     try {
       await middleNotiInapp(
         this.prisma,
@@ -1691,108 +997,49 @@ export class ParameterController {
 
   // config-mode-zone-base-inventory
 
-  @Get(
-    'config-mode-zone-base-inventory'
-  )
+  @Get('config-mode-zone-base-inventory')
   configModeZoneBaseInventory() {
     return this.parameterConfigModeZoneBaseInventoryService.configModeZoneBaseInventory()
   }
 
   @UseGuards(AuthGuard)
-  @Post(
-    'config-mode-zone-base-inventory-create'
-  )
-  async configModeZoneBaseInventoryCreate(
-    @Body() body: any,
-    @Req() req: any
-  ) {
-    const {
-      zone_id,
-      start_date
-    } = body
+  @Post('config-mode-zone-base-inventory-create')
+  async configModeZoneBaseInventoryCreate(@Body() body: any, @Req() req: any) {
+    const {zone_id, start_date} = body
 
-    if (
-      !zone_id ||
-      !start_date
-    ) {
+    if (!zone_id || !start_date) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const configModeZoneBaseInventoryCreate =
-      await this.parameterConfigModeZoneBaseInventoryService.configModeZoneBaseInventoryCreate(
-        body,
-        req?.user?.sub
-      )
-    const his =
-      await this.parameterConfigModeZoneBaseInventoryService.configModeZoneBaseInventoryOnce(
-        configModeZoneBaseInventoryCreate?.id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `config-mode-zone-base-inventory`,
-      'create',
-      his
-    )
+    const configModeZoneBaseInventoryCreate = await this.parameterConfigModeZoneBaseInventoryService.configModeZoneBaseInventoryCreate(body, req?.user?.sub)
+    const his = await this.parameterConfigModeZoneBaseInventoryService.configModeZoneBaseInventoryOnce(configModeZoneBaseInventoryCreate?.id)
+    await writeReq(this.prisma, 'DAM', req, `config-mode-zone-base-inventory`, 'create', his)
 
     return configModeZoneBaseInventoryCreate
   }
 
   @UseGuards(AuthGuard)
-  @Put(
-    'config-mode-zone-base-inventory-edit/:id'
-  )
-  async configModeZoneBaseInventoryEdit(
-    @Body() body: any,
-    @Param('id') id: any,
-    @Req() req: any
-  ) {
-    const {
-      zone_id,
-      start_date
-    } = body
+  @Put('config-mode-zone-base-inventory-edit/:id')
+  async configModeZoneBaseInventoryEdit(@Body() body: any, @Param('id') id: any, @Req() req: any) {
+    const {zone_id, start_date} = body
 
-    if (
-      !zone_id ||
-      !start_date ||
-      !id
-    ) {
+    if (!zone_id || !start_date || !id) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const configModeZoneBaseInventoryEdit =
-      await this.parameterConfigModeZoneBaseInventoryService.configModeZoneBaseInventoryEdit(
-        body,
-        req?.user?.sub,
-        id
-      )
-    const his =
-      await this.parameterConfigModeZoneBaseInventoryService.configModeZoneBaseInventoryOnce(
-        id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `config-mode-zone-base-inventory`,
-      'edit',
-      his
-    )
+    const configModeZoneBaseInventoryEdit = await this.parameterConfigModeZoneBaseInventoryService.configModeZoneBaseInventoryEdit(body, (req?.user?.sub || -1), id)
+    const his = await this.parameterConfigModeZoneBaseInventoryService.configModeZoneBaseInventoryOnce(id)
+    await writeReq(this.prisma, 'DAM', req, `config-mode-zone-base-inventory`, 'edit', his)
 
     return configModeZoneBaseInventoryEdit
   }
@@ -1804,59 +1051,28 @@ export class ParameterController {
     return this.parameterModeZoneBaseInventoryService.modeZoneUse()
   }
 
-  @Get(
-    'mode-zone-base-inventory'
-  )
+  @Get('mode-zone-base-inventory')
   changeModeZoneBaseInventory() {
     return this.parameterModeZoneBaseInventoryService.changeModeZoneBaseInventory()
   }
 
   @UseGuards(AuthGuard)
-  @Post(
-    'mode-zone-base-inventory-create'
-  )
-  async changeModeZoneBaseInventoryCreate(
-    @Body() body: any,
-    @Req() req: any
-  ) {
-    const {
-      zone_id,
-      mode_id,
-      start_date
-    } = body
+  @Post('mode-zone-base-inventory-create')
+  async changeModeZoneBaseInventoryCreate(@Body() body: any, @Req() req: any) {
+    const {zone_id, mode_id, start_date} = body
 
-    if (
-      !zone_id ||
-      !mode_id ||
-      !start_date
-    ) {
+    if (!zone_id || !mode_id || !start_date) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
-    } 
-    const changeModeZoneBaseInventoryCreate =
-      await this.parameterModeZoneBaseInventoryService.changeModeZoneBaseInventoryCreate(
-        body,
-        req?.user?.sub
-      )
-    const his =
-      await this.parameterModeZoneBaseInventoryService.changeModeZoneBaseInventoryOnce(
-        changeModeZoneBaseInventoryCreate?.id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `mode-zone-base-inventory-create`,
-      'create',
-      his
-    )
+    }
+    const changeModeZoneBaseInventoryCreate = await this.parameterModeZoneBaseInventoryService.changeModeZoneBaseInventoryCreate(body, req?.user?.sub)
+    const his = await this.parameterModeZoneBaseInventoryService.changeModeZoneBaseInventoryOnce(changeModeZoneBaseInventoryCreate?.id)
+    await writeReq(this.prisma, 'DAM', req, `mode-zone-base-inventory-create`, 'create', his)
 
     try {
       // const contractCode = await this.prisma.contract_code.findFirst({ where: { id: Number(uploadFile?.dataInfo?.contract_code_id) } })
@@ -1875,39 +1091,20 @@ export class ParameterController {
   }
 
   @UseGuards(AuthGuard)
-  @Post(
-    'mode-zone-base-inventory-create-text'
-  )
-  async changeModeZoneBaseInventoryCreateText(
-    @Body() body: any,
-    @Req() req: any
-  ) {
-    const {
-      zone_text,
-      mode_text,
-      start_date
-    } = body
+  @Post('mode-zone-base-inventory-create-text')
+  async changeModeZoneBaseInventoryCreateText(@Body() body: any, @Req() req: any) {
+    const {zone_text, mode_text, start_date} = body
 
-    if (
-      !zone_text ||
-      !mode_text ||
-      !start_date
-    ) {
+    if (!zone_text || !mode_text || !start_date) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
-    } 
-    const changeModeZoneBaseInventoryCreateText =
-      await this.parameterModeZoneBaseInventoryService.changeModeZoneBaseInventoryCreateText(
-        body,
-        req?.user?.sub
-      )
+    }
+    const changeModeZoneBaseInventoryCreateText = await this.parameterModeZoneBaseInventoryService.changeModeZoneBaseInventoryCreateText(body, req?.user?.sub)
     // const his =
     //   await this.parameterModeZoneBaseInventoryService.changeModeZoneBaseInventoryOnce(
     //     changeModeZoneBaseInventoryCreateText?.id
@@ -1937,51 +1134,28 @@ export class ParameterController {
 
   // email-group-for-event
 
-  @Get(
-    'email-group-for-event'
-  )
+  @Get('email-group-for-event')
   emailGroupForEvent() {
     return this.parameterEmailGroupForEventService.emailGroupForEvent()
   }
 
   @UseGuards(AuthGuard)
-  @Post(
-    'email-group-for-event-create'
-  )
-  async emailGroupForEventCreate(
-    @Body() body: any,
-    @Req() req: any
-  ) {
+  @Post('email-group-for-event-create')
+  async emailGroupForEventCreate(@Body() body: any, @Req() req: any) {
     const {name, email} = body
 
     if (!name || !email) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const emailGroupForEventCreate =
-      await this.parameterEmailGroupForEventService.emailGroupForEventCreate(
-        body,
-        req?.user?.sub
-      )
-    const his =
-      await this.parameterEmailGroupForEventService.emailGroupForEventOnce(
-        emailGroupForEventCreate?.id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `email-group-for-event`,
-      'create',
-      his
-    )
+    const emailGroupForEventCreate = await this.parameterEmailGroupForEventService.emailGroupForEventCreate(body, req?.user?.sub)
+    const his = await this.parameterEmailGroupForEventService.emailGroupForEventOnce(emailGroupForEventCreate?.id)
+    await writeReq(this.prisma, 'DAM', req, `email-group-for-event`, 'create', his)
     try {
       await middleNotiInapp(
         this.prisma,
@@ -1996,45 +1170,22 @@ export class ParameterController {
   }
 
   @UseGuards(AuthGuard)
-  @Put(
-    'email-group-for-event-edit/:id'
-  )
-  async emailGroupForEventEdit(
-    @Body() body: any,
-    @Param('id') id: any,
-    @Req() req: any
-  ) {
+  @Put('email-group-for-event-edit/:id')
+  async emailGroupForEventEdit(@Body() body: any, @Param('id') id: any, @Req() req: any) {
     const {name, email} = body
 
     if (!name || !email) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const emailGroupForEventEdit =
-      await this.parameterEmailGroupForEventService.emailGroupForEventEdit(
-        body,
-        req?.user?.sub,
-        id
-      )
-    const his =
-      await this.parameterEmailGroupForEventService.emailGroupForEventOnce(
-        id
-      )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `email-group-for-event`,
-      'edit',
-      his
-    )
+    const emailGroupForEventEdit = await this.parameterEmailGroupForEventService.emailGroupForEventEdit(body, (req?.user?.sub || -1), id)
+    const his = await this.parameterEmailGroupForEventService.emailGroupForEventOnce(id)
+    await writeReq(this.prisma, 'DAM', req, `email-group-for-event`, 'edit', his)
     try {
       await middleNotiInapp(
         this.prisma,

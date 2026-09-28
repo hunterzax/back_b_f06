@@ -32,11 +32,13 @@ import {EventModule} from 'src/event/event.module'
 import {TariffModule} from 'src/tariff/tariff.module'
 import {MeteringManagementService} from 'src/metering-management/metering-management.service'
 import { ParameterAuditLogService } from 'src/parameter/audit-log'
+import { AssetModule } from 'src/asset/asset.module'
 
 @Module({
   imports: [
     GrpcModule,
     AccountManageModule,
+    AssetModule,
     CapacityModule,
     forwardRef(
       () => AllocationModule

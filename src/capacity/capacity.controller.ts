@@ -61,8 +61,14 @@ export class CapacityController {
 
   @UseGuards(AuthGuard)
   @Get('pure-contract')
-  pureContract() {
-    return this.capacityService.pureContract()
+  pureContract(@Query() query: any, @Req() req: any) {
+    return this.capacityService.pureContract(query, req?.user?.sub)
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('pure-contract-ref-nom')
+  pureContractRefNom(@Query() query: any, @Req() req: any) {
+    return this.capacityService.pureContractRefNom(query, req?.user?.sub)
   }
 
   @Get('term-type')
@@ -118,9 +124,9 @@ export class CapacityController {
     }
     const fileCapacityBooking =
       await this.capacityService.fileCapacityBooking(
-        body?.url,
-        body?.contract_code_id,
-        req?.user?.sub
+        body && body?.url || "",
+        body && body?.contract_code_id || -1,
+        req && req?.user?.sub || -1
       )
 
     return fileCapacityBooking
@@ -178,7 +184,7 @@ export class CapacityController {
 
     return this.capacityService.importTemplate(
       grpcTransform,
-      req?.user?.sub,
+      (req?.user?.sub || -1),
       file,
       token,
       id,

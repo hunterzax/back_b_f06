@@ -296,7 +296,7 @@ export class ReleaseUioliSummaryManagementService {
     const valuesKey = 7;
     let nRowJson = fullRow.map((e: any) => {
       const maxKey = Math.max(...Object.keys(e.data_temp).map(Number).filter(key => Number.isFinite(key))); // .filter(key => Number.isFinite(key) | "entryValue": [{"undefined": "" }], "exitValue": [{"undefined": "" }]
-      const numGroups = Number(e?.entry_exit_id) === 1 ? 4 : 2; // แบ่งเป็น 4 , 2 ช่วง
+      const numGroups = e && (Number(e?.entry_exit_id) === 1 ? 4 : 2) || 2; // แบ่งเป็น 4 , 2 ช่วง
       // คำนวณขนาดของแต่ละช่วง
       const rangeSize = Math.ceil((maxKey - valuesKey + 1) / numGroups);
 

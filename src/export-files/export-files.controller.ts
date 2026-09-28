@@ -106,6 +106,10 @@ export class ExportFilesController {
   epDamConceptPoint(@Res() res: Response, @Body() Body: any) {
     return this.exportFilesService.epDamConceptPoint(res, Body)
   }
+  @Post('dam/concept-point-limit')
+  epDamConceptPointLimit(@Res() res: Response, @Body() Body: any) {
+    return this.exportFilesService.epDamConceptPointLimit(res, Body)
+  }
   @Post('dam/non-tpa-point')
   epDamNonTpaPoint(@Res() res: Response, @Body() Body: any) {
     return this.exportFilesService.epDamNonTpaPoint(res, Body)
@@ -699,7 +703,7 @@ export class ExportFilesController {
           year: body.year,
           startDate: body.startDate,
           endDate: body.endDate,
-          timestamp: data[0]?.create_date_num
+          timestamp: data[0] && data[0]?.create_date_num || null
         },
         res
       )

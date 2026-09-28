@@ -1,5 +1,5 @@
 export const jwtConstants = {
-  secret: '!B@Nl<Na.'
+  secret: process.env.JWT_SECRET || ''
   // secret: process.env.JWT_SECRET || (() => {
   //   console.error('❌ CRITICAL: JWT_SECRET is not set in environment variables!');
   //   console.error('❌ Using fallback secret - DO NOT USE IN PRODUCTION!');

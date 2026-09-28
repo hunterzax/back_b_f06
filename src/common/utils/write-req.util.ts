@@ -10,7 +10,7 @@ export async function useReqs(
     ] || req.ip
   return {
     ip: ip,
-    sub: req?.user?.sub,
+    sub: (req?.user?.sub || -1),
     first_name:
       req?.user?.first_name,
     last_name:

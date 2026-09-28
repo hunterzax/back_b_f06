@@ -130,8 +130,16 @@ export function divideTo3Decimal(
     return null
   }
   return cascadingRound(value / divisor, 3);
-  const scaled = Math.round((value + Number.EPSILON) * 1000)
-  return (Math.round(scaled / divisor) / 1000)
+}
+
+export function divideTo6Decimal(
+  value: number | null,
+  divisor: number
+) {
+  if (value == null) {
+    return null
+  }
+  return cascadingRound(value / divisor, 6);
 }
 
 export function divideTo8Decimal(
@@ -142,6 +150,4 @@ export function divideTo8Decimal(
     return null
   }
   return cascadingRound(value / divisor, 8);
-  const scaled = Math.round((value + Number.EPSILON) * 100000000)
-  return (Math.round(scaled / divisor) / 100000000)
 }

@@ -175,18 +175,18 @@ export class QueryShipperNominationFileService {
         // flag_use: true
       },
       orderBy:{
-        version:"desc"
+        create_date:"desc"
       }
     })
     let versionSubmission = []
-    for (let i_ = 0; i_ < versionIdArr.length; i_++) {
+    for (let i_ = 0; i_ < (versionIdArr || []).length; i_++) {
       const resDataArr = await this.prisma.submission_comment_query_shipper_nomination_file.findMany({
         where: {
-          create_date: versionIdArr?.[i_]?.create_date,
+          create_date: versionIdArr[i_]?.create_date,
           query_shipper_nomination_file: {
             nomination_version: {
               some: {
-                id: versionIdArr?.[i_]?.id
+                id: versionIdArr[i_]?.id
               }
             }
           }
@@ -241,6 +241,7 @@ export class QueryShipperNominationFileService {
   async query_shipper_nomination_file_comment(id: any, userId?: any) {
     const resData = await this.prisma.query_shipper_nomination_file_comment.findMany({
       where: {
+        del_flag: null,
         query_shipper_nomination_file_id: Number(id)
       },
       include: {
@@ -266,6 +267,18 @@ export class QueryShipperNominationFileService {
       orderBy: {
         id: 'desc'
       }
+    })
+    return resData
+  }
+
+  async query_shipper_nomination_file_comment_delete(id: any, userId?: any) {
+    const resData = await this.prisma.query_shipper_nomination_file_comment.updateMany({
+      where: {
+        id: Number(id)
+      },
+      data:{
+        del_flag: true, 
+      },
     })
     return resData
   }
@@ -735,7 +748,7 @@ export class QueryShipperNominationFileService {
     const nresData = resData?.map((e) => {
       let disabledFlag = e?.contract_code?.status_capacity_request_management_id === 3 || e?.contract_code?.status_capacity_request_management_id === 5 ? true : false
 
-      const contractPointList = e.contract_code?.booking_version?.[0]?.booking_row_json.map((bookingRowJson) => bookingRowJson.contract_point)
+      const contractPointList = (e && e.contract_code?.booking_version?.[0]?.booking_row_json || []).map((bookingRowJson) => bookingRowJson.contract_point)
       let endDate = e.gas_day
       if (e.nomination_type_id == 2) {
         endDate = getTodayNowAdd7(e.gas_day).endOf('week').toDate()
@@ -833,7 +846,7 @@ export class QueryShipperNominationFileService {
         return nomination_version
       })
 
-      let latestSubmittedTimestamp: Date | undefined = e?.submitted_timestamp
+      let latestSubmittedTimestamp: Date | undefined = e && e?.submitted_timestamp || undefined
       try {
         e.nomination_version
         if (e?.nomination_version && e.nomination_version.length > 0 && e.nomination_version[0]?.create_date) {
@@ -923,6 +936,27 @@ export class QueryShipperNominationFileService {
             in: body?.contract_id_arr
           }
         }
+      })
+    }
+
+    if (body?.contract_code_arr?.length > 0) {
+      andInWhere.push({
+        OR: [
+          {
+            contract_code: {
+              contract_code: {
+                in: body?.contract_code_arr
+              }
+            }
+          },
+          {
+            reserve_balancing_gas_contract: {
+              res_bal_gas_contract: {
+                in: body?.contract_code_arr
+              }
+            }
+          }
+        ]
       })
     }
 
@@ -1069,6 +1103,14 @@ export class QueryShipperNominationFileService {
           select: {
             create_date: true
           }
+        },
+        query_shipper_nomination_file_comment:{
+          select:{
+            id:true
+          },
+          where:{
+            del_flag: null
+          }
         }
       },
       orderBy: {
@@ -1208,7 +1250,7 @@ export class QueryShipperNominationFileService {
     const nresData = resData?.map((e) => {
       let disabledFlag = e?.contract_code?.status_capacity_request_management_id === 3 || e?.contract_code?.status_capacity_request_management_id === 5 ? true : false
 
-      const contractPointList = e.contract_code?.booking_version?.[0]?.booking_row_json.map((bookingRowJson) => bookingRowJson.contract_point)
+      const contractPointList = (e && e.contract_code?.booking_version?.[0]?.booking_row_json || []).map((bookingRowJson) => bookingRowJson.contract_point)
       let endDate = e.gas_day
       if (e.nomination_type_id == 2) {
         endDate = getTodayNowAdd7(e.gas_day).endOf('week').toDate()
@@ -1217,67 +1259,6 @@ export class QueryShipperNominationFileService {
         return nominationPoint.start_date <= endDate && (nominationPoint.end_date === null || nominationPoint.end_date >= e.gas_day)
       })
 
-      // if(disabledFlag == false){
-      //   // Find matching nomination deadline based on:
-      //   // 1. Same nomination type
-      //   // 2. Process type based on whether it's a renomination or not
-      //   const deadlineListByType = deadlineList.filter(deadline => {
-      //     return e.nomination_type_id == deadline.nomination_type_id &&
-      //     (
-      //       e.query_shipper_nomination_file_renom ?
-      //         // For renomination: check process type 4 or 'Validity response of renomination'
-      //         (deadline.process_type.id == 4 ||  deadline.process_type.name == 'Validity response of renomination')
-      //         :
-      //         // For normal nomination: check process type 2 or 'Management'
-      //         (deadline.process_type.id == 2 ||  deadline.process_type.name == 'Management')
-      //     )
-      //   })
-      //   // Find the object with minimum values using cascading comparison
-      //   const nomDeadline = deadlineListByType.length < 1 ?
-      //     undefined
-      //   :
-      //     deadlineListByType.reduce((min, current) => {
-      //       if (current.before_gas_day < min.before_gas_day) {
-      //         return current;
-      //       } else if (current.before_gas_day === min.before_gas_day) {
-      //         if (current.hour > min.hour) {
-      //           return current;
-      //         } else if (current.hour === min.hour) {
-      //           if (current.minute > min.minute) {
-      //             return current;
-      //           }
-      //         }
-      //       }
-      //       return min;
-      //     }, deadlineListByType[0]);
-
-      //   // Check if nomination deadline exists
-      //   if(nomDeadline){
-      //     // Parse the gas day into a dayjs object
-      //     const gasDay = dayjs(e.gas_day)
-      //     if(gasDay.isValid()){
-      //       // Determine the time unit (week or day) based on whether it's a renomination
-      //       const unit = 'day' //e.query_shipper_nomination_file_renom ? 'week' : 'day'
-      //       // Calculate the deadline date by subtracting the specified time before gas day
-      //       const deadlineDate = gasDay.subtract(nomDeadline.before_gas_day, unit)
-      //       // Check if the deadline is before today's start - if so, disable the nomination
-      //       if(deadlineDate.isBefore(startOfToday)){
-      //         disabledFlag = true
-      //       }
-      //       // If deadline is today, check the specific time
-      //       else if(deadlineDate.isSame(startOfToday)){
-      //         // Disable if current hour is past the deadline hour
-      //         if(todayNow.hour() > nomDeadline.hour){
-      //           disabledFlag = true
-      //         }
-      //         // If same hour, check minutes
-      //         else if(todayNow.hour() == nomDeadline.hour && todayNow.minute() > nomDeadline.minute){
-      //           disabledFlag = true
-      //         }
-      //       }
-      //     }
-      //   }
-      // }
 
       const nominationVersionWithContractPointList = e.nomination_version.map((nomination_version) => {
         const nominationRowJsonWithContractPointList = nomination_version.nomination_row_json.map((nomination_row_json) => {
@@ -1306,7 +1287,7 @@ export class QueryShipperNominationFileService {
         return nomination_version
       })
 
-      let latestSubmittedTimestamp: Date | undefined = e?.submitted_timestamp
+      let latestSubmittedTimestamp: Date | undefined = e && e?.submitted_timestamp || undefined
       try {
         e.nomination_version
         if (e?.nomination_version && e.nomination_version.length > 0 && e.nomination_version[0]?.create_date) {
@@ -1405,7 +1386,7 @@ export class QueryShipperNominationFileService {
         },
         query_shipper_nomination_type_comment: {
           connect: {
-            id: !!reasons ? 3 : userType?.id === 3 ? 1 : userType?.id === 2 ? 2 : 2
+            id: !!reasons ? 3 : userType?.id === 3 ? 1 : 2
           }
         },
         query_shipper_nomination_status: {
@@ -1857,6 +1838,8 @@ export class QueryShipperNominationFileService {
         group: true,
         booking_version: {
           include: {
+            booking_full_json_release: true,
+            booking_row_json_release: true,
             booking_full_json: true,
             booking_row_json: true
           },
@@ -1868,7 +1851,7 @@ export class QueryShipperNominationFileService {
       }
     })
 
-    const bookingFullJson = JSON.parse(contractCode?.booking_version[0]?.booking_full_json[0]?.data_temp)
+    const bookingFullJson = JSON.parse(contractCode?.booking_version[0]?.booking_full_json_release[0]?.data_temp || contractCode?.booking_version[0]?.booking_full_json[0]?.data_temp)
     const headerEntryCDBMMBTUD = bookingFullJson?.headerEntry['Capacity Daily Booking (MMBTU/d)']
     delete headerEntryCDBMMBTUD['key']
     const headerEntryCDBMMscfd = bookingFullJson?.headerEntry['Capacity Daily Booking (MMscfd)']
@@ -1915,7 +1898,7 @@ export class QueryShipperNominationFileService {
             return fnp?.nomination_point === data_temp?.[3]
           })
 
-          const find = entryValue.find((f: any) => {
+          const find = (entryValue || []).find((f: any) => {
             return (
               f['0'] ===
               checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -1937,7 +1920,7 @@ export class QueryShipperNominationFileService {
             if (finds) {
               warningLogHrTemp = warningLogHrTemp?.map((ehr: any) => {
                 let neHR = ehr
-                if (finds?.hr === neHR?.hr && finds?.contractPoint === neHR?.contractPoint && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
+                if (neHR && finds?.hr === neHR?.hr && finds?.contractPoint === neHR?.contractPoint && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
                   neHR.energy = +parseToNumber3Decimal(data_temp?.[index] ?? 0)
                 }
                 return {
@@ -1969,7 +1952,7 @@ export class QueryShipperNominationFileService {
             return fnp?.nomination_point === data_temp?.[3]
           })
 
-          const find = entryValue.find((f: any) => {
+          const find = (entryValue || []).find((f: any) => {
             return (
               f['0'] ===
               checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -1991,7 +1974,7 @@ export class QueryShipperNominationFileService {
             if (finds) {
               warningLogHrTemp = warningLogHrTemp?.map((ehr: any) => {
                 let neHR = ehr
-                if (finds?.hr === neHR?.hr && finds?.contractPoint === neHR?.contractPoint && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
+                if (neHR && finds?.hr === neHR?.hr && finds?.contractPoint === neHR?.contractPoint && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
                   neHR.energy = +parseToNumber3Decimal(data_temp?.[index] ?? 0)
                 }
                 return {
@@ -2023,7 +2006,7 @@ export class QueryShipperNominationFileService {
             return fnp?.nomination_point === data_temp?.[3]
           })
 
-          const find = exitValue.find((f: any) => {
+          const find = (exitValue || []).find((f: any) => {
             return (
               f['0'] ===
               checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -2045,7 +2028,7 @@ export class QueryShipperNominationFileService {
             if (finds) {
               warningLogHrTemp = warningLogHrTemp?.map((ehr: any) => {
                 let neHR = ehr
-                if (finds?.hr === neHR?.hr && finds?.contractPoint === neHR?.contractPoint && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
+                if (neHR && finds?.hr === neHR?.hr && finds?.contractPoint === neHR?.contractPoint && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
                   neHR.energy = +parseToNumber3Decimal(data_temp?.[index] ?? 0)
                 }
                 return {
@@ -2077,7 +2060,7 @@ export class QueryShipperNominationFileService {
             return fnp?.nomination_point === data_temp?.[3]
           })
 
-          const find = exitValue.find((f: any) => {
+          const find = (exitValue || []).find((f: any) => {
             return (
               f['0'] ===
               checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -2098,7 +2081,7 @@ export class QueryShipperNominationFileService {
             if (finds) {
               warningLogHrTemp = warningLogHrTemp?.map((ehr: any) => {
                 let neHR = ehr
-                if (finds?.hr === neHR?.hr && finds?.contractPoint === neHR?.contractPoint && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
+                if (neHR && finds?.hr === neHR?.hr && finds?.contractPoint === neHR?.contractPoint && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
                   neHR.energy = +parseToNumber3Decimal(data_temp?.[index] ?? 0)
                 }
                 return {
@@ -2118,17 +2101,11 @@ export class QueryShipperNominationFileService {
                 unit: data_temp?.[9]
               })
             }
-            // if((parseToNumber3Decimal(data_temp?.[index]) ?? 0) > parseToNumber3Decimal(valueCapa)){
-            //   warningLogHr.push(`Nominated max energy ${this.formatNumberThreeDecimal(parseToNumber3Decimal(data_temp?.[index]) ?? '')} exceeds contracted value ${this.formatNumberThreeDecimal(parseToNumber3Decimal(valueCapa)) ?? ''} for contract point ${contract_point || '-'} and hour ${index - 14 + 1}`);
-            // }
+         
           })
         }
       }
-      // for (let i = 0; i < warningLogHrTemp.length; i++) {
-      //   if(parseToNumber3Decimal(warningLogHrTemp?.[i]?.nomVal) > parseToNumber3Decimal(warningLogHrTemp?.[i]?.valueCapaPerDay)){
-      //       warningLogDay.push(`Nominated Total energy ${warningLogHrTemp?.[i]?.nomVal || 0} exceeds contracted value ${this.formatNumberThreeDecimal(parseToNumber3Decimal(warningLogHrTemp?.[i]?.valueCapaPerDay) ?? '')} for contract point ${warningLogHrTemp?.[i]?.contractPoint} and gas day ${warningLogHrTemp?.[i]?.gasDay}`);
-      //     }
-      // }
+    
     } else {
       // weekly
 
@@ -2144,7 +2121,7 @@ export class QueryShipperNominationFileService {
             return fnp?.nomination_point === data_temp?.[3]
           })
 
-          const find = entryValue.find((f: any) => {
+          const find = (entryValue || []).find((f: any) => {
             return (
               f['0'] ===
               checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -2157,7 +2134,7 @@ export class QueryShipperNominationFileService {
             const contract_point = checkNominationPoint?.contract_point_list.find((cl: any) => {
               return cl?.contract_point === find['0']
             })?.contract_point
-            let currentCapacity = data_temp[index] === '0' || (!!data_temp?.[index] && Number(data_temp?.[index]?.trim()?.replace(/,/g, ''))) || null
+            let currentCapacity = (data_temp?.[index] === '0' || !!data_temp?.[index]) ? Number(data_temp?.[index]?.trim()?.replace(/,/g, '')) : null
             const headDayUseConv = getTodayNowDDMMYYYYDfaultAdd7(headDay).add(index - 14, 'day')
             let resultEntryExitUse: any = null
             if (contractCode?.term_type_id === 4) {
@@ -2173,7 +2150,7 @@ export class QueryShipperNominationFileService {
             if (finds) {
               warningLogDayWeekTemp = warningLogDayWeekTemp?.map((ed: any) => {
                 let neD = ed
-                if (finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
+                if (finds && neD && finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
                   neD.energy = +parseToNumber(currentCapacity)
                 }
                 return {
@@ -2198,7 +2175,7 @@ export class QueryShipperNominationFileService {
             return fnp?.nomination_point === data_temp?.[3]
           })
 
-          const find = entryValue.find((f: any) => {
+          const find = (entryValue || []).find((f: any) => {
             return (
               f['0'] ===
               checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -2211,7 +2188,7 @@ export class QueryShipperNominationFileService {
             const contract_point = checkNominationPoint?.contract_point_list.find((cl: any) => {
               return cl?.contract_point === find['0']
             })?.contract_point
-            let currentCapacity = data_temp[index] === '0' || (!!data_temp?.[index] && Number(data_temp?.[index]?.trim()?.replace(/,/g, ''))) || null
+            let currentCapacity = (data_temp?.[index] === '0' || !!data_temp?.[index]) ? Number(data_temp?.[index]?.trim()?.replace(/,/g, '')) : null
             const headDayUseConv = getTodayNowDDMMYYYYDfaultAdd7(headDay).add(index - 14, 'day')
             let resultEntryExitUseMMscfd: any = null
             if (contractCode?.term_type_id === 4) {
@@ -2227,7 +2204,7 @@ export class QueryShipperNominationFileService {
             if (finds) {
               warningLogDayWeekTemp = warningLogDayWeekTemp?.map((ed: any) => {
                 let neD = ed
-                if (finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
+                if (finds && neD && finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
                   neD.energy = +parseToNumber(currentCapacity)
                 }
                 return {
@@ -2252,7 +2229,7 @@ export class QueryShipperNominationFileService {
             return fnp?.nomination_point === data_temp?.[3]
           })
 
-          const find = exitValue.find((f: any) => {
+          const find = (exitValue || []).find((f: any) => {
             return (
               f['0'] ===
               checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -2265,7 +2242,7 @@ export class QueryShipperNominationFileService {
             const contract_point = checkNominationPoint?.contract_point_list.find((cl: any) => {
               return cl?.contract_point === find['0']
             })?.contract_point
-            let currentCapacity = data_temp[index] === '0' || (!!data_temp?.[index] && Number(data_temp?.[index]?.trim()?.replace(/,/g, ''))) || null
+            let currentCapacity = (data_temp?.[index] === '0' || !!data_temp?.[index]) ? Number(data_temp?.[index]?.trim()?.replace(/,/g, '')) : null
             const headDayUseConv = getTodayNowDDMMYYYYDfaultAdd7(headDay).add(index - 14, 'day')
             let resultEntryExitUse: any = null
             if (contractCode?.term_type_id === 4) {
@@ -2281,7 +2258,7 @@ export class QueryShipperNominationFileService {
             if (finds) {
               warningLogDayWeekTemp = warningLogDayWeekTemp?.map((ed: any) => {
                 let neD = ed
-                if (finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
+                if (finds && neD && finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
                   neD.energy = +parseToNumber(currentCapacity)
                 }
                 return {
@@ -2306,7 +2283,7 @@ export class QueryShipperNominationFileService {
             return fnp?.nomination_point === data_temp?.[3]
           })
 
-          const find = exitValue.find((f: any) => {
+          const find = (exitValue || []).find((f: any) => {
             return (
               f['0'] ===
               checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -2319,7 +2296,7 @@ export class QueryShipperNominationFileService {
             const contract_point = checkNominationPoint?.contract_point_list.find((cl: any) => {
               return cl?.contract_point === find['0']
             })?.contract_point
-            let currentCapacity = data_temp[index] === '0' || (!!data_temp?.[index] && Number(data_temp?.[index]?.trim()?.replace(/,/g, ''))) || null
+            let currentCapacity = (data_temp?.[index] === '0' || !!data_temp?.[index]) ? Number(data_temp?.[index]?.trim()?.replace(/,/g, '')) : null
             const headDayUseConv = getTodayNowDDMMYYYYDfaultAdd7(headDay).add(index - 14, 'day')
             let resultEntryExitUseMMscfd: any = null
             if (contractCode?.term_type_id === 4) {
@@ -2335,7 +2312,7 @@ export class QueryShipperNominationFileService {
             if (finds) {
               warningLogDayWeekTemp = warningLogDayWeekTemp?.map((ed: any) => {
                 let neD = ed
-                if (finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
+                if (finds && neD && finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
                   neD.energy = +parseToNumber(currentCapacity)
                 }
                 return {
@@ -2356,54 +2333,17 @@ export class QueryShipperNominationFileService {
         }
       }
 
-      // let groupedBywarningLogHrWeeklyTemp: any = Object.values(
-      //   warningLogDayWeekTemp.reduce((acc, item) => {
-      //     const key = `${item?.headDayUse}|${item?.contractPoint}|${item?.value}|${item?.unit}`;
-      //     if (!acc[key]) {
-      //       acc[key] = {
-      //         headDayUse: item.headDayUse,
-      //         contractPoint: item.contractPoint,
-      //         value: item.value,
-      //         unit: item.unit,
-      //         data: [],
-      //       };
-      //     }
-      //     acc[key].data.push(item);
-      //     return acc;
-      //   }, {}),
-      // );
-      // for (let ig = 0; ig < groupedBywarningLogHrWeeklyTemp.length; ig++) {
-      //   const energyValues = groupedBywarningLogHrWeeklyTemp[ig]?.data?.reduce(
-      //     (accumulator, currentValue) => accumulator + currentValue?.energy || 0,
-      //     0,
-      //   );
-
-      //   if (parseToNumber3Decimal(energyValues) > parseToNumber3Decimal(groupedBywarningLogHrWeeklyTemp[ig]?.value)) {
-      //     if (isMatch(groupedBywarningLogHrWeeklyTemp[ig]?.unit, 'MMscfd')) {
-      //       warningLogDayWeek.push(
-      //         `Nominated Total volume ${(this.formatNumberThreeDecimal(parseToNumber3Decimal(energyValues))) ?? ''} exceeds contracted value ${this.formatNumberThreeDecimal(parseToNumber3Decimal(groupedBywarningLogHrWeeklyTemp[ig]?.value) ?? '')} for contract point ${groupedBywarningLogHrWeeklyTemp[ig]?.contractPoint
-      //         } and gas day ${groupedBywarningLogHrWeeklyTemp[ig]?.headDayUse}`,
-      //       );
-      //     }
-      //     else {
-      //       warningLogDayWeek.push(
-      //         `Nominated Total energy ${(this.formatNumberThreeDecimal(parseToNumber3Decimal(energyValues))) ?? ''} exceeds contracted value ${this.formatNumberThreeDecimal(parseToNumber3Decimal(groupedBywarningLogHrWeeklyTemp[ig]?.value) ?? '')} for contract point ${groupedBywarningLogHrWeeklyTemp[ig]?.contractPoint
-      //         } and gas day ${groupedBywarningLogHrWeeklyTemp[ig]?.headDayUse}`,
-      //       );
-      //     }
-      //   }
-      // }
     }
 
     const startDateEx = dayjs(versionNom?.query_shipper_nomination_file?.gas_day).format('DD/MM/YYYY')
 
     let groupedBywarningLogHrTemp: any = Object.values(
       warningLogHrTemp.reduce((acc, item) => {
-        const key = `${item?.hr}|${item?.contractPoint}|${item?.value}|${item?.unit}`
+        const key = item && `${item?.hr}|${item?.contractPoint}|${item?.value}|${item?.unit}` || ""
         if (!acc[key]) {
           acc[key] = {
-            hr: item.hr,
-            contractPoint: item.contractPoint,
+            hr: item && item.hr || null,
+            contractPoint: item && item.contractPoint || null,
             value: item.value,
             valueDay: item.valueDay,
             unit: item.unit,
@@ -2436,7 +2376,7 @@ export class QueryShipperNominationFileService {
         const key = `${item?.contractPoint}|${item?.value}|${item?.unit}`
         if (!acc[key]) {
           acc[key] = {
-            contractPoint: item.contractPoint,
+            contractPoint: item && item.contractPoint || null,
             value: item.value,
             valueDay: item.valueDay,
             unit: item.unit,
@@ -2469,7 +2409,7 @@ export class QueryShipperNominationFileService {
         if (!acc[key]) {
           acc[key] = {
             headDayUse: item.headDayUse,
-            contractPoint: item.contractPoint,
+            contractPoint: item && item.contractPoint || null,
             value: item.value,
             unit: item.unit,
             data: []
@@ -2634,9 +2574,8 @@ export class QueryShipperNominationFileService {
     let resultData = {
       row: rowJsonData,
       fullId: fullJsonOld?.id,
-      full: fullJsonOld.data_temp
+      full: fullJsonOld && fullJsonOld.data_temp || null
     }
-    console.log('fullJsonOld.data_temp : ', fullJsonOld.data_temp)
 
     // return resultData;
 
@@ -2762,26 +2701,7 @@ export class QueryShipperNominationFileService {
 
     console.log('resultData : ', resultData)
 
-    const test = (resultData?.row || []).map((e: any) => {
-      let objDT = JSON.parse(e['data_temp'])
-      const findRow = (versionNom?.nomination_row_json || []).find((f: any) => {
-        return f?.id === e?.id
-      })
-      return {
-        nomination_version_id: nominationVersion?.id,
-        flag_use: true,
-        zone_text: objDT[0],
-        area_text: objDT[2],
-        entry_exit_id: findRow?.entry_exit_id,
-        query_shipper_nomination_type_id: findRow?.query_shipper_nomination_type_id,
-        data_temp: e['data_temp'],
-        old_index: e?.old_index,
-        create_date_num: newDate.unix(),
-        create_date: newDate.toDate(),
-        create_by: Number(userId)
-      }
-    })
-    console.log('test : ', test)
+  
 
     // json row
     const rowJson = await this.prisma.nomination_row_json.createMany({
@@ -2798,7 +2718,7 @@ export class QueryShipperNominationFileService {
           entry_exit_id: findRow?.entry_exit_id,
           query_shipper_nomination_type_id: findRow?.query_shipper_nomination_type_id,
           data_temp: e['data_temp'],
-          old_index: e?.old_index,
+          old_index: e && e?.old_index || null,
           create_date_num: newDate.unix(),
           create_date: newDate.toDate(),
           create_by: Number(userId)
@@ -2960,7 +2880,7 @@ export class QueryShipperNominationFileService {
       return {...e}
     })
 
-    const headData = JSON.parse(nominationVersion.nomination_full_json[0]?.data_temp)?.headData
+    const headData = nominationVersion && JSON.parse(nominationVersion.nomination_full_json[0]?.data_temp)?.headData || null
     const objArr = Object.keys(headData)
 
     const rowData = nominationVersion.nomination_row_json.map((e: any) => {
@@ -3587,7 +3507,10 @@ export class QueryShipperNominationFileService {
 
     const grouped = {}
     for (const curr of nomList) {
-      const key = `${curr.gas_day}|${curr.group?.name}|${curr?.nomination_type?.id}`
+      if(!curr){
+        continue;
+      }
+      const key = curr && `${curr.gas_day}|${curr.group?.name}|${curr?.nomination_type?.id}` || ""
 
       if (!grouped[key]) {
         grouped[key] = {
@@ -3715,6 +3638,9 @@ export class QueryShipperNominationFileService {
 
       const groupedDatas = {}
       for (const curr of dwData) {
+        if(!curr){
+          continue;
+        }
         const key = `${curr.area_text}|${curr.zone_text}`
 
         if (!groupedDatas[key]) {
@@ -3730,7 +3656,7 @@ export class QueryShipperNominationFileService {
         groupedDatas[key].data.push({
           ...curr
         })
-        groupedDatas[key].contract_code_id_arr = Array.from(new Set([...groupedDatas[key].contract_code_id_arr, curr?.contract_code_id]))
+        groupedDatas[key].contract_code_id_arr = curr && Array.from(new Set([...groupedDatas[key].contract_code_id_arr, curr?.contract_code_id])) || []
       }
       const resultGroupArea: any = Object.values(groupedDatas)
       const booking_version = resultGroupArea?.flatMap((cd: any) => {
@@ -3916,7 +3842,8 @@ export class QueryShipperNominationFileService {
           const capacityRightMMBTUDWeek = capacityRightMMBTUDOnce(nrEx?.area_text, startDate.add(index, 'day').format('DD/MM/YYYY'))
           const nominatedValueMMBTUDWeek = nomCalcWeek(startDate.add(index, 'day').format('DD/MM/YYYY'), nominaionPointZone, nomination_type_id)
           const overusageMMBTUDWeek = nominatedValueMMBTUDWeek - capacityRightMMBTUDWeek > 0 ? nominatedValueMMBTUDWeek - capacityRightMMBTUDWeek : 0
-
+          // 1227840.24
+          console.log('_nominatedValueMMBTUDWeek : ', nominatedValueMMBTUDWeek); 
           weeklyDay[day] = {
             gas_day_text: startDate.add(index, 'day').format('DD/MM/YYYY'),
             capacityRightMMBTUD: capacityRightMMBTUDWeek,
@@ -3940,6 +3867,7 @@ export class QueryShipperNominationFileService {
           weeklyDay
         }
       })
+      console.log('..');
 
       const contractAll = [...new Set(resultGroupAreaExt?.map((rg: any) => rg?.contract_code_id_arr).flat())]
       const contractCodeData = contractAll?.map((cta: any) => {
@@ -4098,24 +4026,90 @@ export class QueryShipperNominationFileService {
           return matchVersionCode
         }
 
+        // const nomCalcWeek = (gasDay: any, noms: any, nomType: any) => {
+        //   if (nomType === 2) {
+        //     const nom = [...noms.map((eNo: any) => eNo?.nominaionPointZone)].flat()
+        //     let calcData = 0
+        //     for (let iCal = 0; iCal < nom.length; iCal++) {
+        //       for (let iCalZone = 0; iCalZone < nom[iCal]?.zone.length; iCalZone++) {
+        //         const foundEntry = Object.entries(nom[iCal]?.zone[iCalZone]?.headData || {}).find(([key, value]) => {
+        //           return value?.toString().trim() === gasDay.toString().trim()
+        //         })
+        //         const headDataDTKey = foundEntry ? foundEntry[0] : undefined
+        //         if (nom[iCal]?.zone[iCalZone]?.data_temp['9'] === 'MMBTU/D') {
+        //           const valueDT = !!headDataDTKey ? Number(nom[iCal]?.zone[iCalZone]?.data_temp[headDataDTKey]?.replace(/,/g, '')) : 0
+        //           calcData = calcData + valueDT
+        //         }
+        //       }
+        //     }
+        //     return calcData
+        //   }
+        // }
         const nomCalcWeek = (gasDay: any, noms: any, nomType: any) => {
           if (nomType === 2) {
-            const nom = [...noms.map((eNo: any) => eNo?.nominaionPointZone)].flat()
+            const nom = [
+              ...noms.map((eNo: any) => eNo?.nominaionPointZone)
+            ].flat()
+
             let calcData = 0
+            let hasValue = false
+
             for (let iCal = 0; iCal < nom.length; iCal++) {
-              for (let iCalZone = 0; iCalZone < nom[iCal]?.zone.length; iCalZone++) {
-                const foundEntry = Object.entries(nom[iCal]?.zone[iCalZone]?.headData || {}).find(([key, value]) => {
-                  return value?.toString().trim() === gasDay.toString().trim()
+              for (
+                let iCalZone = 0;
+                iCalZone < (nom[iCal]?.zone?.length || 0);
+                iCalZone++
+              ) {
+                const foundEntry = Object.entries(
+                  nom[iCal]?.zone[iCalZone]?.headData || {}
+                ).find(([key, value]) => {
+                  return (
+                    value?.toString().trim() ===
+                    gasDay?.toString().trim()
+                  )
                 })
-                const headDataDTKey = foundEntry ? foundEntry[0] : undefined
-                if (nom[iCal]?.zone[iCalZone]?.data_temp['9'] === 'MMBTU/D') {
-                  const valueDT = !!headDataDTKey ? Number(nom[iCal]?.zone[iCalZone]?.data_temp[headDataDTKey]?.replace(/,/g, '')) : 0
-                  calcData = calcData + valueDT
+
+                const headDataDTKey = foundEntry
+                  ? foundEntry[0]
+                  : undefined
+
+                if (
+                  nom[iCal]?.zone[iCalZone]?.data_temp?.['9'] === 'MMBTU/D'
+                ) {
+                  if (headDataDTKey) {
+                    const rawValue =
+                      nom[iCal]?.zone[iCalZone]?.data_temp?.[headDataDTKey]
+
+                    // ไม่มีค่า
+                    if (
+                      rawValue === null ||
+                      rawValue === undefined ||
+                      String(rawValue).trim() === ''
+                    ) {
+                      continue
+                    }
+
+                    // มีค่า รวมถึง 0 / "0" / "0.000"
+                    const valueDT = Number(
+                      String(rawValue).replace(/,/g, '')
+                    )
+
+                    if (!Number.isNaN(valueDT)) {
+                      calcData += valueDT
+                      hasValue = true
+                    }
+                  }
                 }
               }
             }
-            return calcData
+
+            // ไม่มีค่าทุกตัว = null
+            // มี 0 อย่างน้อย 1 ตัว = 0
+            // มีค่าปกติ = ผลรวม
+            return hasValue ? calcData : null
           }
+
+          return null
         }
 
         const imbalanceMMBTUDCalcWeek = (gasDay: any, noms: any, nomType: any) => {
@@ -4219,7 +4213,24 @@ export class QueryShipperNominationFileService {
     return resultGroupKeyAddArea
   }
 
+  // roundTo3 = (value: any) => {
+  //   const num = Number(value)
+  //   if (Number.isNaN(num)) return 0
+  //   return Math.round((num + Number.EPSILON) * 1000) / 1000
+  // }
+
   // แก้ใหม่เป็น Capacity Right เอาทุก area ในค่า book มาแสดงโดยไม่สน Nom
+  // capacityRightMMBTUD
+  
+  roundTo3(value: number) {
+    const factor = 1000;
+    const scaled = value * factor;
+
+    return Math.round(
+      scaled + Number.EPSILON * Math.abs(scaled)
+    ) / factor;
+  }
+  
   async shipperNominationReport(query?: {gasDay?: string; tab?: string}) {
     const targetDate = getTodayStartAdd7(query?.gasDay)
     const todayStart = getTodayStartAdd7(query?.gasDay).toDate()
@@ -4544,8 +4555,13 @@ export class QueryShipperNominationFileService {
       // กรอง nomination แบบรายสัปดาห์สำหรับสัปดาห์ที่กำลังประมวลผล
       // ข้ามถ้ามี daily nomination สำหรับ contract เดียวกันแล้ว (daily nomination มีลำดับความสำคัญสูงกว่า)
       const weeklyNominationList = resData.filter((nominationFile) => nominationFile.nomination_type_id == 2 && !dailyNominationList.some((daily) => daily.contract_code_id == nominationFile.contract_code_id))
-
-      nomList = [...dailyNominationList, ...weeklyNominationList]
+      // contract_code?.contract_start_date
+      const start_weeklyNominationList = weeklyNominationList?.filter((f:any) =>{
+        return (
+          dayjs(f?.contract_code?.contract_start_date).isSameOrBefore(targetDate)
+        )
+      })
+      nomList = [...dailyNominationList, ...start_weeklyNominationList]
     }
     const contractCodeMaster = contractCodeMasterDB?.map((e: any) => {
       const {booking_version, ...nE} = e
@@ -4578,13 +4594,34 @@ export class QueryShipperNominationFileService {
         booking_version: d_booking_version
       }
     })
-    console.log('contractCodeMaster : ', contractCodeMaster);
-    console.log('[154] contractCodeMaster : ', contractCodeMaster?.filter((f:any) => f?.id === 154)); // 2026-CNF-N111
-    console.log('[167] contractCodeMaster : ', contractCodeMaster?.filter((f:any) => f?.id === 167)); // 2026-CSF-N233
+    // 2026-CSF-010 2022-CLF-018_Amd004
+    // 2026-CNF-011 2026-CNF-N001
+
+    // [170, 169, 2, 185]
+    // console.log('## nomList : ', nomList);
+    // console.log('contractCodeMaster : ', contractCodeMaster);
+    // console.log('[2] contractCodeMaster : ', contractCodeMaster?.filter((f:any) => f?.id === 2)); // 2022-CLF-018_Amd004 1753185.000
+    // console.log('[147] contractCodeMaster : ', contractCodeMaster?.filter((f:any) => f?.id === 147)); // 2026-CNF-009 694565
+    console.log('[185] contractCodeMaster : ', contractCodeMaster?.filter((f:any) => f?.id === 185)); // 2026-CNF-N001
+    // weeklyDay
+    // capacityRightMMBTUD
+    // 2, 147, 142
+    
+    // 170, 169
+
+    // X1 3,905,275.000
+    // X1 2776750
+    // 2791790
+    // 1113485 ????
+
+    // 11,528,102.000
 
     const grouped = {}
     for (const curr of nomList) {
-      const key = `${curr.gas_day}|${curr.group?.name}|${curr?.nomination_type?.id}`
+      if(!curr){
+        continue;
+      }
+      const key = curr && `${curr.gas_day}|${curr.group?.name}|${curr?.nomination_type?.id}` || ""
 
       if (!grouped[key]) {
         grouped[key] = {
@@ -4637,7 +4674,7 @@ export class QueryShipperNominationFileService {
         nomination_type: e['nomination_type']
       }
     })
-    console.log('resultGroupType : ', resultGroupType);
+    // console.log('resultGroupType : ', resultGroupType);
     console.time('resultGroupKeyAddArea')
     const resultGroupKeyAddArea = resultGroupType.map((e: any, ix: number) => {
       const {dataDW, ...eData} = e
@@ -4712,6 +4749,9 @@ export class QueryShipperNominationFileService {
 
       const groupedDatas = {}
       for (const curr of dwData) {
+        if(!curr){
+          continue;
+        }
         const key = `${curr.area_text}|${curr.zone_text}`
 
         if (!groupedDatas[key]) {
@@ -4727,7 +4767,7 @@ export class QueryShipperNominationFileService {
         groupedDatas[key].data.push({
           ...curr
         })
-        groupedDatas[key].contract_code_id_arr = Array.from(new Set([...groupedDatas[key].contract_code_id_arr, curr?.contract_code_id]))
+        groupedDatas[key].contract_code_id_arr = curr && Array.from(new Set([...groupedDatas[key].contract_code_id_arr, curr?.contract_code_id])) || []
       }
       const resultGroupArea: any = Object.values(groupedDatas)
       const booking_version = resultGroupArea?.flatMap((cd: any) => {
@@ -4816,7 +4856,6 @@ export class QueryShipperNominationFileService {
           conceptGroupedZone[key].zone.push({...curr})
         }
         const conceptPointZone: any = Object.values(conceptGroupedZone)
-        console.log('- nrEx : ', nrEx);
         // dataDW
         const all_contract_code_id_arr = dataDW?.map((id_:any) => id_?.contract_code_id)
 
@@ -4827,7 +4866,7 @@ export class QueryShipperNominationFileService {
           })
           return findCt
         })
-        console.log('-> contractCodeData : ', contractCodeData);
+        // console.log('-> contractCodeData : ', contractCodeData);
         let capacityRightMMBTUDOnce = (area: any, date: any) => {
           const matchVersionCode = contractCodeData
             ?.flatMap((ccd: any) => {
@@ -4851,6 +4890,11 @@ export class QueryShipperNominationFileService {
                     return accumulator + (parseToNumber(data_temp_?.[keyDate]) || 0)
                   }, 0)
                 }
+
+                // if(date === "23/08/2026"){
+                //   console.log('fArea : ', fArea);
+                //   console.log('calcContract : ', calcContract);
+                // }
                 return calcContract
               })
 
@@ -4870,7 +4914,8 @@ export class QueryShipperNominationFileService {
                 // MMSCFD
                 // MMBTU/D
                 if (nom[iCal]?.zone[iCalZone]?.data_temp['9'] === 'MMBTU/D') {
-                  const valueDT = Number(nom[iCal]?.zone[iCalZone]?.data_temp['38']?.replace(/,/g, ''))
+                  const valueDT = this.roundTo3(parseToNumber(nom[iCal]?.zone[iCalZone]?.data_temp['38']))
+
                   calcData = calcData + valueDT
                 }
               }
@@ -4883,12 +4928,13 @@ export class QueryShipperNominationFileService {
         }
 
         let capacityRightMMBTUD = nomination_type_id === 1 && capacityRightMMBTUDOnce(nrEx?.area_text, nrEx?.gas_day)
-        console.log('nrEx?.area_text : ', nrEx?.area_text);
-        console.log('capacityRightMMBTUD : ', capacityRightMMBTUD);
-        console.log('- - - -');
-        let nominatedValueMMBTUD = nomination_type_id === 1 &&  (nominaionPointZone?.length === 0 ? null : nomCalc(nominaionPointZone, nomination_type_id))
-        console.log('___nominaionPointZone : ', nominaionPointZone);
-        console.log('___nominatedValueMMBTUD : ', nominatedValueMMBTUD);
+        // if(nrEx?.area_text === "X1"){
+        //   console.log('@@ nrEx?.area_text : ', nrEx?.area_text);
+        //   console.log('capacityRightMMBTUD : ', capacityRightMMBTUD);
+        //   console.log('- - - -');
+        // }
+        let nominatedValueMMBTUD = nomination_type_id === 1 &&  (nominaionPointZone.length === 0 ? null : nomCalc(nominaionPointZone, nomination_type_id))
+       
         let overusageMMBTUD = nomination_type_id === 1 && nomCalc(nominaionPointZone, nomination_type_id) - capacityRightMMBTUDOnce(nrEx?.area_text, nrEx?.gas_day) > 0 ? nomCalc(nominaionPointZone, nomination_type_id) - capacityRightMMBTUDOnce(nrEx?.area_text, nrEx?.gas_day) : 0
 
         const zoneObj = zoneMaster.find((f: any) => {
@@ -4902,28 +4948,107 @@ export class QueryShipperNominationFileService {
         const weeklyDay: any = {}
 
         daysOfWeek.forEach((day, index) => {
+        
           const nomCalcWeek = (gasDay: any, nom: any, nomType: any) => {
             if (nomType === 2) {
               let calcData = 0
-              for (let iCal = 0; iCal < nom.length; iCal++) {
-                for (let iCalZone = 0; iCalZone < nom[iCal]?.zone.length; iCalZone++) {
-                  const foundEntry = Object.entries(nom[iCal]?.zone[iCalZone]?.headData || {}).find(([key, value]) => {
-                    return value?.toString().trim() === gasDay.toString().trim()
+              let hasValue = false
+
+              for (let iCal = 0; iCal < (nom?.length || 0); iCal++) {
+                for (
+                  let iCalZone = 0;
+                  iCalZone < (nom[iCal]?.zone?.length || 0);
+                  iCalZone++
+                ) {
+                  const zoneData = nom[iCal]?.zone[iCalZone]
+
+                  const foundEntry = Object.entries(
+                    zoneData?.headData || {}
+                  ).find(([key, value]) => {
+                    return (
+                      value?.toString().trim() ===
+                      gasDay?.toString().trim()
+                    )
                   })
-                  const headDataDTKey = foundEntry ? foundEntry[0] : undefined
-                  if (nom[iCal]?.zone[iCalZone]?.data_temp['9'] === 'MMBTU/D') {
-                    const valueDT = !!headDataDTKey ? Number(nom[iCal]?.zone[iCalZone]?.data_temp[headDataDTKey]?.replace(/,/g, '')) : 0
-                    calcData = calcData + valueDT
+
+                  const headDataDTKey = foundEntry
+                    ? foundEntry[0]
+                    : undefined
+
+                  if (zoneData?.data_temp?.['9'] === 'MMBTU/D') {
+                    if (headDataDTKey) {
+                      const rawValue =
+                        zoneData?.data_temp?.[headDataDTKey]
+
+                      // ไม่มีข้อมูลจริง
+                      if (
+                        rawValue === null ||
+                        rawValue === undefined ||
+                        String(rawValue).trim() === ''
+                      ) {
+                        continue
+                      }
+
+                      // มีข้อมูลแล้ว แม้ค่าเป็น 0
+                      const parsedValue = parseToNumber(rawValue)
+
+                      if (
+                        parsedValue !== null &&
+                        parsedValue !== undefined &&
+                        !Number.isNaN(Number(parsedValue))
+                      ) {
+                        const valueDT = (parsedValue)
+                        // calcData = calcData + (this.roundTo3(valueDT / 24) * 24)
+                        // calcData = calcData + this.roundTo3(
+                        //   this.roundTo3(valueDT / 24) * 24
+                        // );
+                        calcData = calcData + this.roundTo3(this.roundTo3(valueDT / 24) * 24);
+                        // if(startDate.add(index, 'day').format('DD/MM/YYYY') === "09/09/2026"){
+                        //   console.log('calcData : ', calcData);
+                        //   console.log('this.roundTo3(valueDT / 24) : ', this.roundTo3(valueDT / 24));
+                        //   console.log('(valueDT / 24) : ', (valueDT / 24));
+                        //   console.log('(valueDT / 24) * 24 : ', (valueDT / 24) * 24);
+                        //   console.log('this.roundTo3((valueDT / 24) * 24) : ', this.roundTo3((valueDT / 24) * 24));
+                        //   console.log('# calcData + this.roundTo3((valueDT / 24) * 24) : ', calcData);
+                        // //   if(this.roundTo3(
+                        // //   this.roundTo3(valueDT / 24) * 24
+                        // // // ) === 6940.584){
+                        // // ) === 6940.584){
+                        // //     console.log('###### : ', zoneData?.data_temp?.[headDataDTKey]);
+                        // //     console.log('headDataDTKey : ', headDataDTKey);
+                        // //     console.log('zoneData : ', zoneData);
+                        // //     console.log('valueDT : ', valueDT);
+                        // //     console.log('(valueDT / 24) : ', (valueDT / 24));
+                        // //     console.log('this.roundTo3(valueDT / 24) : ', this.roundTo3(valueDT / 24)); 
+                        // //     console.log('this.roundTo3(valueDT / 24) * 24 : ', this.roundTo3(valueDT / 24) * 24);
+                        // //     console.log(this.roundTo3(this.roundTo3(valueDT / 24) * 24));
+
+
+                        // //   }
+                        // }
+                        // calcData += valueDT
+                        hasValue = true
+                      }
+                    }
                   }
                 }
               }
 
-              return calcData
+              // console.log('- - - -');
+
+              // ไม่มีข้อมูลทุกจุด -> null
+              // มีข้อมูลเป็น 0 -> 0
+              // มีข้อมูลอื่น -> ผลรวม
+              return hasValue
+                ? this.roundTo3(calcData)
+                : null
             }
+
+            return null
           }
           const capacityRightMMBTUDWeek = capacityRightMMBTUDOnce(nrEx?.area_text, startDate.add(index, 'day').format('DD/MM/YYYY'))
           const nominatedValueMMBTUDWeek = nomCalcWeek(startDate.add(index, 'day').format('DD/MM/YYYY'), nominaionPointZone, nomination_type_id)
-          const overusageMMBTUDWeek = nominatedValueMMBTUDWeek - capacityRightMMBTUDWeek > 0 ? nominatedValueMMBTUDWeek - capacityRightMMBTUDWeek : 0
+          const overusageMMBTUDWeek = nominatedValueMMBTUDWeek === null ? null : (nominatedValueMMBTUDWeek - capacityRightMMBTUDWeek > 0 ? nominatedValueMMBTUDWeek - capacityRightMMBTUDWeek : 0)
 
           weeklyDay[day] = {
             gas_day_text: startDate.add(index, 'day').format('DD/MM/YYYY'),
@@ -4932,7 +5057,7 @@ export class QueryShipperNominationFileService {
             overusageMMBTUD: overusageMMBTUDWeek
           }
         })
-
+   
         const overusageMMBTUDDaily = overusageMMBTUD
         return {
           gas_day: eData?.gas_day_text,
@@ -4950,14 +5075,13 @@ export class QueryShipperNominationFileService {
       })
 
       const contractAll = [...new Set(resultGroupAreaExt?.map((rg: any) => rg?.contract_code_id_arr).flat())]
-      // console.log('___contractAll : ', contractAll);
+
       const contractCodeData = contractAll?.map((cta: any) => {
         const findCt = contractCodeMaster?.find((f: any) => {
           return f?.id === cta
         })
         return findCt
       })
-      // console.log('contractCodeData_ : ', contractCodeData);
 
       let capacityRightMMBTUD = (date: any, noms: any) => {
         const areaBJR = noms?.map((brj: any) => brj?.area_text)
@@ -5007,7 +5131,7 @@ export class QueryShipperNominationFileService {
           return calcData
         } else {
           // weekly ทำที่ weeklyDay
-          return 0
+          return null
         }
       }
       const imbalanceMMBTUDCalc = (noms: any, nomType: any) => {
@@ -5064,7 +5188,7 @@ export class QueryShipperNominationFileService {
           return calcData
         } else {
           // weekly ทำที่ weeklyDay
-          return 0
+          return null
         }
       }
 
@@ -5078,9 +5202,9 @@ export class QueryShipperNominationFileService {
           const matchVersionCode = contractCodeData
             ?.flatMap((ccd: any) => {
               const ccdVersion = ccd?.booking_version?.map((ccdV: any) => {
-                const dateOne = dayjs(date, 'DD/MM/YYYY').format('01/MM/YYYY')
 
-                // Tab Daily: ค่า Capacity Right (MMBTU/D) ต้องการปรับให้ดึงมาจากแถบ Summary Capacity Right ใน Capacity Management Detail - ไม่มีข้อ clickup
+                const dateOne = ccd?.term_type_id === 4 ? dayjs(date, 'DD/MM/YYYY').format('DD/MM/YYYY') : dayjs(date, 'DD/MM/YYYY').format('01/MM/YYYY')
+
                 const row_release_or_not_header = ccdV?.booking_full_json_release?.[0] ?? ccdV?.booking_full_json?.[0]
                 const row_release_or_not_ = ccdV?.booking_row_json_release?.length ? ccdV.booking_row_json_release : (ccdV?.booking_row_json ?? [])
                 const data_temp_r = typeof row_release_or_not_header?.data_temp === 'string' ? JSON.parse(row_release_or_not_header?.data_temp) : row_release_or_not_header?.data_temp
@@ -5106,26 +5230,158 @@ export class QueryShipperNominationFileService {
 
           return matchVersionCode
         }
+      
+        // const nomCalcWeek = (gasDay: any, noms: any, nomType: any) => {
+        //   if (nomType === 2) {
+        //     const nom = [
+        //       ...noms.map((eNo: any) => eNo?.nominaionPointZone)
+        //     ].flat()
 
+        //     let calcData = 0
+        //     let hasValue = false
+
+        //     for (let iCal = 0; iCal < nom.length; iCal++) {
+        //       for (
+        //         let iCalZone = 0;
+        //         iCalZone < (nom[iCal]?.zone?.length || 0);
+        //         iCalZone++
+        //       ) {
+        //         const foundEntry = Object.entries(
+        //           nom[iCal]?.zone[iCalZone]?.headData || {}
+        //         ).find(([key, value]) => {
+        //           return (
+        //             value?.toString().trim() ===
+        //             gasDay?.toString().trim()
+        //           )
+        //         })
+
+        //         const headDataDTKey = foundEntry
+        //           ? foundEntry[0]
+        //           : undefined
+
+        //         if (
+        //           nom[iCal]?.zone[iCalZone]?.data_temp?.['9'] ===
+        //           'MMBTU/D'
+        //         ) {
+        //           if (headDataDTKey) {
+        //             const rawValue =
+        //               nom[iCal]?.zone[iCalZone]?.data_temp?.[
+        //                 headDataDTKey
+        //               ]
+
+        //             // null / undefined / '' = ไม่มีค่า
+        //             // 0 / '0' / '0.000' = มีค่า
+        //             if (
+        //               rawValue !== null &&
+        //               rawValue !== undefined &&
+        //               String(rawValue).trim() !== ''
+        //             ) {
+        //               const valueDT = Number(String(rawValue).replace(/,/g, ''))
+
+        //               if (!Number.isNaN(valueDT)) {
+        //                 // console.log('valueDT : ', valueDT);
+        //                 // if(gasDay === "02/08/2026" && eData?.shipper_name === "PTT"){
+        //                 //   console.log(`Area [${nom[iCal]?.zone[iCalZone]?.area_text}] : ${valueDT}`);
+        //                 //   console.log('__ : ', calcData += valueDT);
+        //                 // }
+        //                 calcData += valueDT
+        //                 hasValue = true
+        //               }
+        //             }
+        //           }
+        //         }
+        //       }
+        //     }
+
+        //     return hasValue ? calcData : null
+        //   }
+
+        //   return null
+        // }
+      
         const nomCalcWeek = (gasDay: any, noms: any, nomType: any) => {
           if (nomType === 2) {
-            const nom = [...noms.map((eNo: any) => eNo?.nominaionPointZone)].flat()
-            let calcData = 0
-            for (let iCal = 0; iCal < nom.length; iCal++) {
-              for (let iCalZone = 0; iCalZone < nom[iCal]?.zone.length; iCalZone++) {
-                const foundEntry = Object.entries(nom[iCal]?.zone[iCalZone]?.headData || {}).find(([key, value]) => {
-                  return value?.toString().trim() === gasDay.toString().trim()
-                })
-                const headDataDTKey = foundEntry ? foundEntry[0] : undefined
-                if (nom[iCal]?.zone[iCalZone]?.data_temp['9'] === 'MMBTU/D') {
-                  const valueDT = !!headDataDTKey ? Number(nom[iCal]?.zone[iCalZone]?.data_temp[headDataDTKey]?.replace(/,/g, '')) : 0
-                  calcData = calcData + valueDT
-                }
+            // const nom = [
+            //   ...noms.map((eNo: any) => eNo?.nominaionPointZone)
+            // ].flat()
+
+            // let calcData = 0
+            // let hasValue = false
+
+            // for (let iCal = 0; iCal < nom.length; iCal++) {
+            //   for (
+            //     let iCalZone = 0;
+            //     iCalZone < (nom[iCal]?.zone?.length || 0);
+            //     iCalZone++
+            //   ) {
+            //     const foundEntry = Object.entries(
+            //       nom[iCal]?.zone[iCalZone]?.headData || {}
+            //     ).find(([key, value]) => {
+            //       return (
+            //         value?.toString().trim() ===
+            //         gasDay?.toString().trim()
+            //       )
+            //     })
+
+            //     const headDataDTKey = foundEntry
+            //       ? foundEntry[0]
+            //       : undefined
+
+            //     if (
+            //       nom[iCal]?.zone[iCalZone]?.data_temp?.['9'] ===
+            //       'MMBTU/D'
+            //     ) {
+            //       if (headDataDTKey) {
+            //         const rawValue =
+            //           nom[iCal]?.zone[iCalZone]?.data_temp?.[
+            //             headDataDTKey
+            //           ]
+
+            //         // null / undefined / '' = ไม่มีค่า
+            //         // 0 / '0' / '0.000' = มีค่า
+            //         if (
+            //           rawValue !== null &&
+            //           rawValue !== undefined &&
+            //           String(rawValue).trim() !== ''
+            //         ) {
+            //           const valueDT = Number(String(rawValue).replace(/,/g, ''))
+
+            //           if (!Number.isNaN(valueDT)) {
+            //             // console.log('valueDT : ', valueDT);
+            //             // if(gasDay === "02/08/2026" && eData?.shipper_name === "PTT"){
+            //             //   console.log(`Area [${nom[iCal]?.zone[iCalZone]?.area_text}] : ${valueDT}`);
+            //             //   console.log('__ : ', calcData += valueDT);
+            //             // }
+            //             calcData += valueDT
+            //             hasValue = true
+            //           }
+            //         }
+            //       }
+            //     }
+            //   }
+            // }
+
+            // return hasValue ? calcData : null
+            const day_ = dayjs(gasDay, "DD/MM/YYYY").format("dddd").toLowerCase();
+            let calcData = null
+            let hasValue = false
+            for (let iCal = 0; iCal < noms.length; iCal++) {
+              const val = noms?.[iCal]?.weeklyDay?.[day_]?.nominatedValueMMBTUD
+              if(val !== null || val !== undefined){
+                hasValue = true
+                // console.log('val : ', val);
+                calcData = (calcData ?? 0) + val 
+                // console.log('_ : ', calcData);
               }
             }
-            return calcData
+          
+            return hasValue ? calcData : null
           }
+
+          return null
         }
+        // 2758259.3109999998
+        // 3770960.1359999995
 
         const imbalanceMMBTUDCalcWeek = (gasDay: any, noms: any, nomType: any) => {
           const nom = [...noms.map((eNo: any) => eNo?.nominaionPointZone)].flat()
@@ -5195,6 +5451,10 @@ export class QueryShipperNominationFileService {
         const capacityRightMMBTUD = capacityRightMMBTUDWeek(startDate.add(index, 'day').format('DD/MM/YYYY'), resultGroupAreaExt)
         const imbalanceMMBTUD = imbalanceMMBTUDCalcWeek(startDate.add(index, 'day').format('DD/MM/YYYY'), resultGroupAreaExt, nomination_type_id)
         const nominatedValueMMBTUD = nomCalcWeek(startDate.add(index, 'day').format('DD/MM/YYYY'), resultGroupAreaExt, nomination_type_id)
+       
+        // console.log(startDate.add(index, 'day').format('DD/MM/YYYY'));
+        // console.log('- resultGroupAreaExt : ', resultGroupAreaExt);
+        // console.log('- nominatedValueMMBTUD : ', nominatedValueMMBTUD);
         const overusageMMBTUDWeeklySum = resultGroupAreaExt.reduce((accumulator, currentValue) => accumulator + Number(currentValue?.weeklyDay[day]?.overusageMMBTUD || 0), 0)
 
         weeklyDay[day] = {
@@ -5205,7 +5465,7 @@ export class QueryShipperNominationFileService {
           imbalanceMMBTUD: imbalanceMMBTUD
         }
       })
-      // overusageMMBTUD
+     
       const capacityRightMMBTUDDaily = capacityRightMMBTUD(eData?.gas_day_text, resultGroupAreaExt)
       const nominatedValueMMBTUDDaily = nomCalc(resultGroupAreaExt, nomination_type_id)
       const overusageMMBTUDDaily = resultGroupAreaExt.reduce((accumulator, currentValue) => accumulator + Number(currentValue?.overusageMMBTUD || 0), 0)
@@ -5224,9 +5484,10 @@ export class QueryShipperNominationFileService {
       }
     })
     console.timeEnd('resultGroupKeyAddArea')
-    console.log('resultGroupKeyAddArea : ', resultGroupKeyAddArea);
+    // console.log('resultGroupKeyAddArea : ', resultGroupKeyAddArea);
 
     // 53,000.000 > 86000
+    // nominatedValueMMBTUD
 
     return resultGroupKeyAddArea
   }

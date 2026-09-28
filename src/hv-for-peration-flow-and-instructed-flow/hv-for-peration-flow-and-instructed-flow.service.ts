@@ -460,6 +460,7 @@ export class HvForPerationFlowAndInstructedFlowService {
             ]
           },
           include: {
+            zone: true,
             nomination_point: true
           }
         }

@@ -189,7 +189,7 @@ export class WaitingListService {
 
   async getAllocationFromAllocationService(userId: any, shipper: string[], startDate?: string, endDate?: string) {
     try {
-      let result = await this.allocationService.allocationManagement2(
+      let result = await this.allocationService.allocationManagementFromAllocationReport(
         {
           start_date: startDate,
           end_date: endDate,
@@ -263,7 +263,7 @@ export class WaitingListService {
           // remainingTasks: result.filter((f: any) => f?.allocation_status?.id === 2).length,
           remainingTasks: remainingTasks,
           status: 'Shipper Reviewed',
-          description: 'This status means the Shipper has successfully reviewed and confirmed the Allocated values.'
+          menuId: 81
         }
       } catch (error) {
         return {
@@ -271,7 +271,7 @@ export class WaitingListService {
           endDate: end,
           remainingTasks: 0,
           status: 'Shipper Reviewed',
-          description: 'This status means the Shipper has successfully reviewed and confirmed the Allocated values.'
+          menuId: 81
         }
       }
     } else {
@@ -292,7 +292,7 @@ export class WaitingListService {
           endDate: end,
           remainingTasks: result.filter((f: any) => f?.priorityStatus === 2).length,
           status: 'Shipper Reviewed',
-          description: 'This status means the Shipper has completed the review of the Allocated values, and the request is now pending review by the TSO.'
+          menuId: 82
         }
       } catch (error) {
         return {
@@ -300,7 +300,7 @@ export class WaitingListService {
           endDate: end,
           remainingTasks: 0,
           status: 'Shipper Reviewed',
-          description: 'This status means the Shipper has completed the review of the Allocated values, and the request is now pending review by the TSO.'
+          menuId: 82
         }
       }
     } else {
@@ -311,6 +311,79 @@ export class WaitingListService {
       //     remainingTasks: 0,
       //     status: 'Shipper Reviewed'
       //   };
+    }
+  }
+
+  async getAllocationManagementDataV2({userId, shipper, startDate, endDate, data, menu, atDate}: {userId: any; shipper: string[]; startDate?: string; endDate?: string; data?: any[]; menu: WAITING_LIST_TARGET_MENUS[]; atDate?: any}) {
+    if (menu.includes(ALLOCATION_MANAGEMENT)) {
+      const {startDate: start, endDate: end} = getAllocationDateRange(atDate, startDate, endDate)
+
+      try {
+        const startD = getTodayStartYYYYMMDDDfaultAdd7(start).toDate()
+        const endD = getTodayEndYYYYMMDDDfaultAdd7(end).toDate()
+
+        const group_ = await this.prisma.group.findFirst({
+          where:{
+            account_manage:{
+              some:{
+                account_id: Number(userId)
+              }
+            },
+          },
+        })
+
+        const allocationNanagement = (group_?.user_type_id === 3 || group_?.user_type_id === 4) ? 
+        await this.prisma.allocation_management.findMany({
+          where: {
+            gas_day: {
+              gte: startD,
+              lte: endD
+            },
+            shipper_name_text: group_?.id_name
+          }
+        }) : 
+        await this.prisma.allocation_management.findMany({
+          where: {
+            gas_day: {
+              gte: startD,
+              lte: endD
+            },
+          }
+        })
+
+        const formatAllocationManagement = allocationNanagement.map(item => {
+          return {
+            gas_day: item.gas_day_text,
+            point: item.point_text,
+            entry_exit_obj: {
+              name: item.entry_exit_text
+            },
+            allocation_status: {
+              name: item.allocation_status_id
+            },
+          }
+        })
+
+        const result = groupDataAlloManage(formatAllocationManagement)
+
+        return {
+          startDate: start,
+          endDate: end,
+          remainingTasks: result.filter((f: any) => f?.priorityStatus === 2).length,
+          status: 'Shipper Reviewed',
+          menuId: 82
+        }
+      } catch (error) {
+        return {
+          startDate: start,
+          endDate: end,
+          remainingTasks: 0,
+          status: 'Shipper Reviewed',
+          menuId: 82
+        }
+      }
+    } else {
+      return undefined
     }
   }
 
@@ -341,7 +414,7 @@ export class WaitingListService {
           // endDate: eventDateTo,
           remainingTasks: count,
           status: 'Opened',
-          description: 'This status means the Event document is not yet completed and is pending closure by the TSO.'
+          menuId: 107
         }
       } catch (error) {
         return {
@@ -349,7 +422,7 @@ export class WaitingListService {
           // endDate: eventDateTo,
           remainingTasks: 0,
           status: 'Opened',
-          description: 'This status means the Event document is not yet completed and is pending closure by the TSO.'
+          menuId: 107
         }
       }
     } else {
@@ -385,7 +458,7 @@ export class WaitingListService {
           // endDate: eventDateTo,
           remainingTasks: count,
           status: 'Opened',
-          description: 'This status means the Event document is not yet completed and is pending closure by the TSO.'
+          menuId: 106
         }
       } catch (error) {
         return {
@@ -393,7 +466,7 @@ export class WaitingListService {
           // endDate: eventDateTo,
           remainingTasks: 0,
           status: 'Opened',
-          description: 'This status means the Event document is not yet completed and is pending closure by the TSO.'
+          menuId: 106
         }
       }
     } else {
@@ -423,7 +496,7 @@ export class WaitingListService {
           // endDate: eventDateTo,
           remainingTasks: count,
           status: 'Opened',
-          description: 'This status means the Event document is not yet completed and is pending closure by the TSO.'
+          menuId: 1013
         }
       } catch (error) {
         return {
@@ -431,7 +504,7 @@ export class WaitingListService {
           // endDate: eventDateTo,
           remainingTasks: 0,
           status: 'Opened',
-          description: 'This status means the Event document is not yet completed and is pending closure by the TSO.'
+          menuId: 1013
         }
       }
     } else {
@@ -487,13 +560,13 @@ export class WaitingListService {
         return {
           remainingTasks: count,
           status: 'Acknowledge',
-          description: ''
+          menuId: 107
         }
       } catch (error) {
         return {
           remainingTasks: 0,
           status: 'Acknowledge',
-          description: ''
+          menuId: 107
         }
       }
     } else {
@@ -548,13 +621,13 @@ export class WaitingListService {
         return {
           remainingTasks: count,
           status: 'Acknowledge',
-          description: 'This status means the Event document is not yet completed and is pending closure by the TSO.'
+          menuId: 106
         }
       } catch (error) {
         return {
           remainingTasks: 0,
           status: 'Acknowledge',
-          description: 'This status means the Event document is not yet completed and is pending closure by the TSO.'
+          menuId: 106
         }
       }
     } else {
@@ -608,13 +681,13 @@ export class WaitingListService {
         return {
           remainingTasks: count,
           status: 'Acknowledge',
-          description: 'This status means the Event document is not yet completed and is pending closure by the TSO.'
+          menuId: 1013
         }
       } catch (error) {
         return {
           remainingTasks: 0,
           status: 'Acknowledge',
-          description: 'This status means the Event document is not yet completed and is pending closure by the TSO.'
+          menuId: 1013
         }
       }
     } else {
@@ -699,26 +772,26 @@ export class WaitingListService {
           returnObj['Daily Query Shipper Nomination File'] = {
             remainingTasks: daily,
             status: 'Waiting For Response',
-            description: 'This status means the Shipper has completed the submission, and the request is now pending review by the TSO.'
+            menuId: 64
           }
           returnObj['Weekly Query Shipper Nomination File'] = {
             remainingTasks: weekly,
             status: 'Waiting For Response',
-            description: 'This status means the Shipper has completed the submission, and the request is now pending review by the TSO.'
+            menuId: 64
           }
         }
         if (menu.includes(NOMINATION_DAILY_MANAGEMENT)) {
           returnObj[NOMINATION_DAILY_MANAGEMENT] = {
             remainingTasks: daily,
             status: 'Waiting For Response',
-            description: 'This status means the Shipper has completed the submission, and the request is now pending review by the TSO.'
+            menuId: 65
           }
         }
         if (menu.includes(NOMINATION_WEEKLY_MANAGEMENT)) {
           returnObj[NOMINATION_WEEKLY_MANAGEMENT] = {
             remainingTasks: weekly,
             status: 'Waiting For Response',
-            description: 'This status means the Shipper has completed the submission, and the request is now pending review by the TSO.'
+            menuId: 66
           }
         }
       } catch (error) {
@@ -726,26 +799,26 @@ export class WaitingListService {
           returnObj['Daily Query Shipper Nomination File'] = {
             remainingTasks: 0,
             status: 'Waiting For Response',
-            description: 'This status means the Shipper has completed the submission, and the request is now pending review by the TSO.'
+            menuId: 64
           }
           returnObj['Weekly Query Shipper Nomination File'] = {
             remainingTasks: 0,
             status: 'Waiting For Response',
-            description: 'This status means the Shipper has completed the submission, and the request is now pending review by the TSO.'
+            menuId: 64
           }
         }
         if (menu.includes(NOMINATION_DAILY_MANAGEMENT)) {
           returnObj[NOMINATION_DAILY_MANAGEMENT] = {
             remainingTasks: 0,
             status: 'Waiting For Response',
-            description: 'This status means the Shipper has completed the submission, and the request is now pending review by the TSO.'
+            menuId: 65
           }
         }
         if (menu.includes(NOMINATION_WEEKLY_MANAGEMENT)) {
           returnObj[NOMINATION_WEEKLY_MANAGEMENT] = {
             remainingTasks: 0,
             status: 'Waiting For Response',
-            description: 'This status means the Shipper has completed the submission, and the request is now pending review by the TSO.'
+            menuId: 66
           }
         }
       }
@@ -790,13 +863,13 @@ export class WaitingListService {
         return {
           remainingTasks: result,
           status: 'Submitted',
-          description: 'This status means the Shipper has submitted an adjustment, and the request is now pending review by the TSO.'
+          menuId: 68
         }
       } catch (error) {
         return {
           remainingTasks: 0,
           status: 'Submitted',
-          description: 'This status means the Shipper has submitted an adjustment, and the request is now pending review by the TSO.'
+          menuId: 68
         }
       }
     } else {
@@ -861,21 +934,21 @@ export class WaitingListService {
           returnObj[CAPACITY_CONTRACT_LIST] = {
             remainingTasks: result,
             status: 'Waiting For Approval',
-            description: 'This status means the request is pending approval from the TSO.'
+            menuId: 53
           }
         }
         if (menu.includes(CAPACITY_CONTRACT_LIST_SAVED)) {
           returnObj[CAPACITY_CONTRACT_LIST_SAVED] = {
             remainingTasks: resultSaved,
             status: 'Saved',
-            description: 'This status means the request is pending Saved.'
+            menuId: 53
           }
         }
         if (menu.includes(CAPACITY_CONTRACT_LIST_CONFIRMED)) {
           returnObj[CAPACITY_CONTRACT_LIST_CONFIRMED] = {
             remainingTasks: resultConfirmed,
             status: 'Confirmed',
-            description: 'This status means the request is pending Confirmed.'
+            menuId: 53
           }
         }
 
@@ -883,21 +956,21 @@ export class WaitingListService {
           returnObj[CAPACITY_CONTRACT_MANAGEMENT] = {
             remainingTasks: result,
             status: 'Waiting For Approval',
-            description: 'This status means the request is pending approval from the TSO.'
+            menuId: 50
           }
         }
         if (menu.includes(CAPACITY_CONTRACT_MANAGEMENT_SAVED)) {
           returnObj[CAPACITY_CONTRACT_MANAGEMENT_SAVED] = {
             remainingTasks: resultSaved,
             status: 'Saved',
-            description: 'This status means the request is pending Saved.'
+            menuId: 50
           }
         }
         if (menu.includes(CAPACITY_CONTRACT_MANAGEMENT_CONFIRMED)) {
           returnObj[CAPACITY_CONTRACT_MANAGEMENT_CONFIRMED] = {
             remainingTasks: resultConfirmed,
             status: 'Confirmed',
-            description: 'This status means the request is pending Confirmed.'
+            menuId: 50
           }
         }
       } catch (error) {
@@ -905,42 +978,42 @@ export class WaitingListService {
           returnObj[CAPACITY_CONTRACT_LIST] = {
             remainingTasks: 0,
             status: 'Waiting For Approval',
-            description: 'This status means the request is pending approval from the TSO.'
+            menuId: 53
           }
         }
         if (menu.includes(CAPACITY_CONTRACT_LIST_SAVED)) {
           returnObj[CAPACITY_CONTRACT_LIST_SAVED] = {
             remainingTasks: 0,
             status: 'Saved',
-            description: 'This status means the request is pending approval Saved.'
+            menuId: 53
           }
         }
         if (menu.includes(CAPACITY_CONTRACT_LIST_CONFIRMED)) {
           returnObj[CAPACITY_CONTRACT_LIST_CONFIRMED] = {
             remainingTasks: 0,
             status: 'Confirmed',
-            description: 'This status means the request is pending Confirmed.'
+            menuId: 53
           }
         }
         if (menu.includes(CAPACITY_CONTRACT_MANAGEMENT)) {
           returnObj[CAPACITY_CONTRACT_MANAGEMENT] = {
             remainingTasks: 0,
             status: 'Waiting For Approval',
-            description: 'This status means the request is pending approval from the TSO.'
+            menuId: 50
           }
         }
         if (menu.includes(CAPACITY_CONTRACT_MANAGEMENT)) {
           returnObj[CAPACITY_CONTRACT_MANAGEMENT] = {
             remainingTasks: 0,
             status: 'Saved',
-            description: 'This status means the request is pending Saved.'
+            menuId: 50
           }
         }
         if (menu.includes(CAPACITY_CONTRACT_MANAGEMENT)) {
           returnObj[CAPACITY_CONTRACT_MANAGEMENT] = {
             remainingTasks: 0,
             status: 'Confirmed',
-            description: 'This status means the request is pending Confirmed.'
+            menuId: 50
           }
         }
       }
@@ -982,13 +1055,13 @@ export class WaitingListService {
         return {
           remainingTasks: result,
           status: 'Submitted',
-          description: 'This status means the request has been submitted and is awaiting approval from the TSO.'
+          menuId: 60
         }
       } catch (error) {
         return {
           remainingTasks: 0,
           status: 'Submitted',
-          description: 'This status means the request has been submitted and is awaiting approval from the TSO.'
+          menuId: 60
         }
       }
     } else {
@@ -1024,7 +1097,7 @@ export class WaitingListService {
       targetMenus: [ALLOCATION_MANAGEMENT]
     })
 
-    return await this.getAllocationManagementData({
+    return await this.getAllocationManagementDataV2({
       userId,
       shipper,
       menu,
@@ -1181,7 +1254,7 @@ export class WaitingListService {
     }
 
     const allocationReview = await this.getAllocationReviewData(alloPayload)
-    const allocationManagement = await this.getAllocationManagementData(alloPayload)
+    const allocationManagement = await this.getAllocationManagementDataV2(alloPayload)
     //#endregion allocation
 
     //#region event
@@ -1273,19 +1346,19 @@ export class WaitingListService {
       //#region allocation
       const {startDate: alloStartDate, endDate: alloEndDate} = getAllocationDateRange(atDate)
       const alloShipper = isAdmin || isTSO ? [] : group.map((f: any) => f?.id_name)
-      const alloData = await this.getAllocationFromAllocationService(userId, alloShipper, alloStartDate, alloEndDate)
+      // const alloData = await this.getAllocationFromAllocationService(userId, alloShipper, alloStartDate, alloEndDate)
   
       const alloPayload = {
         userId,
         shipper: alloShipper,
-        data: alloData,
+        // data: alloData,
         startDate: alloStartDate,
         endDate: alloEndDate,
         menu
       }
   
       const allocationReview = await this.getAllocationReviewData(alloPayload)
-      const allocationManagement = await this.getAllocationManagementData(alloPayload)
+      const allocationManagement = await this.getAllocationManagementDataV2(alloPayload)
       //#endregion allocation
       
     
@@ -1318,19 +1391,13 @@ export class WaitingListService {
         atDate
       }
   
-      // const offspecGas = await this.getOffspecGasData(eventPayload)
-      // const emergencyDifficultDay = await this.getEmerData(eventPayload)
-      // const ofo = await this.getOfoData(eventPayload)
-  
       const offspecGas_acknowledge = await this.getOffspecGasDataAcknowledge(eventPayload)
       const emergencyDifficultDay_acknowledge = await this.getEmerDataAcknowledge(eventPayload)
       const ofo_acknowledge = await this.getOfoDataAcknowledge(eventPayload)
       //#endregion event
 
       return {
-        // [EVENT_OFFSPEC_GAS]: offspecGas,
-        // [EVENT_EMERGENCY_DIFFICULT_DAY]: emergencyDifficultDay,
-        // [EVENT_OF_IF]: ofo,
+     
         [EVENT_OFFSPEC_GAS_ACKNOWLEDGE]: offspecGas_acknowledge, //
         [EVENT_EMERGENCY_DIFFICULT_DAY_ACKNOWLEDGE]: emergencyDifficultDay_acknowledge, //
         [EVENT_OF_IF_ACKNOWLEDGE]: ofo_acknowledge //

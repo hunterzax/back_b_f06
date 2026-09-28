@@ -238,6 +238,41 @@ export class SubmissionFileController {
 
     validateExcelHasNoFormula(file.buffer)
 
+      // อ่าน Excel จาก buffer
+      const workbook = XLSX.read(file.buffer, {
+        type: 'buffer'
+      });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      // ดึงข้อมูลแบบ array เพื่อรักษา row/column
+      const rows: any[][] = XLSX.utils.sheet_to_json(worksheet, {
+        header: 1,
+        defval: null,
+        range: 0,       // บังคับเริ่มตั้งแต่ Excel Row 1
+        blankrows: true // เก็บแถวว่างไว้ด้วย
+      });
+      const row1 = rows?.[0] || [];
+      // เช็คว่า row 1 มีข้อมูลอย่างน้อย 1 cell หรือไม่
+      const isRow1Empty = row1.every(
+        (value) =>
+          value === null ||
+          value === undefined ||
+          String(value).trim() === ''
+      );
+      // console.log('row1:', row1);
+      // console.log('isRow1Empty:', isRow1Empty);
+      if (!isRow1Empty) { // https://app.clickup.com/t/9018502823/86ewxeuqb
+        throw new HttpException(
+          {
+            status:
+              HttpStatus.BAD_REQUEST,
+            error:
+              'Row 1 must be empty. Please ensure that the first row contains no data before proceeding.'
+          },
+          HttpStatus.BAD_REQUEST
+        )
+      }
+
     // Send file buffer to gRPC service for processing
     const grpcTransform: any =
       await this.fileUploadService.uploadFileTempMultiSheet(
@@ -259,11 +294,21 @@ export class SubmissionFileController {
       )
     }
 
+    // throw new HttpException(
+    //     {
+    //       status:
+    //         HttpStatus.BAD_REQUEST,
+    //       error:
+    //         'test'
+    //     },
+    //     HttpStatus.BAD_REQUEST
+    //   )
+
     const uploadFile =
       await this.submissionFileRefactoredService.uploadFile(
         grpcTransform, // Processed file data from gRPC
         file, // Original file object
-        req?.user?.sub, // User ID from JWT token
+        (req?.user?.sub || -1), // User ID from JWT token
         comment, // Optional comment
         tabType // Nomination type
       )

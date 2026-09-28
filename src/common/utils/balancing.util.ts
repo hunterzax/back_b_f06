@@ -68,6 +68,7 @@ function getLatestModeZone(modeZone: any[], limitTimestamp?: dayjs.Dayjs) {
 export function groupAndFilterLatestData(resData: any[], baseReply: any[], accumReply: any[], meteringPointList: any[]) {
   // Create a map to store grouped data
   const groupedMap = new Map()
+  console.log('resData : ', resData);
 
   // Process resData (intraday_base_inentory)
   if (resData && Array.isArray(resData)) {
@@ -137,8 +138,9 @@ export function groupAndFilterLatestData(resData: any[], baseReply: any[], accum
       const itemTimestamp = getTimestampValue(item.insert_timestamp)
       const zone = item.zone
       const mode = item.mode
-      const key = `${gasDay}_${gasHour || 'null'}|${zone}|${mode}|${itemTimestamp}`
-
+      const active_mode = item.activate || false
+      const key = `${gasDay}_${gasHour || 'null'}|${zone}|${mode}|${itemTimestamp}|${active_mode}`
+      // console.log('- : ', key);
       if (!groupedMap.has(key)) {
         groupedMap.set(key, {
           gasDay,
@@ -163,6 +165,7 @@ export function groupAndFilterLatestData(resData: any[], baseReply: any[], accum
             }
           }
           return resItem.gas_day_text == gasDay && resGasHour == `${gasHour}` && resItem.zone_text == zone && resItem.mode == mode
+          // return resItem.gas_day_text == gasDay && resGasHour == `${gasHour}` && resItem.zone_text == zone
         })
 
         const itemTimestamp = getTimestampValue(insertTimestamp)
@@ -202,7 +205,7 @@ export function groupAndFilterLatestData(resData: any[], baseReply: any[], accum
       heatingValueOFOIF.heatingValue_OFOIF_system = item.meterData?.heatingValue
     }
   })
-
+  console.log('groupedMap : ', groupedMap);
   const result = Array.from(groupedMap.values()).map((group) => {
     const resDataItem = group.resData
     const baseReplyItem = group.baseReply
@@ -219,7 +222,7 @@ export function groupAndFilterLatestData(resData: any[], baseReply: any[], accum
     // Create the result object based on the desired format
     return {
       active_mode: active_mode || false,
-      gas_day_text_DDMMYY: getTodayNowYYYYMMDDDfaultAdd7(group.gasDay).format('DD/MM/YYYY'),
+      gas_day_text_DDMMYY: getTodayNowYYYYMMDDDfaultAdd7(group && group?.gasDay || undefined).format('DD/MM/YYYY'),
       id: resDataItem?.id || null,
       gas_day: resDataItem?.gas_day || getTodayNowYYYYMMDDDfaultAdd7(baseReplyItem?.gasDay).toISOString() || null,
       gas_day_text: group.gasDay || null,
@@ -240,7 +243,7 @@ export function groupAndFilterLatestData(resData: any[], baseReply: any[], accum
       low_red: resDataItem?.low_red || baseReplyItem?.low_threshold_red || null,
       low_difficult_day: resDataItem?.low_difficult_day || baseReplyItem?.low_threshold_dd || null,
       low_max: resDataItem?.low_max || baseReplyItem?.low_threshold_max || null,
-      totalInv: group?.zone?.trim()?.toUpperCase() === 'EAST' ? accumReplyItem?.east_value || null : group?.zone?.trim()?.toUpperCase() === 'WEST' ? accumReplyItem?.west_value || null : null,
+      totalInv: group && (group?.zone?.trim()?.toUpperCase() === 'EAST' ? accumReplyItem?.east_value || null : group?.zone?.trim()?.toUpperCase() === 'WEST' ? accumReplyItem?.west_value || null : null) || null,
       del_flag: resDataItem?.del_flag || null,
       active: resDataItem?.active || null,
       create_date: resDataItem?.create_date || null,
@@ -271,147 +274,6 @@ export function groupAndFilterLatestData(resData: any[], baseReply: any[], accum
   })
 }
 
-// export function groupAndFilterLatestData(resData: any[], baseReply: any[], accumReply: any[], meteringPointList: any[]) {
-//   // Create a map to store grouped data
-//   const groupedMap = new Map();
-
-//   // Process resData (intraday_base_inentory)
-//   if (resData && Array.isArray(resData)) {
-//     resData.forEach(item => {
-//       const gasDay = item.gas_day_text;
-//       const gasHour = item.gas_hour || null;
-//       const timestamp = item.timestamp;
-//       const zone = item.zone_text;
-//       const mode = item.mode;
-//       const key = `${gasDay}_${gasHour || 'null'}|${zone}|${mode}`;
-
-//       if (!groupedMap.has(key)) {
-//         groupedMap.set(key, {
-//           gasDay,
-//           gasHour,
-//           zone,
-//           mode,
-//           resData: null,
-//           baseReply: null,
-//           latestTimestamp: null
-//         });
-//       }
-//       const group = groupedMap.get(key);
-
-//       // Keep the latest timestamp
-//       if (!group.latestTimestamp || compareTimestamps(timestamp, group.latestTimestamp) > 0) {
-//         group.latestTimestamp = timestamp;
-//         group.resData = item;
-//       }
-//     });
-//   }
-
-//   // Process baseReply (tpa_metering.base_inventory)
-//   if (baseReply && Array.isArray(baseReply)) {
-//     baseReply.forEach(item => {
-//       const gasDay = item.gasDay;
-//       const gasHour = item.gasHour || null;
-//       const insertTimestamp = item.insert_timestamp;
-//       const zone = item.zone;
-//       const mode = item.mode;
-//       const key = `${gasDay}_${gasHour || 'null'}|${zone}|${mode}`;
-
-//       if (!groupedMap.has(key)) {
-//         groupedMap.set(key, {
-//           gasDay,
-//           gasHour,
-//           zone,
-//           mode,
-//           resData: null,
-//           baseReply: null,
-//           latestTimestamp: null
-//         });
-//       }
-
-//       const group = groupedMap.get(key);
-
-//       // Keep the latest insert_timestamp
-//       if (!group.latestTimestamp || compareTimestamps(insertTimestamp, group.latestTimestamp) > 0) {
-//         group.latestTimestamp = insertTimestamp;
-//         group.baseReply = item;
-//       }
-//     });
-//   }
-
-//   // Convert grouped data to the desired format
-//   let heatingValueOFOIF : any = {}
-//   meteringPointList.map((item: any) => {
-//     if(item.hv_type_id == 2 && item.group?.id_name){
-//       heatingValueOFOIF[`heatingValue_OFOIF_${item.group.id_name}`] = item.meterData?.heatingValue
-//     }
-//     else{ //if(item.hv_type_id == 1) {
-//       heatingValueOFOIF.heatingValue_OFOIF_system = item.meterData?.heatingValue
-//     }
-//   })
-
-//   const result = Array.from(groupedMap.values()).map(group => {
-//     const resDataItem = group.resData;
-//     const baseReplyItem = group.baseReply;
-//     // const accumReplyItem = group.accumReply;
-//     const accumReplyInGasDay = accumReply.filter((item: any) => item.gasDay === group.gasDay);
-//     const accumReplyItem = accumReplyInGasDay.length > 0
-//       ? accumReplyInGasDay.reduce((latest, current) => {
-//           return compareTimestamps(current.insert_timestamp, latest.insert_timestamp) > 0 ? current : latest;
-//         })
-//       : null;
-
-//     // Create the result object based on the desired format
-//     return {
-//       gas_day_text_DDMMYY: getTodayNowYYYYMMDDDfaultAdd7(group.gasDay).format('DD/MM/YYYY'),
-//       id: resDataItem?.id || null,
-//       gas_day: resDataItem?.gas_day || getTodayNowYYYYMMDDDfaultAdd7(baseReplyItem?.gasDay).toISOString() || null,
-//       gas_day_text: group.gasDay || null,
-//       gas_hour: group.gasHour || null,
-//       timestamp: group.latestTimestamp || null,
-//       zone_text: group.zone || null,
-//       mode: group.mode || null,
-//       hv: resDataItem?.hv || baseReplyItem?.hv || null,
-//       base_inventory_value: resDataItem?.base_inventory_value || baseReplyItem?.base_inventory || null,
-//       high_difficult_day: resDataItem?.high_difficult_day || baseReplyItem?.high_threshold_dd || null,
-//       high_red: resDataItem?.high_red || baseReplyItem?.high_threshold_red || null,
-//       high_orange: resDataItem?.high_orange || baseReplyItem?.high_threshold_orange || null,
-//       high_max: resDataItem?.high_max || baseReplyItem?.high_threshold_max || null,
-//       alert_high: resDataItem?.alert_high || baseReplyItem?.high_threshold_alert || null,
-//       alert_low: resDataItem?.alert_low || baseReplyItem?.low_threshold_alert || null,
-//       low_orange: resDataItem?.low_orange || baseReplyItem?.low_threshold_orange || null,
-//       low_red: resDataItem?.low_red || baseReplyItem?.low_threshold_red || null,
-//       low_difficult_day: resDataItem?.low_difficult_day || baseReplyItem?.low_threshold_dd || null,
-//       low_max: resDataItem?.low_max || baseReplyItem?.low_threshold_max || null,
-//       totalInv: (group?.zone?.trim()?.toUpperCase() === 'EAST') ? (accumReplyItem?.east_value || null) : (group?.zone?.trim()?.toUpperCase() === 'WEST') ? (accumReplyItem?.west_value || null) : null,
-//       del_flag: resDataItem?.del_flag || null,
-//       active: resDataItem?.active || null,
-//       create_date: resDataItem?.create_date || null,
-//       update_date: resDataItem?.update_date || null,
-//       create_date_num: resDataItem?.create_date_num || null,
-//       update_date_num: resDataItem?.update_date_num || null,
-//       create_by: resDataItem?.create_by || null,
-//       update_by: resDataItem?.update_by || null,
-//       create_by_account: resDataItem?.create_by_account || null,
-//       update_by_account: resDataItem?.update_by_account || null,
-//       zoneObj: resDataItem?.zoneObj || null,
-//       // Add baseReply and accumReply data if needed
-//       baseReply: baseReplyItem,
-//       // accumReply: accumReplyItem
-//       ...heatingValueOFOIF
-//     };
-//   });
-
-//   // Sort by gas_day_text and gas_hour
-//   return result.sort((a, b) => {
-//     if (a.gas_day_text !== b.gas_day_text) {
-//       return new Date(a.gas_day_text).getTime() - new Date(b.gas_day_text).getTime();
-//     }
-//     if (a.gas_hour !== b.gas_hour) {
-//       return (String(a.gas_hour || '')).localeCompare(String(b.gas_hour || ''));
-//     }
-//     return 0;
-//   });
-// }
 
 export function getTimestampValue(timestamp: any): number {
   // Handle different timestamp formats
@@ -500,6 +362,13 @@ export async function findMinMaxExeDate(prisma: PrismaService, start_date: any, 
     const now = dayjs()
     const todayStartf = start_date == 'undefined' ? getTodayStartAdd7() : getTodayStartYYYYMMDDDfaultAdd7(start_date)
     const todayEndf = end_date == 'undefined' ? getTodayEndAdd7() : getTodayEndYYYYMMDDDfaultAdd7(end_date)
+
+    if(todayStartf.isValid() && todayStartf.isAfter(now, 'day')) {
+      return {
+        minDate: null,
+        maxDate: null
+      }
+    }
 
     const executeEod = await prisma.execute_eod.findMany({
       where: {
@@ -838,7 +707,8 @@ export async function getIntradayBaseInentoryFromWebService(prisma: PrismaServic
   if (!Array.isArray(baseReply)) {
     baseReply = []
   }
-  
+    console.log('baseReply : ', baseReply);
+    console.log('baseReply : ', baseReply?.filter((f:any) => f?.zone === "East" && f?.activate));
 
   const accumMicroData = await meteredMicroService.sendMessage(
     JSON.stringify({
@@ -892,7 +762,7 @@ export async function getIntradayBaseInentoryFromWebService(prisma: PrismaServic
     baseReply = baseReply?.filter((item: any) => isMatch(item.zone, zone))
     andInWhere.push({
       zone_text: {
-        equals: zone,
+        equals: zone || "-1",
         mode: 'insensitive'
       }
     })
@@ -936,240 +806,108 @@ export async function getIntradayBaseInentoryFromWebService(prisma: PrismaServic
       id: 'desc'
     }
   })
-
-  // if (timestamp) {
-  //   const filterTimestamp = getTodayNowDDMMYYYYHHmmDfaultAdd7(timestamp);
-  //   if (filterTimestamp.isValid()) {
-  //     resData = resData.filter((item: any) => {
-  //       let itemTimestamp = getTodayNowDDMMYYYYHHmmDfaultAdd7(item.timestamp);
-  //       if (!itemTimestamp.isValid()) {
-  //         itemTimestamp = getTodayNowAdd7(item.timestamp);
-  //       }
-  //       return (
-  //         itemTimestamp.isValid() &&
-  //         itemTimestamp.isSame(filterTimestamp, 'minute')
-  //       );
-  //     });
-
-  //     baseReply = baseReply?.filter((item: any) => {
-  //       let itemTimestamp = getTodayNowYYYYMMDDDfaultAdd7(
-  //         item.insert_timestamp,
-  //       );
-
-  //       if (
-  //         typeof item.insert_timestamp === 'number' &&
-  //         !isNaN(item.insert_timestamp)
-  //       ) {
-  //         // Unix timestamp ที่เป็นวินาที
-  //         const timestampInSeconds = item.insert_timestamp;
-
-  //         // แปลงให้เป็นมิลลิวินาที
-  //         const timestampInMilliseconds = timestampInSeconds * 1000;
-
-  //         // สร้าง day.js object จาก timestamp
-  //         itemTimestamp = getTodayNowAdd7(timestampInMilliseconds);
-  //       }
-
-  //       if (!itemTimestamp.isValid()) {
-  //         itemTimestamp = getTodayNowAdd7(item.timestamp);
-  //       }
-  //       return (
-  //         itemTimestamp.isValid() &&
-  //         itemTimestamp.isSame(filterTimestamp, 'minute')
-  //       );
-  //     });
-
-  //     accumReply = accumReply?.filter((item: any) => {
-  //       let itemTimestamp = getTodayNowYYYYMMDDDfaultAdd7(
-  //         item.insert_timestamp,
-  //       );
-
-  //       if (
-  //         typeof item.insert_timestamp === 'number' &&
-  //         !isNaN(item.insert_timestamp)
-  //       ) {
-  //         // Unix timestamp ที่เป็นวินาที
-  //         const timestampInSeconds = item.insert_timestamp;
-
-  //         // แปลงให้เป็นมิลลิวินาที
-  //         const timestampInMilliseconds = timestampInSeconds * 1000;
-
-  //         // สร้าง day.js object จาก timestamp
-  //         itemTimestamp = getTodayNowAdd7(timestampInMilliseconds);
-  //       }
-
-  //       if (!itemTimestamp.isValid()) {
-  //         itemTimestamp = getTodayNowAdd7(item.timestamp);
-  //       }
-  //       return (
-  //         itemTimestamp.isValid() &&
-  //         itemTimestamp.isSame(filterTimestamp, 'minute')
-  //       );
-  //     });
-  //   }
-  // }
-  // active
-
-  if (active_mode) {
+ 
     const filteredData = []
-    for (const item of baseReply) {
+    
+    for (const item of (baseReply || [])) {
       const modeOfThisHourAndZone = todayModeZone.filter((modeZone: any) => {
-        const gasHour = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('H'))
-        return gasHour == item.gasHour && isMatch(modeZone?.zone?.name, item.zone)
+        const gasHour = parseToNumber(
+          dayjs(modeZone.start_date).tz('Asia/Bangkok').format('H')
+        )
+
+        return (
+          gasHour == item.gasHour &&
+          isMatch(modeZone && modeZone?.zone?.name || null, item.zone)
+        )
       })
 
       let activeMode = undefined
+
       if (modeOfThisHourAndZone.length > 0) {
-        // console.log('todayModeZone : ', todayModeZone);
-        // console.log('item : ', item);
-        // if must prorate do it here
-        // just get the lastet for now
-        // modeOfThisHourAndZone.sort((a: any, b: any) => {
-        const modeOfThisHourAndZone_ = todayModeZone.sort((a: any, b: any) => {
-          const startDateDiff = dayjs(b.start_date).diff(dayjs(a.start_date))
-          if (startDateDiff !== 0) {
-            return startDateDiff
-          }
-          return dayjs(b.create_date).diff(dayjs(a.create_date))
-        })
-        // console.log('modeOfThisHourAndZone : ', modeOfThisHourAndZone);
-        // console.log('modeOfThisHourAndZone_ : ', modeOfThisHourAndZone_);
-        // console.log('- - -');
-        // activeMode = modeOfThisHourAndZone[0]
-        activeMode = modeOfThisHourAndZone_[modeOfThisHourAndZone_?.length - 1]
-      } else {
-        let todayModeOfZoneBeforeThisHour = todayModeZone.filter((modeZone: any) => {
-          const gasHour = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('H')) + 1
-          return gasHour < item.gasHour && isMatch(modeZone?.zone?.name, item.zone)
-        })
-
-        if (todayModeOfZoneBeforeThisHour.length > 0) {
-          todayModeOfZoneBeforeThisHour.sort((a: any, b: any) => {
-            const startDateDiff = dayjs(b.start_date).diff(dayjs(a.start_date))
-            if (startDateDiff !== 0) {
-              return startDateDiff
-            }
-            return dayjs(b.create_date).diff(dayjs(a.create_date))
-          })
-          // console.log('todayModeOfZoneBeforeThisHour : ', todayModeOfZoneBeforeThisHour);
-          // activeMode = todayModeOfZoneBeforeThisHour[0]
-          activeMode = todayModeOfZoneBeforeThisHour[todayModeOfZoneBeforeThisHour?.length - 1]
-        } else {
-          // console.log('item : ', item);
-          // console.log('_ ', lastetModeBeforeToday.find((f: any) => isMatch(f?.zone?.name, item.zone)));
-          // console.log('- - - -');
-          activeMode = lastetModeBeforeToday.find((f: any) => isMatch(f?.zone?.name, item.zone))
-        }
-      }
-
-      if (isMatch(activeMode?.mode?.mode, item.mode) && (item.activate == true || item.activate == 'true')) {
-        filteredData.push({
-          ...item,
-          active_mode: true
-        })
-      }
-    }
-    baseReply = filteredData
-
-    const filteredResData = []
-    for (const item of resData) {
-      const itemGasHour = getGasHourValue(item.gas_hour)
-      const modeOfThisHourAndZone = todayModeZone.filter((modeZone: any) => {
-        const gasHour = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('H'))
-        return gasHour == itemGasHour && isMatch(modeZone?.zone?.name, item.zone_text)
-      })
-
-      let activeMode = undefined
-      if (modeOfThisHourAndZone.length > 0) {
-        // if must prorate do it here
-        // just get the lastet for now
+        // มี mode ของ gasHour + zone นี้ -> ใช้ logic เดิม
         modeOfThisHourAndZone.sort((a: any, b: any) => {
           const startDateDiff = dayjs(b.start_date).diff(dayjs(a.start_date))
+
           if (startDateDiff !== 0) {
             return startDateDiff
           }
+
           return dayjs(b.create_date).diff(dayjs(a.create_date))
         })
+
         activeMode = modeOfThisHourAndZone[0]
       } else {
-        let todayModeOfZoneBeforeThisHour = todayModeZone.filter((modeZone: any) => {
-          const gasHour = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('H')) + 1
-          return gasHour < itemGasHour && isMatch(modeZone?.zone?.name, item.zone_text)
-        })
-
-        if (todayModeOfZoneBeforeThisHour.length > 0) {
-          todayModeOfZoneBeforeThisHour.sort((a: any, b: any) => {
-            const startDateDiff = dayjs(b.start_date).diff(dayjs(a.start_date))
-            if (startDateDiff !== 0) {
-              return startDateDiff
-            }
-            return dayjs(b.create_date).diff(dayjs(a.create_date))
+        // ==========================================
+        // ไม่มี Mode ของ Gas Hour นี้
+        // ถ้า activate เดิมเป็น true ให้คง true ไว้
+        // ==========================================
+        if (item?.activate === true) {
+          filteredData.push({
+            ...item,
+            active_mode: true,
+            activate: true,
           })
-          activeMode = todayModeOfZoneBeforeThisHour[0]
-        } else {
-          activeMode = lastetModeBeforeToday.find((f: any) => isMatch(f?.zone?.name, item.zone_text))
+
+          continue
         }
-      }
 
-      if (isMatch(activeMode?.mode?.mode, item.mode)) {
-        filteredResData.push({
-          ...item,
-          active_mode: true
-        })
-      }
-    }
-    resData = filteredResData
-  } else{
-    const filteredData = []
-    for (const item of baseReply) {
-      const modeOfThisHourAndZone = todayModeZone.filter((modeZone: any) => {
-        const gasHour = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('H'))
-        return gasHour == item.gasHour && isMatch(modeZone?.zone?.name, item.zone)
-      })
+        // activate เดิมไม่ใช่ true
+        // ค่อยหา mode ก่อนหน้าเหมือน logic เดิม
+        const todayModeOfZoneBeforeThisHour = todayModeZone.filter(
+          (modeZone: any) => {
+            const gasHour =
+              parseToNumber(
+                dayjs(modeZone.start_date)
+                  .tz('Asia/Bangkok')
+                  .format('H')
+              ) + 1
 
-      let activeMode = undefined
-      if (modeOfThisHourAndZone.length > 0) {
-        // if must prorate do it here
-        // just get the lastet for now
-        modeOfThisHourAndZone.sort((a: any, b: any) => {
-          const startDateDiff = dayjs(b.start_date).diff(dayjs(a.start_date))
-          if (startDateDiff !== 0) {
-            return startDateDiff
+            return (
+              gasHour < item.gasHour &&
+              isMatch(modeZone && modeZone?.zone?.name || null, item.zone)
+            )
           }
-          return dayjs(b.create_date).diff(dayjs(a.create_date))
-        })
-        activeMode = modeOfThisHourAndZone[0]
-      } else {
-        let todayModeOfZoneBeforeThisHour = todayModeZone.filter((modeZone: any) => {
-          const gasHour = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('H')) + 1
-          return gasHour < item.gasHour && isMatch(modeZone?.zone?.name, item.zone)
-        })
+        )
 
         if (todayModeOfZoneBeforeThisHour.length > 0) {
           todayModeOfZoneBeforeThisHour.sort((a: any, b: any) => {
             return dayjs(b.start_date).diff(dayjs(a.start_date))
           })
+
           activeMode = todayModeOfZoneBeforeThisHour[0]
         } else {
-          activeMode = lastetModeBeforeToday.find((f: any) => isMatch(f?.zone?.name, item.zone))
+          activeMode = lastetModeBeforeToday.find((f: any) =>
+            isMatch(f?.zone?.name, item.zone)
+          )
         }
       }
 
+      // มี Mode -> ตรวจ mode ตามเงื่อนไขเดิม
       if (isMatch(activeMode?.mode?.mode, item.mode)) {
         filteredData.push({
           ...item,
-          active_mode: true
+          active_mode: true,
+          activate: true,
         })
       }
     }
-    baseReply = baseReply?.map((e:any) => {
+
+    // console.log('1.1baseReply : ', baseReply);
+    // console.log('1.1baseReply : ', baseReply?.filter((f:any) => f?.zone === "East" && f?.activate));
+    // console.log('1.filteredData : ', filteredData?.filter((f:any) => f?.zone === "East"));
+
+    baseReply = (baseReply || []).map((e:any) => {
 
       return {
         ...e,
         // active_mode: !!filteredData?.find((f:any) => f?.["_id"]?.["$oid"] === e?.["_id"]?.["$oid"])
-        active_mode: (!!filteredData?.find((f:any) => f?.["_id"]?.["$oid"] === e?.["_id"]?.["$oid"])) && (e.activate == true || e.activate == 'true')
+        active_mode: (!!filteredData?.find((f:any) => f?.["_id"]?.["$oid"] === e?.["_id"]?.["$oid"])) && (e.activate == true || e.activate == 'true'),
+        activate: (!!filteredData?.find((f:any) => f?.["_id"]?.["$oid"] === e?.["_id"]?.["$oid"])) && (e.activate == true || e.activate == 'true'),
       }
     })
+
+    //  console.log('- active_mode 2baseReply : ', baseReply?.filter((f:any) => f?.zone === "East" && f?.active_mode));
+    // console.log('- activate 2baseReply : ', baseReply?.filter((f:any) => f?.zone === "East" && f?.activate));
 
     const filteredResData = []
     for (const item of resData) {
@@ -1215,159 +953,29 @@ export async function getIntradayBaseInentoryFromWebService(prisma: PrismaServic
         filteredResData.push(item)
       }
     }
-    resData = resData?.map((e:any) => {
+    resData = (resData || [])?.map((e:any) => {
 
       return {
         ...e,
-        active_mode: !!filteredData?.find((f:any) => f?.id === e?.id)
+        active_mode: !!filteredData?.find((f:any) => f?.id === e?.id),
+        activate: !!filteredData?.find((f:any) => f?.id === e?.id)
       }
     })
-  }
-
-
-
-  // if (latest_hourly_version) {
-  //   // Group by gas_day_text and gas_hour, then get the latest timestamp for each group
-  //   const groupedByHour = new Map();
-  //   const groupedBaseByLatestHour = new Map();
-  //   const groupedAccumByLatestHour = new Map();
-
-  //   resData.forEach((item: any) => {
-  //     const key = `${item.gas_day_text}_${item.gas_hour || 'null'}_${item.zone_text}_${item.mode}`;
-  //     if (
-  //       !groupedByHour.has(key) ||
-  //       compareTimestamps(item.timestamp, groupedByHour.get(key).timestamp) >
-  //         0
-  //     ) {
-  //       groupedByHour.set(key, item);
-  //     }
-  //   });
-  //   baseReply.forEach((item: any) => {
-  //     const key = `${item.gasDay}_${item.gasHour}_${item.zone}_${item.mode}`;
-
-  //     const timestamp = item.insert_timestamp_unix ?? item.insert_timestamp
-  //     item.timestamp = timestamp
-
-  //     if (
-  //       !groupedBaseByLatestHour.has(key) ||
-  //       compareTimestamps(item.timestamp, groupedBaseByLatestHour.get(key).timestamp) >
-  //         0
-  //     ) {
-  //       groupedBaseByLatestHour.set(key, item);
-  //     }
-  //   });
-  //   accumReply.forEach((item: any) => {
-  //     const key = `${item.gasDay}_${item.gasHour}_${item.zone}_${item.mode}`;
-
-  //     const timestamp = item.insert_timestamp_unix ?? item.insert_timestamp
-  //     item.timestamp = timestamp
-
-  //     if (
-  //       !groupedAccumByLatestHour.has(key) ||
-  //       compareTimestamps(item.timestamp, groupedAccumByLatestHour.get(key).timestamp) >
-  //         0
-  //     ) {
-  //       groupedAccumByLatestHour.set(key, item);
-  //     }
-  //   });
-
-  //   resData = Array.from(groupedByHour.values());
-  //   baseReply = Array.from(groupedBaseByLatestHour.values());
-  //   accumReply = Array.from(groupedAccumByLatestHour.values());
   // }
 
-  // if (latest_daily_version) {
-  //   // First, group by gas_day_text, zone_text, and mode to get the latest gas_hour for each group
-  //   const groupedByLatestHour = new Map();
-  //   const groupedBaseByLatestHour = new Map();
-  //   const groupedAccumByLatestHour = new Map();
-  //   resData.forEach((item: any) => {
-  //     const key = `${item.gas_day_text}_${item.zone_text}_${item.mode}`;
-
-  //     if (
-  //       !groupedByLatestHour.has(key) ||
-  //       compareGasHour(item.gas_hour, groupedByLatestHour.get(key).gas_hour) >
-  //         0
-  //     ) {
-  //       groupedByLatestHour.set(key, item);
-  //     }
-  //   });
-  //   baseReply.forEach((item: any) => {
-  //     const key = `${item.gasDay}_${item.zone}_${item.mode}`;
-
-  //     if (
-  //       !groupedBaseByLatestHour.has(key) ||
-  //       compareGasHour(item.gasHour, groupedBaseByLatestHour.get(key).gasHour) >
-  //         0
-  //     ) {
-  //       groupedBaseByLatestHour.set(key, item);
-  //     }
-  //   });
-  //   accumReply.forEach((item: any) => {
-  //     const key = `${item.gasDay}`;
-
-  //     if (
-  //       !groupedAccumByLatestHour.has(key) ||
-  //       compareGasHour(item.gasHour, groupedAccumByLatestHour.get(key).gasHour) >
-  //         0
-  //     ) {
-  //       groupedAccumByLatestHour.set(key, item);
-  //     }
-  //   });
-
-  //   // Then, from the latest gas_hour records, get the latest timestamp for each group
-  //   const groupedByDay = new Map();
-  //   const groupedBaseByDay = new Map();
-  //   const groupedAccumByDay = new Map();
-  //   Array.from(groupedByLatestHour.values()).forEach((item: any) => {
-  //     const key = `${item.gas_day_text}_${item.zone_text}_${item.mode}`;
-
-  //     if (
-  //       !groupedByDay.has(key) ||
-  //       compareTimestamps(item.timestamp, groupedByDay.get(key).timestamp) > 0
-  //     ) {
-  //       groupedByDay.set(key, item);
-  //     }
-  //   });
-  //   Array.from(groupedBaseByLatestHour.values()).forEach((item: any) => {
-  //     const key = `${item.gasDay}_${item.zone}_${item.mode}`;
-
-  //     const timestamp = item.insert_timestamp_unix ?? item.insert_timestamp
-  //     item.timestamp = timestamp
-
-  //     if (
-  //       !groupedBaseByDay.has(key) ||
-  //       compareTimestamps(timestamp, groupedBaseByDay.get(key).timestamp) > 0
-  //     ) {
-  //       groupedBaseByDay.set(key, item);
-  //     }
-  //   });
-  //   Array.from(groupedAccumByLatestHour.values()).forEach((item: any) => {
-  //     const key = `${item.gasDay}`;
-
-  //     const timestamp = item.insert_timestamp_unix ?? item.insert_timestamp
-  //     item.timestamp = timestamp
-
-  //     if (
-  //       !groupedAccumByDay.has(key) ||
-  //       compareTimestamps(timestamp, groupedAccumByDay.get(key).timestamp) > 0
-  //     ) {
-  //       groupedAccumByDay.set(key, item);
-  //     }
-  //   });
-  //   resData = Array.from(groupedByDay.values());
-  //   baseReply = Array.from(groupedBaseByDay.values());
-  //   accumReply = Array.from(groupedAccumByDay.values());
-  // }
-
-  // Group and filter data by gas_day_text/gasDay and gas_hour/gasHour, then get latest timestamp/insert_timestamp
+//  console.log('2baseReply : ', baseReply);
+//     console.log('active_mode 2baseReply : ', baseReply?.filter((f:any) => f?.zone === "East" && f?.active_mode));
+//     console.log('activate 2baseReply : ', baseReply?.filter((f:any) => f?.zone === "East" && f?.activate));
   let groupedData = groupAndFilterLatestData(resData, baseReply, accumReply, meteringPointList)
  
   // console.log('resData : ', resData);
   // console.log('baseReply : ', baseReply);
   // console.log('accumReply : ', accumReply);
   // console.log('meteringPointList : ', meteringPointList);
+
   // console.log('groupedData : ', groupedData);
+  // console.log('groupedData : ', groupedData?.filter((f:any) => f?.zone === "East"));
+  // console.log('groupedData : ', groupedData?.filter((f:any) => f?.zone === "East" && f?.active_mode));
 
   if (timestamp) {
     groupedData = groupedData.filter((item: any) => getTimestampValue(item.timestamp) == getTimestampValue(timestamp))
@@ -1408,11 +1016,18 @@ export async function getIntradayBaseInentoryFromWebService(prisma: PrismaServic
     })
     groupedData = Array.from(groupedByDay.values())
   }
+  // console.log('groupedData : ', groupedData);
+
+  // active_mode
+
+
+  
+  const fgroupedData = active_mode ? groupedData?.filter((f:any) => f?.active_mode) :  groupedData
 
   return {
-    total_record: groupedData.length,
+    total_record: fgroupedData.length,
     status_code: 200,
-    data: skip == 0 && limit == 0 ? groupedData : groupedData.slice(skip, skip + limit)
+    data: limit > 0 ? fgroupedData.slice(skip, skip + limit) : fgroupedData
   }
 }
 

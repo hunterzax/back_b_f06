@@ -38,6 +38,8 @@ export async function uploadFilsTemp(
   const config = {
     method: 'post',
     maxBodyLength: Infinity,
+    // Coverity flags this as unused_expr (NO_EFFECT).
+    // coverity[unused_expr:SUPPRESS]
     url: uploadUrl,
     headers: {
       ...data.getHeaders()

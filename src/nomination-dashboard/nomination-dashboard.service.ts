@@ -52,9 +52,9 @@ export class NominationDashboardService {
     const eva = await this.qualityEvaluationService.findAll(evQueary) //! Hot fix ให้ค่าขึ้น
     const nomination_ = await this.prisma.query_shipper_nomination_file.findMany({
       where: {
-        NOT: {
-          contract_code_id: null
-        }, // revers bal ไม่แสดง effect
+        // NOT: {
+        //   contract_code_id: null
+        // }, // revers bal ไม่แสดง effect
         query_shipper_nomination_status: {
           id: {
             notIn: [3, 4] // https://app.clickup.com/t/86ev18ayj
@@ -321,7 +321,7 @@ export class NominationDashboardService {
         // const findZone = zoneMaster?.filter((f: any) => f?.name === valValidate[i]?.["0"]) // เดิมโรงงาน
         const findZone = zoneMaster?.filter((f: any) => f?.name === valValidate[i]?.['0'] && f?.entry_exit_id === findPoint?.entry_exit_id)
 
-        if (findZone?.length > 0) {
+        if (findZone && findZone?.length > 0) {
           for (let iz = 0; iz < findZone.length; iz++) {
             // key 2 'CO2' Carbon - v2_carbon_dioxide_min v2_carbon_dioxide_max
             if (!!valValidate[i]?.['2'] && (findZone?.[iz]?.zone_master_quality?.[0]?.v2_carbon_dioxide_min !== null || findZone?.[iz]?.zone_master_quality?.[0]?.v2_carbon_dioxide_max !== null)) {

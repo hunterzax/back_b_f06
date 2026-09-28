@@ -289,9 +289,9 @@ export class QualityEvaluationService {
 
     const resData = await this.prisma.query_shipper_nomination_file.findMany({
       where: {
-        NOT: {
-          contract_code_id: null
-        }, // revers bal ไม่แสดง effect
+        // NOT: {
+        //   contract_code_id: null
+        // }, // revers bal ไม่แสดง effect
         query_shipper_nomination_status: {
           id: {
             in: [1, 2, 5]
@@ -388,7 +388,7 @@ export class QualityEvaluationService {
         id: 'desc'
       }
     })
-
+    console.log('resData : ', resData);
     let dailyData = []
 
     const resDataCv = resData.map((e: any) => {
@@ -417,6 +417,7 @@ export class QualityEvaluationService {
               gas_day: e?.gas_day,
               gas_day_text: dayjs(e?.gas_day).format('DD/MM/YYYY'),
               contract_code_id: e?.contract_code_id,
+              reserve_balancing_gas_contract_id: e?.reserve_balancing_gas_contract_id,
               group_id: e?.group_id,
               query_shipper_nomination_file_renom_id: e?.query_shipper_nomination_file_renom_id,
               submitted_timestamp: e?.submitted_timestamp,
@@ -763,7 +764,7 @@ export class QualityEvaluationService {
         gasDay: weekStartDayjs.tz('Asia/Bangkok').format('YYYY-MM-DD')
       })
       if (resForWeekly?.newWeekly && Array.isArray(resForWeekly.newWeekly) && resForWeekly.newWeekly.length > 0) {
-        res.newWeekly = resForWeekly.newWeekly
+        res.newWeekly = resForWeekly && resForWeekly.newWeekly || []
       }
     }
     const hvDaily = res?.newDaily?.find((f: any) => isMatch(f?.parameter, 'HV') && isMatch(f?.area?.name, area))?.valueBtuScf

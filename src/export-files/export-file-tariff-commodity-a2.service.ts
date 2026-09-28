@@ -139,18 +139,15 @@ export class ExportFileTariffCommodityA2Service {
           let name =
             find?.description ||
             '-'
-          let group =
-            find
-              ?.customer_type
-              ?.name || '-'
+          let group = find?.customer_type?.name || '-'
           return {
             ...e,
             name:
-              name || null,
+              name,
             energy:
-              energy || null,
+              energy,
             group:
-              group || null
+              group
           }
         }
       )

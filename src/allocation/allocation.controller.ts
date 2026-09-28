@@ -91,14 +91,14 @@ export class AllocationController implements OnModuleInit {
       return {
         data: 'Executed'
       }
-    } else if (data?.param?.includes('update_execute_status')) {
+    } else if (data && data?.param?.includes('update_execute_status')) {
       let payload = null
       try {
-        payload = JSON.parse(data.param.replace('update_execute_status:', ''))
+        payload = data && JSON.parse(data?.param.replace('update_execute_status:', '')) || null
       } catch (error) {
         payload = null
       }
-      const updateExecuteStatus = this.meteringManagementService.updateExecuteStatus(payload, null)
+      const updateExecuteStatus = payload && this.meteringManagementService.updateExecuteStatus(payload, null)
       return {
         data: 'Update Execute Status'
       }
@@ -169,7 +169,8 @@ export class AllocationController implements OnModuleInit {
 
     // return this.allocationService.allocationManagement(query, req?.user?.sub);
     // return this.allocationService.allocationManagementNewReview(
-    return this.allocationService.allocationManagement2(query, req?.user?.sub)
+    // return this.allocationService.allocationManagement2(query, req?.user?.sub)
+    return this.allocationService.allocationManagementFromAllocationReport(query, req?.user?.sub)
   }
 
   @UseGuards(AuthGuard)
@@ -184,17 +185,14 @@ export class AllocationController implements OnModuleInit {
   allocationManagement(@Query() query: any, @Req() req: any) {
     const {start_date, end_date, skip, limit} = query
 
-    // return this.allocationService.allocationManagementNew(
-    //   query,
-    //   req?.user?.sub,
-    // );
-    return this.allocationService.allocationManagement2(query, req?.user?.sub)
+   
+    return this.allocationService.allocationManagementFromAllocationReport(query, req?.user?.sub)
   }
 
   @UseGuards(AuthGuard)
   @Patch('shipper-allocation-review/:id')
   async shipperAllocationReview(@Body() body: any, @Param('id') id: any, @Req() req: any) {
-    const {shipper_allocation_review, comment, row_data} = body
+    const {shipper_allocation_review, comment, row_data} = (body || {})
 
     if (!id || !shipper_allocation_review || !row_data) {
       throw new HttpException(
@@ -209,12 +207,7 @@ export class AllocationController implements OnModuleInit {
     const shipperAllocationReview = await this.allocationService.shipperAllocationReview(id, body, req?.user?.sub)
     const createByOnce = await this.allocationService.createByOnce(req?.user?.sub)
 
-    // const his = await this.allocationService.findOnce(id);
-    // create/update date
-
-    //  "systemAllocation": 43805.7405,
-    // "intradaySystem": 43805.741,
-    // "previousAllocationTPAforReview": 43805.7405,
+  
 
     const {id: ids, ...TempDatas} = shipperAllocationReview
 
@@ -258,7 +251,7 @@ export class AllocationController implements OnModuleInit {
         id: Number(id),
         create: createByOnce,
         // ...body,
-        shipper_allocation_review: body?.shipper_allocation_review || null,
+        shipper_allocation_review: body && body?.shipper_allocation_review || null,
         comment: body?.comment || null,
         systemAllocation: body?.row_data?.systemAllocation || null,
         intradaySystem: body?.row_data?.intradaySystem || null,
@@ -274,7 +267,7 @@ export class AllocationController implements OnModuleInit {
         id: Number(id),
         create: createByOnce,
         // ...body,
-        shipper_allocation_review: body?.shipper_allocation_review || null,
+        shipper_allocation_review: body && body?.shipper_allocation_review || null,
         comment: body?.comment || null,
         systemAllocation: body?.row_data?.systemAllocation || null,
         intradaySystem: body?.row_data?.intradaySystem || null,
@@ -588,7 +581,7 @@ export class AllocationController implements OnModuleInit {
       ...file,
       originalname: Buffer.from(file.originalname, 'latin1').toString('utf8')
     }
-    if (file.mimetype !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' && file.mimetype !== 'application/vnd.ms-excel') {
+    if (file && file.mimetype !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' && file.mimetype !== 'application/vnd.ms-excel') {
       throw new BadRequestException('Only Excel files (xlsx or xls) are allowed.')
     }
 
@@ -613,78 +606,82 @@ export class AllocationController implements OnModuleInit {
 
     const {ignore} = query
 
-    const uploadFile = await this.allocationService.uploadFile(grpcTransform, file, req?.user?.sub, req, ignore?.trim()?.toLowerCase() === 'true')
-
-    try {
-      const group_ = await this.prisma.group.findFirst({
-        where: {
-          id_name: uploadFile?.data?.dataDb?.[0]?.shipperIdSheet
-        },
-        select: {
-          id: true,
-          name: true
-        }
-      })
-      if (group_ && uploadFile?.data?.dataDb?.length > 0) {
-        const message = `The allocation for ${uploadFile?.data?.dateArr?.[0]} to ${uploadFile?.data?.dateArr?.[uploadFile?.data?.dateArr?.length - 1]}, ${uploadFile?.data?.dataDb?.[0]?.contractCodeSheet} has been reviewed by shipper.`
-        await middleNotiInappShipper(
-          this.prisma,
-          'Allocation',
-          message,
-          81, // menus_id Allocation 80 | Allocation Review 81 | Allocation Query 83 | Allocation Report 84 | Curtailments Allocation Report 85 | Allocation Monthly Report 86 | Vent/Commissioning/Other Gas 88
-          1,
-          group_?.id
-        )
-      }
-    } catch (error) {}
-
-    try {
-      if (uploadFile?.warning?.length === 0) {
-        const createByOnce = await this.allocationService.createByOnce(req?.user?.sub)
-
-        const findStatus = await this.allocationStatusMaster()
-
-        for (let i = 0; i < uploadFile?.data?.dataDb.length; i++) {
-          const findId = await this.prisma.allocation_management?.findFirst({
-            where: {
-              id: uploadFile?.data?.dataDb[i]?.id
-            }
-          })
-          const fn = findStatus?.find((f: any) => f?.id === findId?.allocation_status_id)
-
-          await this.allocationService.writeReq(
-            req,
-            `allocation-manage`,
-            'shipper-allocation-review-upload',
-            {
-              shipper_allocation_review: parseToNumber(uploadFile?.data?.dataDb[i]?.value),
-              systemAllocation: uploadFile?.data?.dataDb[i]?.system_allocation,
-              previousAllocationTPAforReview: uploadFile?.data?.dataDb[i]?.previous_value,
-              status: fn?.id,
-              create: createByOnce,
-              ...uploadFile?.data?.dataDb[i],
-              allocation_status: fn
-            }
-            // { status: fn?.id, comment, create: createByOnce, ...rowArray[i], allocation_status: fn },
-          )
-          await this.allocationService.writeReq(
-            req,
-            `allocation-review`,
-            'shipper-allocation-review-upload',
-            {
-              shipper_allocation_review: parseToNumber(uploadFile?.data?.dataDb[i]?.value),
-              systemAllocation: uploadFile?.data?.dataDb[i]?.system_allocation,
-              previousAllocationTPAforReview: uploadFile?.data?.dataDb[i]?.previous_value,
-              status: fn?.id,
-              create: createByOnce,
-              ...uploadFile?.data?.dataDb[i],
-              allocation_status: fn
-            }
-            // { status: fn?.id, comment, create: createByOnce, ...rowArray[i], allocation_status: fn },
+    const uploadFile = await this.allocationService.uploadFile(grpcTransform, file, (req?.user?.sub || -1), req, ignore?.trim()?.toLowerCase() === 'true')
+    // console.log('# uploadFile : ', uploadFile);
+    for (let i_ = 0; i_ < uploadFile.data.dataArr.length; i_++) {
+      try {
+        const group_ = await this.prisma.group.findFirst({
+          where: {
+            id_name: uploadFile.data.dataArr[i_].dataDb?.[0]?.shipperIdSheet
+          },
+          select: {
+            id: true,
+            name: true
+          }
+        })
+        if (group_ && uploadFile.data.dataArr[i_].dataDb?.length > 0) {
+          const message = `The allocation for ${uploadFile.data.dataArr[i_].dateArr?.[0]} to ${uploadFile.data.dataArr[i_].dateArr?.[uploadFile.data.dataArr[i_].dateArr?.length - 1]}, ${uploadFile.data.dataArr[i_].dataDb?.[0]?.contractCodeSheet} has been reviewed by shipper.`
+          await middleNotiInappShipper(
+            this.prisma,
+            'Allocation',
+            message,
+            81, // menus_id Allocation 80 | Allocation Review 81 | Allocation Query 83 | Allocation Report 84 | Curtailments Allocation Report 85 | Allocation Monthly Report 86 | Vent/Commissioning/Other Gas 88
+            1,
+            group_?.id
           )
         }
-      }
-    } catch (error) {}
+      } catch (error) {}
+  
+      try {
+        if (uploadFile?.warning?.length === 0) {
+          const createByOnce = await this.allocationService.createByOnce(req?.user?.sub)
+  
+          const findStatus = await this.allocationStatusMaster()
+  
+          for (let i = 0; i < uploadFile.data.dataArr[i_].dataDb.length; i++) {
+            if(uploadFile.data.dataArr[i_].dataDb[i]?.id){
+              const findId = await this.prisma.allocation_management?.findFirst({
+                where: {
+                  id: uploadFile.data.dataArr[i_].dataDb[i]?.id
+                }
+              })
+              const fn = findStatus?.find((f: any) => f?.id === findId?.allocation_status_id)
+    
+              await this.allocationService.writeReq(
+                req,
+                `allocation-manage`,
+                'shipper-allocation-review-upload',
+                {
+                  shipper_allocation_review: parseToNumber(uploadFile.data.dataArr[i_].dataDb[i]?.value),
+                  systemAllocation: uploadFile.data.dataArr[i_].dataDb[i]?.system_allocation,
+                  previousAllocationTPAforReview: uploadFile.data.dataArr[i_].dataDb[i]?.previous_value,
+                  status: fn?.id,
+                  create: createByOnce,
+                  ...uploadFile.data.dataArr[i_].dataDb[i],
+                  allocation_status: fn
+                }
+              )
+              await this.allocationService.writeReq(
+                req,
+                `allocation-review`,
+                'shipper-allocation-review-upload',
+                {
+                  shipper_allocation_review: parseToNumber(uploadFile.data.dataArr[i_].dataDb[i]?.value),
+                  systemAllocation: uploadFile.data.dataArr[i_].dataDb[i]?.system_allocation,
+                  previousAllocationTPAforReview: uploadFile.data.dataArr[i_].dataDb[i]?.previous_value,
+                  status: fn?.id,
+                  create: createByOnce,
+                  ...uploadFile.data.dataArr[i_].dataDb[i],
+                  allocation_status: fn
+                }
+              )
+
+            }
+          }
+        }
+      } catch (error) {}
+      
+    }
 
     return uploadFile
   }
@@ -704,7 +701,7 @@ export class AllocationController implements OnModuleInit {
       )
     }
 
-    return this.allocationService.allocationMonthlyVersionExe(query, req?.user?.sub)
+    return this.allocationService.allocationMonthlyVersionExe2(query, req?.user?.sub)
   }
 
   // ...
@@ -882,7 +879,7 @@ export class AllocationController implements OnModuleInit {
   executeNotiInapp(@Body() body: any, @Req() req: any) {
     return this.allocationService.executeNotiInapp(
       body
-      // req?.user?.sub,
+      // (req?.user?.sub || -1),
     )
   }
 }

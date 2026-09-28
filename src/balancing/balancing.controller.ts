@@ -172,7 +172,7 @@ export class BalancingController {
     }
     const adjustmentDailyImbalanceCommentCreate = await this.balancingService.adjustmentDailyImbalanceCommentCreate(body, req?.user?.sub)
 
-    const his = await this.balancingService.adjustmentDailyImbalanceOnce(
+    const his = body && await this.balancingService.adjustmentDailyImbalanceOnce(
       {
         id: balancing_adjustment_daily_imbalance_id,
         start_date: body?.start_date, // ส่งแบบ หน้าเรียก table
@@ -181,9 +181,9 @@ export class BalancingController {
         limit: body?.limit // ส่งแบบ หน้าเรียก table
       },
       req?.user?.sub
-    )
+    ) || null
 
-    await this.balancingService.writeReq(req, `adjustment-daily-imbalance`, adjustmentDailyImbalanceCommentCreate?.type, his)
+    his && await this.balancingService.writeReq(req, `adjustment-daily-imbalance`, adjustmentDailyImbalanceCommentCreate?.type, his)
 
     return adjustmentDailyImbalanceCommentCreate
   }
@@ -236,7 +236,7 @@ export class BalancingController {
     }
     const adjustAccumulatedImbalanceCommentCreate = await this.balancingService.adjustAccumulatedImbalanceCommentCreate(body, req?.user?.sub)
 
-    const his = await this.balancingService.adjustAccumulatedImbalanceOnce(
+    const his = body && await this.balancingService.adjustAccumulatedImbalanceOnce(
       {
         id: balancing_adjust_accumulated_imbalance_id,
         start_date: body?.start_date, // ส่งแบบ หน้าเรียก table
@@ -245,9 +245,9 @@ export class BalancingController {
         limit: body?.limit // ส่งแบบ หน้าเรียก table
       },
       req?.user?.sub
-    )
+    ) || null
 
-    await this.balancingService.writeReq(req, `adjust-accumulated-imbalance`, adjustAccumulatedImbalanceCommentCreate?.type, his)
+    his && await this.balancingService.writeReq(req, `adjust-accumulated-imbalance`, adjustAccumulatedImbalanceCommentCreate?.type, his)
 
     return adjustAccumulatedImbalanceCommentCreate
   }
@@ -370,7 +370,7 @@ export class BalancingController {
       ...file,
       originalname: Buffer.from(file.originalname, 'latin1').toString('utf8')
     }
-    if (file.mimetype !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' && file.mimetype !== 'application/vnd.ms-excel') {
+    if (file && file.mimetype !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' && file.mimetype !== 'application/vnd.ms-excel') {
       throw new BadRequestException('Only Excel files (xlsx or xls) are allowed.')
     }
 
@@ -424,7 +424,7 @@ export class BalancingController {
   intradayBaseInentoryShipper(@Body() body: any, @Req() req: any) {
     // return this.balancingService.intradayBaseInentoryShipper(
     //   body,
-    //   req?.user?.sub,
+    //   (req?.user?.sub || -1),
     // );
     return this.balancingService.intradayBaseInentoryShipper2(body, req?.user?.sub)
   }
@@ -456,7 +456,7 @@ export class BalancingController {
       ...file,
       originalname: Buffer.from(file.originalname, 'latin1').toString('utf8')
     }
-    if (file.mimetype !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' && file.mimetype !== 'application/vnd.ms-excel') {
+    if (file && file.mimetype !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' && file.mimetype !== 'application/vnd.ms-excel') {
       throw new BadRequestException('Only Excel files (xlsx or xls) are allowed.')
     }
 
@@ -579,7 +579,7 @@ export class BalancingController {
     //   );
     // }
 
-    const instructedOperationFlowShippersUpload = await this.balancingService.instructedOperationFlowShippersUpload(file, req?.user?.sub, id)
+    const instructedOperationFlowShippersUpload = await this.balancingService.instructedOperationFlowShippersUpload(file, (req?.user?.sub || -1), id)
     // const his = await this.uploadTemplateForShipperService.findOnce(id);
     // await this.uploadTemplateForShipperService.writeReq(
     //   req,

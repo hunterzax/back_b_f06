@@ -208,8 +208,9 @@ export class ParameterNominationDeadlineService {
           {
             where: {
               AND: andInWhere,
-              process_type_id:
-                parentProcessTypeID
+              process_type_id: {
+                lte: parentProcessTypeID
+              }
             }
           }
         )
@@ -321,15 +322,15 @@ export class ParameterNominationDeadlineService {
             await this.prisma.process_type.findUnique(
               {
                 where: {
-                  id: parentNominationDeadlineByHour?.[0]
-                    ?.process_type_id
+                  id: parentNominationDeadlineByHour && parentNominationDeadlineByHour?.[0]
+                    ?.process_type_id || -1
                 }
               }
             )
 
           // ถ้าไม่พบ ให้ใช้ parent deadlines ที่กรองจาก before_gas_day แล้ว
           if (
-            parentNominationDeadlineByHour.length ==
+            parentNominationDeadlineByHour && parentNominationDeadlineByHour.length ==
             0
           ) {
             parentNominationDeadlineByHour =
@@ -358,73 +359,66 @@ export class ParameterNominationDeadlineService {
             )
           // ----------------------------------------
 
-          // ตรวจสอบว่า hour ของ child ต้อง >= maxHour ของ parent
-          if (
-            hour < maxHour
-          ) {
-            const formatMinute =
-              String(
-                maxMinute
-              ).padStart(
-                2,
-                '0'
-              )
 
-            return {
-              isValid: false,
-              // message: `Hour must be more than ${maxHour}.` // ของเดิมบีม
-              // message: `Time must be ${maxHour}:${formatMinute} or after.` // ไม่มี clickup กันส่งมา ---> 3. Nomination Deadline เคสที่แก้ไขข้อมูล แล้วเวลามันข้ามลำดับกัน ยังแสดงไม่ถูก เคสนี้คือ ข้อมูลมี submission 15.15 อยู่ แล้วกันแก้ Management มาเป็น 15.10 ซึ่งมันต้องแก้ไม่ได้ถูกแล้ว แต่ error มันบอกแค่ว่า more than 15 ซึ่งมันต้องมีบอกนาทีด้วยเช่น Hour must be 15:30 or later.
-              message: `Time must be ${maxHour}:${formatMinute} or after. because ${findParentProcessType?.name} time is ${maxHour}:${formatMinute}` // ไม่มี clickup กันส่งมา ---> 3. Nomination Deadline เคสที่แก้ไขข้อมูล แล้วเวลามันข้ามลำดับกัน ยังแสดงไม่ถูก เคสนี้คือ ข้อมูลมี submission 15.15 อยู่ แล้วกันแก้ Management มาเป็น 15.10 ซึ่งมันต้องแก้ไม่ได้ถูกแล้ว แต่ error มันบอกแค่ว่า more than 15 ซึ่งมันต้องมีบอกนาทีด้วยเช่น Hour must be 15:30 or later.
-            }
-          }
-          // ถ้า hour เท่ากับ maxHour ให้เช็ค minute ต่อ
-          else if (
-            hour === maxHour
-          ) {
-            // // กรอง parent deadlines ที่มี hour เท่ากับ maxHour
-            // let parentNominationDeadlineByHour = parentNominationDeadlineByBeforeGasDay.filter((item) => item.hour === maxHour);
-            // // ถ้าไม่พบ ให้ใช้ parent deadlines ที่กรองจาก before_gas_day แล้ว
-            // if(parentNominationDeadlineByHour.length == 0){
-            //   parentNominationDeadlineByHour = parentNominationDeadlineByBeforeGasDay;
-            // }
+          // https://app.clickup.com/t/9018502823/86euzxxp8
+          if(parentNominationDeadlineByHour && !(parentNominationDeadlineByHour?.[0]?.process_type_id === 2 && parentNominationDeadlineByHour?.[0]?.user_type_id === 3)){
 
-            // // หาค่า minute ที่มากที่สุดจาก parent deadlines ที่ผ่านการกรองแล้ว
-            // // เพื่อให้แน่ใจว่า child deadline จะต้องมี minute >= parent เมื่อ before_gas_day และ hour เท่ากัน
-            // let maxMinute = parentNominationDeadlineByHour.reduce((max, item) => {
-            //   if (item.minute !== null && item.minute !== undefined) {
-            //     return Math.max(max, item.minute);
-            //   }
-            //   return max;
-            // }, Number.NEGATIVE_INFINITY);
-
-            // ถ้าไม่พบค่า minute ใน parent ให้ใช้ 0 เป็นค่า default
+            // ตรวจสอบว่า hour ของ child ต้อง >= maxHour ของ parent
             if (
-              maxMinute ===
-              Number.NEGATIVE_INFINITY
+              hour < maxHour
             ) {
-              maxMinute = 0
-            }
-            const formatMinute =
-              String(
-                maxMinute
-              ).padStart(
-                2,
-                '0'
-              )
-
-            // ตรวจสอบว่า minute ของ child ต้อง >= maxMinute ของ parent
-            if (
-              minute <
-              maxMinute
-            ) {
+              const formatMinute =
+                String(
+                  maxMinute
+                ).padStart(
+                  2,
+                  '0'
+                )
+                console.log('case er 1');
               return {
                 isValid: false,
-                // message: `Minute must be more than ${maxMinute}.` // ของเดิมบีม
+                // message: `Hour must be more than ${maxHour}.` // ของเดิมบีม
                 // message: `Time must be ${maxHour}:${formatMinute} or after.` // ไม่มี clickup กันส่งมา ---> 3. Nomination Deadline เคสที่แก้ไขข้อมูล แล้วเวลามันข้ามลำดับกัน ยังแสดงไม่ถูก เคสนี้คือ ข้อมูลมี submission 15.15 อยู่ แล้วกันแก้ Management มาเป็น 15.10 ซึ่งมันต้องแก้ไม่ได้ถูกแล้ว แต่ error มันบอกแค่ว่า more than 15 ซึ่งมันต้องมีบอกนาทีด้วยเช่น Hour must be 15:30 or later.
-                message: `Time must be ${maxHour}:${formatMinute} or after. \n because ${findParentProcessType?.name} time is ${maxHour}:${formatMinute}` // ไม่มี clickup กันส่งมา ---> 3. Nomination Deadline เคสที่แก้ไขข้อมูล แล้วเวลามันข้ามลำดับกัน ยังแสดงไม่ถูก เคสนี้คือ ข้อมูลมี submission 15.15 อยู่ แล้วกันแก้ Management มาเป็น 15.10 ซึ่งมันต้องแก้ไม่ได้ถูกแล้ว แต่ error มันบอกแค่ว่า more than 15 ซึ่งมันต้องมีบอกนาทีด้วยเช่น Hour must be 15:30 or later.
+                message: `Time must be ${maxHour}:${formatMinute} or after. because ${findParentProcessType?.name} time is ${maxHour}:${formatMinute}` // ไม่มี clickup กันส่งมา ---> 3. Nomination Deadline เคสที่แก้ไขข้อมูล แล้วเวลามันข้ามลำดับกัน ยังแสดงไม่ถูก เคสนี้คือ ข้อมูลมี submission 15.15 อยู่ แล้วกันแก้ Management มาเป็น 15.10 ซึ่งมันต้องแก้ไม่ได้ถูกแล้ว แต่ error มันบอกแค่ว่า more than 15 ซึ่งมันต้องมีบอกนาทีด้วยเช่น Hour must be 15:30 or later.
+              }
+            }
+            // ถ้า hour เท่ากับ maxHour ให้เช็ค minute ต่อ
+            else if (
+              hour === maxHour
+            ) {
+              
+  
+              // ถ้าไม่พบค่า minute ใน parent ให้ใช้ 0 เป็นค่า default
+              if (
+                maxMinute ===
+                Number.NEGATIVE_INFINITY
+              ) {
+                maxMinute = 0
+              }
+              const formatMinute =
+                String(
+                  maxMinute
+                ).padStart(
+                  2,
+                  '0'
+                )
+  
+              // ตรวจสอบว่า minute ของ child ต้อง >= maxMinute ของ parent
+              if (
+                minute <
+                maxMinute
+              ) {
+                console.log('case er 2');
+                return {
+                  isValid: false,
+                  // message: `Minute must be more than ${maxMinute}.` // ของเดิมบีม
+                  // message: `Time must be ${maxHour}:${formatMinute} or after.` // ไม่มี clickup กันส่งมา ---> 3. Nomination Deadline เคสที่แก้ไขข้อมูล แล้วเวลามันข้ามลำดับกัน ยังแสดงไม่ถูก เคสนี้คือ ข้อมูลมี submission 15.15 อยู่ แล้วกันแก้ Management มาเป็น 15.10 ซึ่งมันต้องแก้ไม่ได้ถูกแล้ว แต่ error มันบอกแค่ว่า more than 15 ซึ่งมันต้องมีบอกนาทีด้วยเช่น Hour must be 15:30 or later.
+                  message: `Time must be ${maxHour}:${formatMinute} or after. \n because ${findParentProcessType?.name} time is ${maxHour}:${formatMinute}` // ไม่มี clickup กันส่งมา ---> 3. Nomination Deadline เคสที่แก้ไขข้อมูล แล้วเวลามันข้ามลำดับกัน ยังแสดงไม่ถูก เคสนี้คือ ข้อมูลมี submission 15.15 อยู่ แล้วกันแก้ Management มาเป็น 15.10 ซึ่งมันต้องแก้ไม่ได้ถูกแล้ว แต่ error มันบอกแค่ว่า more than 15 ซึ่งมันต้องมีบอกนาทีด้วยเช่น Hour must be 15:30 or later.
+                }
               }
             }
           }
+
         }
       } else {
         const parentProcessType =
@@ -466,11 +460,14 @@ export class ParameterNominationDeadlineService {
                   'DD/MM/YYYY'
                 )
             : ''
-
-        return {
-          isValid: false,
-          // message: `Please add ${parentProcessType?.name || ''} that active before ${startDate.tz('Asia/Bangkok').format('DD/MM/YYYY')} before doing this again.` // ของเดิมบีม
-          message: `Please Add ${parentProcessType?.name || ''} that active ${formattedEndDateParent} or later before doing this again.`
+        
+        // https://app.clickup.com/t/9018502823/86euzxxp8
+        if(!(parentNominationDeadline?.[0]?.process_type_id === 2 && parentNominationDeadline?.[0]?.user_type_id === 3)){
+          return {
+            isValid: false,
+            // message: `Please add ${parentProcessType?.name || ''} that active before ${startDate.tz('Asia/Bangkok').format('DD/MM/YYYY')} before doing this again.` // ของเดิมบีม
+            message: `Please Add ${parentProcessType?.name || ''} that active ${formattedEndDateParent} or later before doing this again.`
+          }
         }
       }
     }

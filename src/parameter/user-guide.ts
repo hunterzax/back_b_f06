@@ -216,7 +216,7 @@ export class ParameterUserGuideService {
     if (role.length > 0) {
       await this.prisma.user_guide_match.createMany(
         {
-          data: role?.map(
+          data: (role || []).map(
             (e: any) => {
               return {
                 user_guide_id:
@@ -304,7 +304,7 @@ export class ParameterUserGuideService {
     if (role.length > 0) {
       await this.prisma.user_guide_match.createMany(
         {
-          data: role?.map(
+          data: (role || []).map(
             (e: any) => {
               return {
                 user_guide_id:

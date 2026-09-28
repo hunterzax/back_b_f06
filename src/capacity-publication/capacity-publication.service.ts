@@ -68,12 +68,13 @@ export class CapacityPublicationService {
           let valueAd =
             item.area_nominal_capacity
           if (
+            item && 
             item
               ?.capacity_publication
               .length > 0
           ) {
             const finds =
-              item?.capacity_publication[0]?.capacity_publication_date.find(
+              item && item?.capacity_publication[0]?.capacity_publication_date.find(
                 (f: any) => {
                   return (
                     dayjs(
@@ -84,7 +85,7 @@ export class CapacityPublicationService {
                     formattedDate
                   )
                 }
-              )
+              ) || null
             if (!!finds) {
               if (
                 !!finds?.value_adjust_use
@@ -653,12 +654,12 @@ export class CapacityPublicationService {
               item.area_nominal_capacity
 
             if (
-              item
+              item && item
                 ?.capacity_publication
                 .length > 0
             ) {
               const finds =
-                item?.capacity_publication[0]?.capacity_publication_date.find(
+                item && item?.capacity_publication[0]?.capacity_publication_date.find(
                   (f: any) =>
                     dayjs(
                       f?.date_day
@@ -666,7 +667,7 @@ export class CapacityPublicationService {
                       'YYYY-MM-DD'
                     ) ===
                     formattedDate
-                )
+                ) || null
 
               if (!!finds) {
                 if (
@@ -839,7 +840,7 @@ export class CapacityPublicationService {
               item.area_nominal_capacity
 
             if (
-              item
+              item && item
                 ?.capacity_publication
                 .length > 0
             ) {
@@ -1041,7 +1042,7 @@ export class CapacityPublicationService {
               item.area_nominal_capacity
 
             if (
-              item
+              item && item
                 ?.capacity_publication
                 .length > 0
             ) {
@@ -1354,13 +1355,13 @@ export class CapacityPublicationService {
                   areaData: any
                 ) => {
                   if (
-                    areaData
+                    areaData && areaData
                       ?.capacity_publication
                       .length >
                     0
                   ) {
                     const finds =
-                      areaData.capacity_publication[0]?.capacity_publication_date.find(
+                      areaData && areaData?.capacity_publication[0]?.capacity_publication_date.find(
                         (
                           f: any
                         ) =>
@@ -1370,7 +1371,7 @@ export class CapacityPublicationService {
                             'YYYY-MM-DD'
                           ) ===
                           formattedDate
-                      )
+                      ) || undefined
 
                     if (
                       !!finds
@@ -2274,7 +2275,7 @@ export class CapacityPublicationService {
                   areaData: any
                 ) => {
                   if (
-                    areaData
+                    areaData && areaData
                       ?.capacity_publication
                       .length >
                     0

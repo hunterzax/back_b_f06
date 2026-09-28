@@ -173,11 +173,11 @@ export class PlanningSubmissionFileController {
     // const authHeader = req.headers['authorization'];
     // const token = authHeader.split(' ')[1]; // คำสั่งนี้จะแยก "Bearer <token>" ออกมาเป็น <token>
     const resData =
-      await this.planningSubmissionFileService.uploadElsx(
+      await this.planningSubmissionFileService.uploadElsx2(
         grpcTransform,
         file,
         shipper_id,
-        req?.user?.sub,
+        (req?.user?.sub || -1),
         startDate,
         type
       )

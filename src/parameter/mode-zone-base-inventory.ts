@@ -159,7 +159,11 @@ export class ParameterModeZoneBaseInventoryService {
 
   async changeModeZoneBaseInventoryCreateText(payload: any, userId: any) {
     const {start_date, zone_text, mode_text, ...dataWithout} = payload
-
+    // {
+    //     "mode_text": "Run KCS",
+    //     "zone_text": "East",
+    //     "start_date": "2026-08-13 03:00:00"
+    // }
     const modeData = await this.prisma.config_mode_zone_base_inventory.findFirst({
       where: {
         mode: {

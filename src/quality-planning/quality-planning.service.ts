@@ -26,6 +26,7 @@ import {Prisma, zone, group, contract_code} from '@prisma/client'
 import {areaPopulate, areaWithRelations, meteringPointPopulate, meteringPointWithRelations} from '@type/prisma.type'
 
 import {Mutex} from 'async-mutex'
+import {findHvFromEntryArea, findHvFromEntryArea2} from 'src/common/utils/nomination.util'
 
 dayjs.extend(isBetween) // เปิดใช้งาน plugin isBetween
 dayjs.extend(utc)
@@ -97,11 +98,117 @@ export class QualityPlanningService {
   // ...
   async processFindAll(query?: {gasDay?: string; tab?: string}) {
     let intraday = []
+    let all = []
     let daily = []
     let weekly = []
     if (query?.tab === '0') {
-      // intraday = await this.intraday2(query?.gasDay)
       intraday = await this.intraday3(query?.gasDay)
+    } else if (query?.tab === '1') {
+      const gasDayjs = getTodayStartAdd7(query?.gasDay)
+      const gasDateStrat = gasDayjs.toDate()
+      const gasDateEnd = getTodayEndAdd7(query?.gasDay).toDate()
+
+      const areaData = await this.prisma.area.findMany({
+        where: {
+          AND: [
+            {
+              start_date: {
+                lte: gasDateEnd // start_date ต้องก่อนหรือเท่ากับสิ้นสุดวันนี้
+              }
+            },
+            {
+              OR: [
+                {
+                  end_date: null
+                }, // ถ้า end_date เป็น null
+                {
+                  end_date: {
+                    gte: gasDateStrat
+                  }
+                } // ถ้า end_date ไม่เป็น null ต้องหลังหรือเท่ากับเริ่มต้นวันนี้
+              ]
+            }
+          ]
+        },
+        include: {}
+      })
+      const zoneData = await this.prisma.zone.findMany({
+        where: {
+          AND: [
+            {
+              start_date: {
+                lte: gasDateEnd // start_date ต้องก่อนหรือเท่ากับสิ้นสุดวันนี้
+              }
+            },
+            {
+              OR: [
+                {
+                  end_date: null
+                }, // ถ้า end_date เป็น null
+                {
+                  end_date: {
+                    gte: gasDateStrat
+                  }
+                } // ถ้า end_date ไม่เป็น null ต้องหลังหรือเท่ากับเริ่มต้นวันนี้
+              ]
+            }
+          ]
+        },
+        include: {
+          zone_master_quality: true
+        }
+      })
+
+      const hvFromEntryArea = await findHvFromEntryArea2({
+        prisma: this.prisma,
+        targetArea: '',
+        gasDate: gasDateStrat,
+        dataList: []
+      })
+      console.log('hvFromEntryArea : ', hvFromEntryArea);
+      // X3
+      // HV 1,072.327
+      // WI 1,400.280
+      // SG 0.6074
+      Array.from(hvFromEntryArea.keys())
+        .filter((key) => !key.toLowerCase().includes('east-west'))
+        .map((key) => {
+          const hvEachArea = hvFromEntryArea.get(key)
+
+          const zoneTextObj = zoneData.find((f: any) => isMatch(f?.name, hvEachArea.zone_text) && f?.entry_exit_id === 1) || null
+          const zoneTextObjExit = zoneData.find((f: any) => isMatch(f?.name, hvEachArea.zone_text) && f?.entry_exit_id === 2) || null
+          const areaTextObj = areaData.find((f: any) => isMatch(f?.name, hvEachArea.area_text) && isMatch(f?.entry_exit_id === 1 ? 'Entry' : 'Exit', hvEachArea.entryExit)) || null
+          const hv_ = hvEachArea.sumHvMultiplyVi / hvEachArea.sumVi
+          const sg_ = hvEachArea.sumSgMultiplyVi / hvEachArea.sumVi
+          const wi_ = hvEachArea.sumHvMultiplyVi / 0.982596 / Math.sqrt(hvEachArea.sumSgMultiplyVi * hvEachArea.sumVi)
+
+          all.push({
+            gasday: gasDayjs.format('DD/MM/YYYY'),
+            zone: zoneTextObj,
+            zoneExit: zoneTextObjExit,
+            area: areaTextObj,
+            parameter: 'HV',
+            valueBtuScf: hv_
+          })
+
+          all.push({
+            gasday: gasDayjs.format('DD/MM/YYYY'),
+            zone: zoneTextObj,
+            zoneExit: zoneTextObjExit,
+            area: areaTextObj,
+            parameter: 'WI',
+            valueBtuScf: wi_
+          })
+
+          all.push({
+            gasday: gasDayjs.format('DD/MM/YYYY'),
+            zone: zoneTextObj,
+            zoneExit: zoneTextObjExit,
+            area: areaTextObj,
+            parameter: 'SG',
+            valueBtuScf: sg_
+          })
+        })
     } else {
       const {nDay, activeData, daySet, newDaily, newWeekly, meterData} = await this.fnMiddleMain(query?.gasDay)
       daily = newDaily
@@ -119,6 +226,7 @@ export class QualityPlanningService {
 
     return {
       intraday,
+      newAll: all,
       newDaily: daily,
       newWeekly: weekly
     }
@@ -273,9 +381,9 @@ export class QualityPlanningService {
     // gasDay
 
     const andInWhere = {
-      NOT: {
-        contract_code_id: null
-      }, // revers bal ไม่แสดง effect
+      // NOT: {
+      //   contract_code_id: null
+      // }, // revers bal ไม่แสดง effect
       query_shipper_nomination_status: {
         id: {
           in: [2, 5]
@@ -412,6 +520,7 @@ export class QualityPlanningService {
               gas_day: e?.gas_day,
               gas_day_text: dayjs(e?.gas_day).format('DD/MM/YYYY'),
               contract_code_id: e?.contract_code_id,
+              reserve_balancing_gas_contract_id: e?.reserve_balancing_gas_contract_id,
               group_id: e?.group_id,
               query_shipper_nomination_file_renom_id: e?.query_shipper_nomination_file_renom_id,
               submitted_timestamp: e?.submitted_timestamp,
@@ -535,8 +644,8 @@ export class QualityPlanningService {
         })
 
         const zoneTextObj = zoneData.find((f: any) => f?.name === filAreaGF[0]?.nomination_row_json?.zone_text && (f?.entry_exit_id === 1 ? 'Entry' : 'Exit') === filAreaGF[0]?.nomination_row_json?.data_temp['10']) || null
-        const zoneTextObjExit = zoneData.find((f: any) => f?.name === filAreaGF[0]?.nomination_row_json?.zone_text && (f?.entry_exit_id === 2)) || null
-        
+        const zoneTextObjExit = zoneData.find((f: any) => f?.name === filAreaGF[0]?.nomination_row_json?.zone_text && f?.entry_exit_id === 2) || null
+
         const areaTextObj = areaData.find((f: any) => f?.name === filAreaGF[0]?.nomination_row_json?.area_text && (f?.entry_exit_id === 1 ? 'Entry' : 'Exit') === filAreaGF[0]?.nomination_row_json?.data_temp['10']) || null
         const gasDayText = filAreaGF[0]?.gas_day_text || null
         const contractCodeId = contractCodeData.find((f: any) => f?.id === filAreaGF[0]?.contract_code_id) || null
@@ -626,7 +735,7 @@ export class QualityPlanningService {
 
         // ---------
         const zoneTextObj = zoneData.find((f: any) => f?.name === filAreaGF[0]?.nomination_row_json?.zone_text && (f?.entry_exit_id === 1 ? 'Entry' : 'Exit') === filAreaGF[0]?.nomination_row_json?.data_temp['10']) || null
-        const zoneTextObjExit = zoneData.find((f: any) => f?.name === filAreaGF[0]?.nomination_row_json?.zone_text && (f?.entry_exit_id === 2)) || null
+        const zoneTextObjExit = zoneData.find((f: any) => f?.name === filAreaGF[0]?.nomination_row_json?.zone_text && f?.entry_exit_id === 2) || null
 
         const areaTextObj = areaData.find((f: any) => f?.name === filAreaGF[0]?.nomination_row_json?.area_text && (f?.entry_exit_id === 1 ? 'Entry' : 'Exit') === filAreaGF[0]?.nomination_row_json?.data_temp['10']) || null
 
@@ -793,7 +902,7 @@ export class QualityPlanningService {
     // Fill dateArray with all dates between getMeterFrom and getMeterTo (inclusive) in YYYY-MM-DD format
     let current = getMeterFrom.clone()
     while (current.isSameOrBefore(getMeterTo, 'day')) {
-      dateArray.push(current.format('YYYY-MM-DD'))
+      dateArray.push(current && current.format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD'))
       current = current.add(1, 'day')
     }
     // Build active data for all dates
@@ -816,9 +925,9 @@ export class QualityPlanningService {
     // gasDay
 
     const andInWhere = {
-      NOT: {
-        contract_code_id: null
-      }, // revers bal ไม่แสดง effect
+      // NOT: {
+      //   contract_code_id: null
+      // }, // revers bal ไม่แสดง effect
       query_shipper_nomination_status: {
         id: {
           in: [1, 2, 5]
@@ -983,6 +1092,7 @@ export class QualityPlanningService {
               gas_day: e?.gas_day,
               gas_day_text: dayjs(e?.gas_day).format('DD/MM/YYYY'),
               contract_code_id: e?.contract_code_id,
+              reserve_balancing_gas_contract_id: e?.reserve_balancing_gas_contract_id,
               group_id: e?.group_id,
               query_shipper_nomination_file_renom_id: e?.query_shipper_nomination_file_renom_id,
               submitted_timestamp: e?.submitted_timestamp,
@@ -1106,8 +1216,8 @@ export class QualityPlanningService {
         })
 
         const zoneTextObj = zoneData.find((f: any) => f?.name === filAreaGF[0]?.nomination_row_json?.zone_text && (f?.entry_exit_id === 1 ? 'Entry' : 'Exit') === filAreaGF[0]?.nomination_row_json?.data_temp['10']) || null
-        const zoneTextObjExit = zoneData.find((f: any) => f?.name === filAreaGF[0]?.nomination_row_json?.zone_text && (f?.entry_exit_id === 2)) || null
-        
+        const zoneTextObjExit = zoneData.find((f: any) => f?.name === filAreaGF[0]?.nomination_row_json?.zone_text && f?.entry_exit_id === 2) || null
+
         const areaTextObj = areaData.find((f: any) => f?.name === filAreaGF[0]?.nomination_row_json?.area_text && (f?.entry_exit_id === 1 ? 'Entry' : 'Exit') === filAreaGF[0]?.nomination_row_json?.data_temp['10']) || null
         const gasDayText = filAreaGF[0]?.gas_day_text || null
         const contractCodeId = contractCodeData.find((f: any) => f?.id === filAreaGF[0]?.contract_code_id) || null
@@ -1197,7 +1307,7 @@ export class QualityPlanningService {
 
         // ---------
         const zoneTextObj = zoneData.find((f: any) => f?.name === filAreaGF[0]?.nomination_row_json?.zone_text && (f?.entry_exit_id === 1 ? 'Entry' : 'Exit') === filAreaGF[0]?.nomination_row_json?.data_temp['10']) || null
-        const zoneTextObjExit = zoneData.find((f: any) => f?.name === filAreaGF[0]?.nomination_row_json?.zone_text && (f?.entry_exit_id === 2)) || null
+        const zoneTextObjExit = zoneData.find((f: any) => f?.name === filAreaGF[0]?.nomination_row_json?.zone_text && f?.entry_exit_id === 2) || null
 
         const areaTextObj = areaData.find((f: any) => f?.name === filAreaGF[0]?.nomination_row_json?.area_text && (f?.entry_exit_id === 1 ? 'Entry' : 'Exit') === filAreaGF[0]?.nomination_row_json?.data_temp['10']) || null
 
@@ -1364,7 +1474,7 @@ export class QualityPlanningService {
     // Fill dateArray with all dates between getMeterFrom and getMeterTo (inclusive) in YYYY-MM-DD format
     let current = getMeterFrom.clone()
     while (current.isSameOrBefore(getMeterTo, 'day')) {
-      dateArray.push(current.format('YYYY-MM-DD'))
+      dateArray.push(current && current.format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD'))
       current = current.add(1, 'day')
     }
     // Build active data for all dates
@@ -1500,7 +1610,7 @@ export class QualityPlanningService {
       fH22 = calcParameter(fH22)
       fH23 = calcParameter(fH23)
       fH24 = calcParameter(fH24)
-      
+
       return {
         gasday: e?.gasday,
         zone: e?.zone,
@@ -1537,1060 +1647,13 @@ export class QualityPlanningService {
     return intraday
   }
 
-  async intraday2(gasDay?: string) {
-    try {
-      let end = gasDay ? getTodayEndAdd7(gasDay) : getTodayEndAdd7()
-      if (!end.isValid()) {
-        end = getTodayEndAdd7()
-      }
-
-      const todayStart = getTodayStartAdd7().toDate()
-    const todayEnd = getTodayEndAdd7().toDate()
-    const areaData = await this.prisma.area.findMany({
-      where: {
-        AND: [
-          {
-            start_date: {
-              lte: todayEnd // start_date ต้องก่อนหรือเท่ากับสิ้นสุดวันนี้
-            }
-          },
-          {
-            OR: [
-              {
-                end_date: null
-              }, // ถ้า end_date เป็น null
-              {
-                end_date: {
-                  gte: todayStart
-                }
-              } // ถ้า end_date ไม่เป็น null ต้องหลังหรือเท่ากับเริ่มต้นวันนี้
-            ]
-          }
-        ]
-      },
-      include: {}
-    })
-    const zoneData = await this.prisma.zone.findMany({
-      where: {
-        AND: [
-          {
-            start_date: {
-              lte: todayEnd // start_date ต้องก่อนหรือเท่ากับสิ้นสุดวันนี้
-            }
-          },
-          {
-            OR: [
-              {
-                end_date: null
-              }, // ถ้า end_date เป็น null
-              {
-                end_date: {
-                  gte: todayStart
-                }
-              } // ถ้า end_date ไม่เป็น null ต้องหลังหรือเท่ากับเริ่มต้นวันนี้
-            ]
-          }
-        ]
-      },
-      include: {
-        zone_master_quality: true
-      }
-    })
-    
-      const today = dayjs().tz('Asia/Bangkok')
-      const yesterdayForGetMeterData = today.subtract(1, 'day')
-      const start = end.subtract(6, 'day').startOf('day')
-      let minDateForGetMeterData = start.subtract(1, 'day')
-
-      const dateArray: string[] = []
-      // Fill dateArray with all dates between end and start (inclusive) in YYYY-MM-DD format
-      let current = end.clone()
-      while (current.isSameOrAfter(start, 'day')) {
-        dateArray.push(current.format('YYYY-MM-DD'))
-        current = current.subtract(1, 'day')
-      }
-
-      const andInWhere = {
-        NOT: {
-          contract_code_id: null
-        }, // revers bal ไม่แสดง effect
-        query_shipper_nomination_status: {
-          id: {
-            in: [2, 5]
-          }
-        },
-        OR: [
-          // Daily nominations: exact date match
-          {
-            nomination_type: {
-              id: 1
-            },
-            gas_day: {
-              gte: start.toDate(),
-              lte: end.toDate()
-            }
-          },
-          // Weekly nominations: same week
-          {
-            nomination_type: {
-              id: 2
-            },
-            gas_day: {
-              gte: start.startOf('week').toDate(),
-              lte: end.endOf('week').toDate()
-            }
-          }
-        ]
-      }
-      // performance start...
-      const nominationData = await this.findAllChunked(
-        andInWhere,
-        {
-          group: true,
-          query_shipper_nomination_status: true,
-          contract_code: true,
-          nomination_type: true,
-          nomination_version: {
-            include: {
-              nomination_full_json: true,
-              nomination_full_json_sheet2: true,
-              nomination_row_json: {
-                include: {
-                  query_shipper_nomination_type: true
-                },
-                orderBy: {
-                  id: 'asc'
-                }
-              }
-            },
-            where: {
-              flag_use: true
-            }
-          }
-        },
-        20
-      )
-      // performance end...
-      // const nominationData =
-      //   await this.prisma.query_shipper_nomination_file.findMany({
-      //     where: {
-      //       NOT: { contract_code_id: null }, // revers bal ไม่แสดง effect
-      //       query_shipper_nomination_status: {
-      //         id: {
-      //           in: [2, 5],
-      //         },
-      //       },
-      //       OR: [
-      //         // Daily nominations: exact date match
-      //         {
-      //           nomination_type: {
-      //             id: 1,
-      //           },
-      //           gas_day: {
-      //             gte: start.toDate(),
-      //             lte: end.toDate(),
-      //           },
-      //         },
-      //         // Weekly nominations: same week
-      //         {
-      //           nomination_type: {
-      //             id: 2,
-      //           },
-      //           gas_day: {
-      //             gte: start.startOf('week').toDate(),
-      //             lte: end.endOf('week').toDate(),
-      //           },
-      //         },
-      //       ],
-      //     },
-      //     include: {
-      //       group: true,
-      //       query_shipper_nomination_status: true,
-      //       contract_code: true,
-      //       nomination_type: true,
-      //       nomination_version: {
-      //         include: {
-      //           nomination_full_json: true,
-      //           nomination_full_json_sheet2: true,
-      //           nomination_row_json: {
-      //             include: { query_shipper_nomination_type: true },
-      //             orderBy: { id: 'asc' },
-      //           },
-      //         },
-      //         where: { flag_use: true },
-      //       },
-      //     },
-      //     orderBy: { id: 'desc' },
-      //   });
-
-      const consoleAtArea = 'No console'
-      const consoleAtHour = -1
-      const meterDataList: any[] = []
-      let returnItem = []
-
-      // เรียก API ดึงข้อมูล metering แบบ parallel สำหรับทุกวันที่สร้างไว้
-      // ใช้ Promise.all เพื่อให้เรียก API พร้อมกันหลายวันเพื่อเพิ่มประสิทธิภาพ
-      let dateArrayForGetMeterData = dateArray
-      if (!dateArray.includes(minDateForGetMeterData.format('YYYY-MM-DD'))) {
-        dateArrayForGetMeterData.push(minDateForGetMeterData.format('YYYY-MM-DD'))
-      }
-      if (!dateArray.includes(today.format('YYYY-MM-DD'))) {
-        dateArrayForGetMeterData.push(today.format('YYYY-MM-DD'))
-      }
-      if (!dateArray.includes(yesterdayForGetMeterData.format('YYYY-MM-DD'))) {
-        dateArrayForGetMeterData.push(yesterdayForGetMeterData.format('YYYY-MM-DD'))
-      }
-      if (yesterdayForGetMeterData.isBefore(minDateForGetMeterData)) {
-        minDateForGetMeterData = yesterdayForGetMeterData
-      }
-
-      // Build active data for all dates
-      const areaMaster: areaWithRelations[] = await this.prisma.area.findMany({
-        where: {
-          OR: [
-            {
-              end_date: null
-            }, // No end date means still active
-            {
-              end_date: {
-                gt: minDateForGetMeterData.toDate()
-              }
-            } // End date is after target date
-          ],
-          start_date: {
-            lte: end.toDate()
-          } // Start date is before or on target date
-        },
-        ...areaPopulate
-      })
-
-      const zoneMaster: zone[] = await this.prisma.zone.findMany({
-        where: {
-          OR: [
-            {
-              end_date: null
-            },
-            {
-              end_date: {
-                gt: minDateForGetMeterData.toDate()
-              }
-            }
-          ],
-          start_date: {
-            lte: end.toDate()
-          }
-        }
-      })
-      const meteringPointMaster: meteringPointWithRelations[] = await this.prisma.metering_point.findMany({
-        where: {
-          OR: [
-            {
-              end_date: null
-            },
-            {
-              end_date: {
-                gt: minDateForGetMeterData.toDate()
-              }
-            }
-          ],
-          start_date: {
-            lte: end.toDate()
-          }
-        },
-        ...meteringPointPopulate
-      })
-
-      await Promise.all(
-        dateArrayForGetMeterData.map(async (date: string) => {
-          // เรียก meteredMicroService เพื่อดึงข้อมูล metering timestamp สุดท้ายของแต่ละชั่วโมง
-          const meteredMicroData = await this.meteredMicroService.sendMessage(
-            JSON.stringify({
-              case: 'getLastHour',
-              mode: 'metering',
-              gas_day: date
-            })
-          )
-          // แปลง response จาก JSON string เป็น object (ถ้ามี reply)
-          const meterData = (!!meteredMicroData?.reply && JSON.parse(meteredMicroData?.reply)) || null
-          // กรองเฉพาะข้อมูลที่มี energy (ทั้ง energy หลักหรือ data_temp?.energy)
-          // รวมถึงกรณีที่ energy เป็น 0 ด้วย (เพราะ 0 ก็ถือว่ามีข้อมูล)
-          if (meterData && Array.isArray(meterData)) {
-            const haveEnergyMeterData = meterData.filter((meter: any) => meter.energy || meter.data_temp?.energy || meter.energy == 0 || meter.data_temp?.energy == 0)
-            // เพิ่มข้อมูลที่ผ่านการกรองเข้า meterDataList
-            meterDataList.push(...haveEnergyMeterData)
-          }
-        })
-      )
-
-      current = end.clone()
-      while (current.isSameOrAfter(start, 'day')) {
-        // สร้าง array สำหรับเก็บผลลัพธ์
-        const result: any[] = []
-
-        const activeAreas = areaMaster.filter((area) => area.start_date <= current.toDate() && (area.end_date === null || area.end_date >= current.toDate()))
-        const activeZones = zoneMaster.filter((zone) => zone.start_date <= current.toDate() && (zone.end_date === null || zone.end_date >= current.toDate()))
-        const activeMeteringPoints = meteringPointMaster.filter((meteringPoint) => meteringPoint.start_date <= current.toDate() && (meteringPoint.end_date === null || meteringPoint.end_date >= current.toDate()))
-
-        if (activeAreas.length > 0) {
-          // กรอง nomination แบบรายวันสำหรับวันที่กำลังประมวลผล
-          const dailyNominationList = nominationData.filter((nominationFile) => dayjs(nominationFile.gas_day).isSame(current, 'day') && nominationFile.nomination_type_id == 1)
-
-          // กรอง nomination แบบรายสัปดาห์สำหรับสัปดาห์ที่กำลังประมวลผล
-          // ข้ามถ้ามี daily nomination สำหรับ contract เดียวกันแล้ว (daily nomination มีลำดับความสำคัญสูงกว่า)
-          const weeklyNominationList = nominationData.filter((nominationFile) => dayjs(nominationFile.gas_day).isSame(current, 'week') && nominationFile.nomination_type_id == 2 && !dailyNominationList.some((daily) => daily.contract_code_id == nominationFile.contract_code_id))
-
-          // ประมวลผล daily nomination
-          dailyNominationList.map((dailyNomination) => {
-            dailyNomination.nomination_version.map((nominationVersion) => {
-              nominationVersion.nomination_row_json.map((nominationRowJson) => {
-                // แปลง JSON string เป็น object
-                const nominationRowJsonDataTemp = JSON.parse(nominationRowJson.data_temp)
-
-                // อ่านข้อมูลจาก JSON ตามตำแหน่งที่กำหนด
-                const zone = nominationRowJsonDataTemp['0']
-                const area = nominationRowJsonDataTemp['2']
-                const point = nominationRowJsonDataTemp['3']
-                const unit = nominationRowJsonDataTemp['9']
-                const entryExit = nominationRowJsonDataTemp['10']
-                const total = parseToNumber(nominationRowJsonDataTemp['38'])
-
-                // ข้ามถ้าไม่มีข้อมูล zone, area (ต้องเป็น nomination point)
-                // quality planning ไม่ต้องคำนวณค่ารายชั่วโมงของ Exit
-                if (!zone || !area || isMatch(entryExit, 'Exit')) {
-                  return
-                }
-
-                const zoneObj = activeZones.find((zoneObj) => isMatch(zoneObj.name, zone))
-                const areaObj = activeAreas.find((areaObj) => isMatch(areaObj.name, area))
-
-                // หาว่ามี point นี้ใน result แล้วหรือยัง (เช็คตาม point, zone, area, entryExit, gas_day, group, contract, nomination)
-                let existPointIndex = result.findIndex((f: any) => {
-                  return (
-                    f?.point === point &&
-                    f?.zone_text === nominationRowJson.zone_text &&
-                    f?.area_text === nominationRowJson.area_text &&
-                    f?.entryExit === entryExit &&
-                    f?.gas_day === current.format('DD/MM/YYYY') &&
-                    f?.group_id === dailyNomination.group_id &&
-                    f?.contract_code_id === dailyNomination.contract_code_id
-                  )
-                  // && f?.nomination_id === dailyNomination.id
-                })
-
-                let timeShow = []
-
-                // ถ้ายังไม่มี point นี้ใน result ให้สร้างใหม่
-                if (existPointIndex < 0) {
-                  existPointIndex = result.length
-                  result.push({
-                    gas_day: current.format('DD/MM/YYYY'),
-                    group_id: dailyNomination.group_id,
-                    shipper_name: dailyNomination.group?.name,
-                    shipper_id_name: dailyNomination.group?.id_name,
-                    contract: dailyNomination.contract_code?.contract_code,
-                    contract_code_id: dailyNomination.contract_code_id,
-                    // "nomination_id": dailyNomination.id,
-                    nomination_code: dailyNomination.nomination_code,
-                    zone_text: nominationRowJson.zone_text,
-                    area_text: nominationRowJson.area_text,
-                    zone_obj: zoneObj,
-                    area_obj: areaObj,
-                    // "unit": unit,
-                    point: point,
-                    entryExit: entryExit,
-                    total: total,
-                    totalType: 'daily',
-                    nomination_type_id: dailyNomination.nomination_type_id,
-                    timeShow: []
-                  })
-                } else {
-                  // ถ้ามี point นี้แล้ว ให้ใช้ timeShow ที่มีอยู่
-                  timeShow = result[existPointIndex].timeShow
-                }
-
-                const meterUnderNom = activeMeteringPoints.filter((meterPoint: any) => meterPoint.nomination_point?.nomination_point == point)
-                const meterUnderNomSet = Array.from(new Set(meterUnderNom.map((f: any) => f.metered_point_name)))
-
-                let targetMeterDataList = []
-                if (meterUnderNom.length > 0) {
-                  targetMeterDataList = meterDataList.filter((meterData: any) => {
-                    return meterUnderNom.some((meterPoint: any) => meterPoint.metered_point_name == meterData.meteringPointId) && dayjs(meterData.gasDay, 'YYYY-MM-DD').isSameOrBefore(current)
-                  })
-                }
-
-                // ดึงข้อมูลรายชั่วโมง (24 ชั่วโมง) จาก JSON
-                // ข้อมูลชั่วโมงเริ่มที่ตำแหน่ง 14 (H1 = 00:00, H2 = 01:00, ..., H24 = 23:00)
-                const h1Key = 14
-                for (let i = 0; i <= 23; i++) {
-                  let hourlyValue = null
-                  for (let j = 0; j <= i; j++) {
-                    const hourlyValueTemp = parseToNumber(nominationRowJsonDataTemp[`${h1Key + j}`])
-                    if (hourlyValueTemp != null) {
-                      if (hourlyValue != null) {
-                        hourlyValue += hourlyValueTemp
-                      } else {
-                        hourlyValue = hourlyValueTemp
-                      }
-                    }
-                  }
-                  const key = `${i.toString().padStart(2, '0')}:00`
-
-                  // หาว่ามีเวลานี้ใน timeShow แล้วหรือยัง
-                  const timeShowIndex = timeShow.findIndex((f: any) => {
-                    return f.time === key
-                  })
-                  if (timeShowIndex < 0) {
-                    const heatingValueFromMeterList: {
-                      metering_point_id: any
-                      gas_day: any
-                      gas_hour: any
-                      insert_timestamp: any
-                      metering_retrieving_id: any
-                      heatingValue: number
-                      volume: number
-                      sg: number
-                    }[] = []
-                    // const volumeFromMeterList: { metering_point_id: any, gas_day: any, gas_hour: any, heatingValue: number, volume: number }[] = []
-
-                    let calculatedHeatingValueFromMeter = null
-                    let calculatedSgFromMeter = null
-
-                    if (targetMeterDataList.length > 0) {
-                      let sumSgMutipleByVolume: number | undefined
-                      let sumHeatingValueMutipleByVolume: number | undefined
-                      let sumVolume: number | undefined
-
-                      let gasHourMeterDataList = []
-                      meterUnderNomSet.map((meterPointName: any) => {
-                        let gasHourMeterDataEachPoint = targetMeterDataList.filter((meterData: any) => meterData.meteringPointId == meterPointName && meterData.gasHour == i + 1 && meterData.gasDay == current.tz('Asia/Bangkok').format('YYYY-MM-DD'))
-                        if (gasHourMeterDataEachPoint.length == 0) {
-                          const beforeGasHourMeterDataList = targetMeterDataList.filter((meterData: any) => meterData.meteringPointId == meterPointName && meterData.gasHour < i + 1 && meterData.gasDay == current.tz('Asia/Bangkok').format('YYYY-MM-DD'))
-                          if (beforeGasHourMeterDataList.length > 0) {
-                            const lastestGasHour = beforeGasHourMeterDataList.sort((a: any, b: any) => b.gasHour - a.gasHour)[0].gasHour
-                            gasHourMeterDataEachPoint = targetMeterDataList.filter((meterData: any) => meterData.meteringPointId == meterPointName && meterData.gasHour == lastestGasHour && meterData.gasDay == current.tz('Asia/Bangkok').format('YYYY-MM-DD'))
-                          }
-                        }
-
-                        // ข้ามวัน
-                        let yesterday = current.subtract(1, 'day')
-                        while (yesterday.isSameOrAfter(minDateForGetMeterData, 'day') && gasHourMeterDataEachPoint.length == 0) {
-                          const filMeterYeterday = meterDataList.filter((meterData: any) => {
-                            return meterData.meteringPointId == meterPointName && meterData.gasDay == yesterday.tz('Asia/Bangkok').format('YYYY-MM-DD') && parseToNumber(meterData?.energy) != null
-                          })
-
-                          if (filMeterYeterday.length > 0) {
-                            const lastestGasHour = filMeterYeterday.sort((a: any, b: any) => b.gasHour - a.gasHour)[0].gasHour
-                            gasHourMeterDataEachPoint = filMeterYeterday.filter((meterData: any) => meterData.gasHour == lastestGasHour)
-                          }
-
-                          yesterday = yesterday.subtract(1, 'day')
-                        }
-
-                        gasHourMeterDataList.push(...gasHourMeterDataEachPoint)
-                      })
-
-                      gasHourMeterDataList.map((meterData: any) => {
-                        const sgFromMeter = parseToNumber4Decimal(meterData.sg) ?? parseToNumber4Decimal(meterData.data_temp?.sg)
-                        const heatingValueFromMeter = parseToNumber(meterData.heatingValue) ?? parseToNumber(meterData.data_temp?.heatingValue)
-                        const volumeFromMeter = parseToNumber(meterData.volume) ?? parseToNumber(meterData.data_temp?.volume)
-                        if (volumeFromMeter != null) {
-                          // volumeFromMeterList.push({
-                          //   metering_point_id: meterData.meteringPointId,
-                          //   gas_day: meterData.gasDay,
-                          //   gas_hour: meterData.gasHour,
-                          //   heatingValue: heatingValueFromMeter,
-                          //   volume: volumeFromMeter
-                          // })
-                          if (heatingValueFromMeter != null) {
-                            heatingValueFromMeterList.push({
-                              metering_point_id: meterData.meteringPointId,
-                              gas_day: meterData.gasDay,
-                              gas_hour: meterData.gasHour,
-                              insert_timestamp: meterData.insert_timestamp,
-                              metering_retrieving_id: meterData.metering_retrieving_id,
-                              heatingValue: heatingValueFromMeter,
-                              volume: volumeFromMeter,
-                              sg: sgFromMeter
-                            })
-                            if (sumHeatingValueMutipleByVolume) {
-                              sumHeatingValueMutipleByVolume += heatingValueFromMeter * volumeFromMeter
-                            } else {
-                              sumHeatingValueMutipleByVolume = heatingValueFromMeter * volumeFromMeter
-                            }
-                          }
-
-                          if (sgFromMeter != null) {
-                            if (sumSgMutipleByVolume) {
-                              sumSgMutipleByVolume += sgFromMeter * volumeFromMeter
-                            } else {
-                              sumSgMutipleByVolume = sgFromMeter * volumeFromMeter
-                            }
-                          }
-
-                          if (sumVolume) {
-                            sumVolume += volumeFromMeter
-                          } else {
-                            sumVolume = volumeFromMeter
-                          }
-                        }
-                      })
-
-                      if (area == consoleAtArea && consoleAtHour == i + 1) {
-                      }
-
-                      if (sumHeatingValueMutipleByVolume != undefined && sumVolume != undefined) {
-                        calculatedHeatingValueFromMeter = sumHeatingValueMutipleByVolume / sumVolume
-                        if (area == consoleAtArea && consoleAtHour == i + 1) {
-                        }
-                      }
-
-                      if (sumSgMutipleByVolume != undefined && sumVolume != undefined) {
-                        calculatedSgFromMeter = sumSgMutipleByVolume / sumVolume
-                        if (area == consoleAtArea && consoleAtHour == i + 1) {
-                        }
-                      }
-                    }
-
-                    // ถ้ายังไม่มี ให้สร้างใหม่
-                    if (isMatch(unit, 'MMBTU/D')) {
-                      timeShow.push({
-                        time: key,
-                        gasHour: i + 1,
-                        value: hourlyValue,
-                        valueMmscfd: null,
-                        heatingValueFromMeter: heatingValueFromMeterList,
-                        // volumeFromMeter: volumeFromMeterList,
-                        calculatedHeatingValueFromMeter: calculatedHeatingValueFromMeter,
-                        calculatedSgFromMeter: calculatedSgFromMeter
-                      })
-                    } else if (isMatch(unit, 'MMSCFD')) {
-                      timeShow.push({
-                        time: key,
-                        gasHour: i + 1,
-                        value: null,
-                        valueMmscfd: hourlyValue,
-                        heatingValueFromMeter: heatingValueFromMeterList,
-                        // volumeFromMeter: volumeFromMeterList,
-                        calculatedHeatingValueFromMeter: calculatedHeatingValueFromMeter,
-                        calculatedSgFromMeter: calculatedSgFromMeter
-                      })
-                    }
-                  } else {
-                    // ถ้ามีแล้ว ให้บวกค่าเข้าไป (กรณีมีหลาย row สำหรับ point เดียวกัน)
-                    if (isMatch(unit, 'MMBTU/D') || isMatch(unit, 'MMSCFD')) {
-                      let timeShowValue = isMatch(unit, 'MMBTU/D') ? timeShow[timeShowIndex].value : timeShow[timeShowIndex].valueMmscfd
-                      if (timeShowValue != null) {
-                        if (hourlyValue != null) {
-                          timeShowValue += hourlyValue
-                        }
-                      } else {
-                        timeShowValue = hourlyValue
-                      }
-                      if (isMatch(unit, 'MMBTU/D')) {
-                        timeShow[timeShowIndex].value = timeShowValue
-                      } else {
-                        timeShow[timeShowIndex].valueMmscfd = timeShowValue
-                      }
-                    }
-                  }
-                }
-                result[existPointIndex].timeShow = timeShow
-              })
-            })
-          })
-
-          // ประมวลผล weekly nomination (สำหรับวันที่ไม่มี daily nomination)
-          weeklyNominationList.map((weeklyNomination) => {
-            weeklyNomination.nomination_version.map((nominationVersion) => {
-              nominationVersion.nomination_row_json.map((nominationRowJson) => {
-                // แปลง JSON string เป็น object
-                const nominationRowJsonDataTemp = JSON.parse(nominationRowJson.data_temp)
-
-                // อ่านข้อมูลจาก JSON
-                const zone = nominationRowJsonDataTemp['0']
-                const area = nominationRowJsonDataTemp['2']
-                const point = nominationRowJsonDataTemp['3']
-                const unit = nominationRowJsonDataTemp['9']
-                const entryExit = nominationRowJsonDataTemp['10']
-                // สำหรับ weekly nomination: คำนวณค่ารายชั่วโมงจากค่ารายวัน
-                // ดึงค่าตามวันในสัปดาห์ (Sunday = 0, Monday = 1, ..., Saturday = 6)
-                const dayOfWeek = Number(current.format('d')) // วันในสัปดาห์ (0 = Sunday, 6 = Saturday)
-                const thisDayValue3Decimal = parseToNumber(nominationRowJsonDataTemp[`${14 + dayOfWeek}`])
-                // แบ่งค่ารายวันด้วย 24 เพื่อได้ค่ารายชั่วโมง
-                // const hourlyValue = thisDayValue3Decimal == null ? null : parseFloat((thisDayValue3Decimal / 24).toFixed(3))
-                const hourlyValue = thisDayValue3Decimal == null ? null : thisDayValue3Decimal / 24
-
-                // ข้ามถ้าไม่มีข้อมูล zone, area (ต้องเป็น nomination point)
-                // quality planning ไม่ต้องคำนวณค่ารายชั่วโมงของ Exit
-                if (!zone || !area || isMatch(entryExit, 'Exit')) {
-                  return
-                }
-
-                const zoneObj = activeZones.find((zoneObj) => isMatch(zoneObj.name, zone))
-                const areaObj = activeAreas.find((areaObj) => isMatch(areaObj.name, area))
-
-                let existPointIndex = result.findIndex((f: any) => {
-                  return (
-                    f?.point === point &&
-                    f?.zone_text === nominationRowJson.zone_text &&
-                    f?.area_text === nominationRowJson.area_text &&
-                    f?.entryExit === entryExit &&
-                    f?.gas_day === current.format('DD/MM/YYYY') &&
-                    f?.group_id === weeklyNomination.group_id &&
-                    f?.contract_code_id === weeklyNomination.contract_code_id
-                  )
-                  // && f?.nomination_id === weeklyNomination.id
-                })
-
-                let timeShow = []
-
-                if (existPointIndex < 0) {
-                  existPointIndex = result.length
-                  result.push({
-                    gas_day: current.format('DD/MM/YYYY'),
-                    group_id: weeklyNomination.group_id,
-                    shipper_name: weeklyNomination.group?.name,
-                    shipper_id_name: weeklyNomination.group?.id_name,
-                    contract: weeklyNomination.contract_code?.contract_code,
-                    contract_code_id: weeklyNomination.contract_code_id,
-                    // "nomination_id": weeklyNomination.id,
-                    nomination_code: weeklyNomination.nomination_code,
-                    zone_text: nominationRowJson.zone_text,
-                    area_text: nominationRowJson.area_text,
-                    zone_obj: zoneObj,
-                    area_obj: areaObj,
-                    // "unit": unit,
-                    point: point,
-                    entryExit: entryExit,
-                    total: thisDayValue3Decimal,
-                    totalType: current.format('dddd'),
-                    nomination_type_id: weeklyNomination.nomination_type_id,
-                    timeShow: []
-                  })
-                } else {
-                  // ถ้ามี point นี้แล้ว ให้ใช้ timeShow ที่มีอยู่
-                  timeShow = result[existPointIndex].timeShow
-                }
-
-                const meterUnderNom = activeMeteringPoints.filter((meterPoint: any) => meterPoint.nomination_point?.nomination_point == point)
-                const meterUnderNomSet = Array.from(new Set(meterUnderNom.map((f: any) => f.metered_point_name)))
-                let targetMeterDataList = []
-                if (meterUnderNom.length > 0) {
-                  targetMeterDataList = meterDataList.filter((meterData: any) => {
-                    return meterUnderNom.some((meterPoint: any) => meterPoint.metered_point_name == meterData.meteringPointId) && dayjs(meterData.gasDay, 'YYYY-MM-DD').isSameOrBefore(current)
-                  })
-                }
-                // สร้างค่ารายชั่วโมงเท่ากันทุกชั่วโมง (24 ชั่วโมง)
-                for (let i = 0; i <= 23; i++) {
-                  const key = `${i.toString().padStart(2, '0')}:00`
-
-                  const timeShowIndex = timeShow.findIndex((f: any) => {
-                    return f.time === key
-                  })
-                  if (timeShowIndex < 0) {
-                    const heatingValueFromMeterList: {
-                      metering_point_id: any
-                      gas_day: any
-                      gas_hour: any
-                      insert_timestamp: any
-                      metering_retrieving_id: any
-                      heatingValue: number
-                      volume: number
-                      sg: number
-                    }[] = []
-                    // const volumeFromMeterList: { metering_point_id: any, gas_day: any, gas_hour: any, heatingValue: number, volume: number }[] = []
-
-                    let calculatedHeatingValueFromMeter = null
-                    let calculatedSgFromMeter = null
-
-                    if (targetMeterDataList.length > 0) {
-                      let sumSgMutipleByVolume: number | undefined
-                      let sumHeatingValueMutipleByVolume: number | undefined
-                      let sumVolume: number | undefined
-
-                      let gasHourMeterDataList = []
-                      meterUnderNomSet.map((meterPointName: any) => {
-                        let gasHourMeterDataEachPoint = targetMeterDataList.filter((meterData: any) => meterData.meteringPointId == meterPointName && meterData.gasHour == i + 1 && meterData.gasDay == current.tz('Asia/Bangkok').format('YYYY-MM-DD'))
-                        if (gasHourMeterDataEachPoint.length == 0) {
-                          const beforeGasHourMeterDataList = targetMeterDataList.filter((meterData: any) => meterData.meteringPointId == meterPointName && meterData.gasHour < i + 1 && meterData.gasDay == current.tz('Asia/Bangkok').format('YYYY-MM-DD'))
-                          if (beforeGasHourMeterDataList.length > 0) {
-                            const lastestGasHour = beforeGasHourMeterDataList.sort((a: any, b: any) => b.gasHour - a.gasHour)[0].gasHour
-                            gasHourMeterDataEachPoint = targetMeterDataList.filter((meterData: any) => meterData.meteringPointId == meterPointName && meterData.gasHour == lastestGasHour && meterData.gasDay == current.tz('Asia/Bangkok').format('YYYY-MM-DD'))
-                          }
-                        }
-
-                        // ข้ามวัน
-                        let yesterday = current.subtract(1, 'day')
-                        while (yesterday.isSameOrAfter(minDateForGetMeterData, 'day') && gasHourMeterDataEachPoint.length == 0) {
-                          const filMeterYeterday = meterDataList.filter((meterData: any) => {
-                            return meterData.meteringPointId == meterPointName && meterData.gasDay == yesterday.tz('Asia/Bangkok').format('YYYY-MM-DD') && parseToNumber(meterData?.energy) != null
-                          })
-
-                          if (filMeterYeterday.length > 0) {
-                            const lastestGasHour = filMeterYeterday.sort((a: any, b: any) => b.gasHour - a.gasHour)[0].gasHour
-                            gasHourMeterDataEachPoint = filMeterYeterday.filter((meterData: any) => meterData.gasHour == lastestGasHour)
-                          }
-
-                          yesterday = yesterday.subtract(1, 'day')
-                        }
-                        gasHourMeterDataList.push(...gasHourMeterDataEachPoint)
-                      })
-
-                      gasHourMeterDataList.map((meterData: any) => {
-                        const sgFromMeter = parseToNumber4Decimal(meterData.sg) ?? parseToNumber4Decimal(meterData.data_temp?.sg)
-                        const heatingValueFromMeter = parseToNumber(meterData.heatingValue) ?? parseToNumber(meterData.data_temp?.heatingValue)
-                        const volumeFromMeter = parseToNumber(meterData.volume) ?? parseToNumber(meterData.data_temp?.volume)
-                        if (volumeFromMeter != null) {
-                          // volumeFromMeterList.push({
-                          //   metering_point_id: meterData.meteringPointId,
-                          //   gas_day: meterData.gasDay,
-                          //   gas_hour: meterData.gasHour,
-                          //   heatingValue: heatingValueFromMeter,
-                          //   volume: volumeFromMeter
-                          // })
-                          if (heatingValueFromMeter != null) {
-                            heatingValueFromMeterList.push({
-                              metering_point_id: meterData.meteringPointId,
-                              gas_day: meterData.gasDay,
-                              gas_hour: meterData.gasHour,
-                              insert_timestamp: meterData.insert_timestamp,
-                              metering_retrieving_id: meterData.metering_retrieving_id,
-                              heatingValue: heatingValueFromMeter,
-                              volume: volumeFromMeter,
-                              sg: sgFromMeter
-                            })
-                            if (sumHeatingValueMutipleByVolume) {
-                              sumHeatingValueMutipleByVolume += heatingValueFromMeter * volumeFromMeter
-                            } else {
-                              sumHeatingValueMutipleByVolume = heatingValueFromMeter * volumeFromMeter
-                            }
-                          }
-
-                          if (sgFromMeter != null) {
-                            if (sumSgMutipleByVolume) {
-                              sumSgMutipleByVolume += sgFromMeter * volumeFromMeter
-                            } else {
-                              sumSgMutipleByVolume = sgFromMeter * volumeFromMeter
-                            }
-                          }
-
-                          if (sumVolume) {
-                            sumVolume += volumeFromMeter
-                          } else {
-                            sumVolume = volumeFromMeter
-                          }
-                        }
-                      })
-
-                      if (area == consoleAtArea && consoleAtHour == i + 1) {
-                      }
-
-                      if (sumHeatingValueMutipleByVolume != undefined && sumVolume != undefined) {
-                        calculatedHeatingValueFromMeter = sumHeatingValueMutipleByVolume / sumVolume
-                        if (area == consoleAtArea && consoleAtHour == i + 1) {
-                        }
-                      }
-
-                      if (sumSgMutipleByVolume != undefined && sumVolume != undefined) {
-                        calculatedSgFromMeter = sumSgMutipleByVolume / sumVolume
-                        if (area == consoleAtArea && consoleAtHour == i + 1) {
-                        }
-                      }
-                    }
-
-                    // ถ้ายังไม่มี ให้สร้างใหม่
-                    if (isMatch(unit, 'MMBTU/D')) {
-                      timeShow.push({
-                        time: key,
-                        gasHour: i + 1,
-                        value: hourlyValue * (i + 1),
-                        valueMmscfd: null,
-                        heatingValueFromMeter: heatingValueFromMeterList,
-                        // volumeFromMeter: volumeFromMeterList,
-                        calculatedHeatingValueFromMeter: calculatedHeatingValueFromMeter,
-                        calculatedSgFromMeter: calculatedSgFromMeter
-                      })
-                    } else if (isMatch(unit, 'MMSCFD')) {
-                      timeShow.push({
-                        time: key,
-                        gasHour: i + 1,
-                        value: null,
-                        valueMmscfd: hourlyValue * (i + 1),
-                        heatingValueFromMeter: heatingValueFromMeterList,
-                        // volumeFromMeter: volumeFromMeterList,
-                        calculatedHeatingValueFromMeter: calculatedHeatingValueFromMeter,
-                        calculatedSgFromMeter: calculatedSgFromMeter
-                      })
-                    }
-                  } else {
-                    // ถ้ามีแล้ว ให้บวกค่าเข้าไป (กรณีมีหลาย row สำหรับ point เดียวกัน)
-                    if (isMatch(unit, 'MMBTU/D') || isMatch(unit, 'MMSCFD')) {
-                      let timeShowValue = isMatch(unit, 'MMBTU/D') ? timeShow[timeShowIndex].value : timeShow[timeShowIndex].valueMmscfd
-                      if (timeShowValue != null) {
-                        if (hourlyValue != null) {
-                          timeShowValue += hourlyValue * (i + 1)
-                        }
-                      } else {
-                        timeShowValue = hourlyValue * (i + 1)
-                      }
-                      if (isMatch(unit, 'MMBTU/D')) {
-                        timeShow[timeShowIndex].value = timeShowValue
-                      } else {
-                        timeShow[timeShowIndex].valueMmscfd = timeShowValue
-                      }
-                    }
-                  }
-                }
-                result[existPointIndex].timeShow = timeShow
-              })
-            })
-          })
-
-          //จัด data
-          activeAreas
-            .filter((area) => area.entry_exit_id == 1)
-            .sort((a, b) => a.name.localeCompare(b.name))
-            .map((area: any) => {
-              const hvObject: any = {
-                gasday: current.format('DD/MM/YYYY'),
-                zone: area.zone,
-                zoneExit: zoneData.find((f: any) => f?.name === area.zone?.name && (f?.entry_exit_id === 2)) || null,
-                area: area,
-                parameter: 'HV',
-                // "contractCodeId": {},
-                h1: null,
-                h2: null,
-                h3: null,
-                h4: null,
-                h5: null,
-                h6: null,
-                h7: null,
-                h8: null,
-                h9: null,
-                h10: null,
-                h11: null,
-                h12: null,
-                h13: null,
-                h14: null,
-                h15: null,
-                h16: null,
-                h17: null,
-                h18: null,
-                h19: null,
-                h20: null,
-                h21: null,
-                h22: null,
-                h23: null,
-                h24: null
-              }
-              const wiObject: any = {
-                gasday: current.format('DD/MM/YYYY'),
-                zone: area.zone,
-                zoneExit: zoneData.find((f: any) => f?.name === area.zone?.name && (f?.entry_exit_id === 2)) || null,
-                area: area,
-                parameter: 'WI',
-                // "contractCodeId": {},
-                h1: null,
-                h2: null,
-                h3: null,
-                h4: null,
-                h5: null,
-                h6: null,
-                h7: null,
-                h8: null,
-                h9: null,
-                h10: null,
-                h11: null,
-                h12: null,
-                h13: null,
-                h14: null,
-                h15: null,
-                h16: null,
-                h17: null,
-                h18: null,
-                h19: null,
-                h20: null,
-                h21: null,
-                h22: null,
-                h23: null,
-                h24: null
-              }
-              const sgObject: any = {
-                gasday: current.format('DD/MM/YYYY'),
-                zone: area.zone,
-                zoneExit: zoneData.find((f: any) => f?.name === area.zone?.name && (f?.entry_exit_id === 2)) || null,
-                area: area,
-                parameter: 'SG',
-                // "contractCodeId": {},
-                h1: null,
-                h2: null,
-                h3: null,
-                h4: null,
-                h5: null,
-                h6: null,
-                h7: null,
-                h8: null,
-                h9: null,
-                h10: null,
-                h11: null,
-                h12: null,
-                h13: null,
-                h14: null,
-                h15: null,
-                h16: null,
-                h17: null,
-                h18: null,
-                h19: null,
-                h20: null,
-                h21: null,
-                h22: null,
-                h23: null,
-                h24: null
-              }
-              const targetDataForArea = result.filter((item) => item.area_text == area.name && item.zone_text == area.zone.name)
-              if (targetDataForArea.length > 0) {
-                let sumNomValueEachHour: Record<
-                  string,
-                  {
-                    pointNameList: string[]
-                    value: number | null
-                    valueMmscfd: number | null
-                    hvMutipleByValue: number | null
-                    sgMutipleByValue: number | null
-                    hvMutipleByValueMmscfd: number | null
-                    sgMutipleByValueMmscfd: number | null
-                  }
-                > = {}
-                let calculatedHeatingValueFromMeterEachHourAndPoint: Record<string, number | null> = {}
-                let calculatedSgFromMeterEachHourAndPoint: Record<string, number | null> = {}
-                targetDataForArea.map((data: any) => {
-                  data.timeShow.map((timeShow: any, index: number) => {
-                    const key = `${data.point}_${data.area_text}_${data.zone_text}_h${timeShow.gasHour}`
-                    const areaKey = `${data.area_text}_${data.zone_text}_h${timeShow.gasHour}`
-
-                    if (sumNomValueEachHour[areaKey] != undefined) {
-                      if (!sumNomValueEachHour[areaKey].pointNameList.includes(data.point)) {
-                        sumNomValueEachHour[areaKey].pointNameList.push(data.point)
-                      }
-                      if (timeShow.value != null) {
-                        sumNomValueEachHour[areaKey].value += timeShow.value
-                      } else {
-                        sumNomValueEachHour[areaKey].value = timeShow.value
-                      }
-                      if (timeShow.valueMmscfd != null) {
-                        sumNomValueEachHour[areaKey].valueMmscfd += timeShow.valueMmscfd
-                      } else {
-                        sumNomValueEachHour[areaKey].valueMmscfd = timeShow.valueMmscfd
-                      }
-                    } else {
-                      // sumNomValueEachHour[key] += timeShow.value
-                      sumNomValueEachHour[areaKey] = {
-                        pointNameList: [data.point],
-                        value: timeShow.value,
-                        valueMmscfd: timeShow.valueMmscfd,
-                        hvMutipleByValue: null,
-                        sgMutipleByValue: null,
-                        hvMutipleByValueMmscfd: null,
-                        sgMutipleByValueMmscfd: null
-                      }
-                    }
-
-                    if (calculatedHeatingValueFromMeterEachHourAndPoint[key] == undefined || calculatedSgFromMeterEachHourAndPoint[key] == undefined) {
-                      let currentCalculatedHeatingValueFromMeter = timeShow.calculatedHeatingValueFromMeter
-                      let currentCalculatedSgFromMeter = timeShow.calculatedSgFromMeter
-                      let currentGasHour = timeShow.gasHour
-                      while (currentCalculatedHeatingValueFromMeter == null && currentGasHour > 0) {
-                        currentGasHour = currentGasHour - 1
-                        const previousTimeShow = data.timeShow.find((f: any) => f.gasHour == currentGasHour)
-                        if (previousTimeShow && previousTimeShow.heatingValueFromMeter.length > 0) {
-                          if (data.area_text == consoleAtArea && consoleAtHour == timeShow.gasHour) {
-                          }
-                          currentCalculatedHeatingValueFromMeter = previousTimeShow.calculatedHeatingValueFromMeter
-                          currentCalculatedSgFromMeter = previousTimeShow.calculatedSgFromMeter
-                        }
-                      }
-
-                      if (calculatedHeatingValueFromMeterEachHourAndPoint[key] == undefined && currentCalculatedHeatingValueFromMeter != null) {
-                        calculatedHeatingValueFromMeterEachHourAndPoint[key] = currentCalculatedHeatingValueFromMeter
-                      }
-
-                      if (calculatedSgFromMeterEachHourAndPoint[key] == undefined && currentCalculatedSgFromMeter != null) {
-                        calculatedSgFromMeterEachHourAndPoint[key] = currentCalculatedSgFromMeter
-                      }
-                    }
-
-                    if (calculatedHeatingValueFromMeterEachHourAndPoint[key] != null) {
-                      if (sumNomValueEachHour[areaKey].hvMutipleByValue != null) {
-                        sumNomValueEachHour[areaKey].hvMutipleByValue += (timeShow.value ?? 0) * calculatedHeatingValueFromMeterEachHourAndPoint[key]
-                      } else {
-                        sumNomValueEachHour[areaKey].hvMutipleByValue = (timeShow.value ?? 0) * calculatedHeatingValueFromMeterEachHourAndPoint[key]
-                      }
-
-                      if (sumNomValueEachHour[areaKey].hvMutipleByValueMmscfd != null) {
-                        sumNomValueEachHour[areaKey].hvMutipleByValueMmscfd += (timeShow.valueMmscfd ?? 0) * calculatedHeatingValueFromMeterEachHourAndPoint[key]
-                      } else {
-                        sumNomValueEachHour[areaKey].hvMutipleByValueMmscfd = (timeShow.valueMmscfd ?? 0) * calculatedHeatingValueFromMeterEachHourAndPoint[key]
-                      }
-                    }
-                    if (calculatedSgFromMeterEachHourAndPoint[key] != null) {
-                      if (sumNomValueEachHour[areaKey].sgMutipleByValue != null) {
-                        sumNomValueEachHour[areaKey].sgMutipleByValue += (timeShow.value ?? 0) * calculatedSgFromMeterEachHourAndPoint[key]
-                      } else {
-                        sumNomValueEachHour[areaKey].sgMutipleByValue = (timeShow.value ?? 0) * calculatedSgFromMeterEachHourAndPoint[key]
-                      }
-
-                      if (sumNomValueEachHour[areaKey].sgMutipleByValueMmscfd != null) {
-                        sumNomValueEachHour[areaKey].sgMutipleByValueMmscfd += (timeShow.valueMmscfd ?? 0) * calculatedSgFromMeterEachHourAndPoint[key]
-                      } else {
-                        sumNomValueEachHour[areaKey].sgMutipleByValueMmscfd = (timeShow.valueMmscfd ?? 0) * calculatedSgFromMeterEachHourAndPoint[key]
-                      }
-                    }
-
-                    if (data.area_text == consoleAtArea && consoleAtHour == timeShow.gasHour) {
-                    }
-                  })
-                })
-
-                Object.keys(sumNomValueEachHour).forEach((key) => {
-                  const [area, zone, gasHour] = key.split('_')
-                  const sumNomValue = sumNomValueEachHour[key]
-
-                  const hv = sumNomValue?.valueMmscfd == null ? null : (sumNomValue.hvMutipleByValueMmscfd ?? 0) / sumNomValue.valueMmscfd
-                  const sg = sumNomValue?.valueMmscfd == null ? null : (sumNomValue.sgMutipleByValueMmscfd ?? 0) / sumNomValue.valueMmscfd
-                  const wi = sumNomValue.sgMutipleByValueMmscfd == null || sumNomValue?.valueMmscfd == null ? null : (sumNomValue.hvMutipleByValueMmscfd ?? 0) / 0.982596 / Math.sqrt(sumNomValue.sgMutipleByValueMmscfd * sumNomValue.valueMmscfd)
-
-                  if (area == consoleAtArea && `h${consoleAtHour}` == gasHour) {
-                  }
-
-                  hvObject[gasHour] = parseToNumber3Decimal(hv)
-                  sgObject[gasHour] = parseToNumber4Decimal(sg)
-                  wiObject[gasHour] = parseToNumber3Decimal(wi)
-                })
-
-                returnItem.push(hvObject)
-                returnItem.push(wiObject)
-                returnItem.push(sgObject)
-              }
-            })
-        }
-
-        // ไปวันก่อนหน้า
-        current = current.subtract(1, 'day')
-      }
-
-      return returnItem
-    } catch (error) {
-      return []
-    }
-  }
-
   async intraday3(gasDay?: string) {
     try {
       let end = gasDay ? getTodayEndAdd7(gasDay) : getTodayEndAdd7()
       if (!end.isValid()) {
         end = getTodayEndAdd7()
       }
-    
+
       const today = dayjs().tz('Asia/Bangkok')
       const yesterdayForGetMeterData = today.subtract(1, 'day')
       const start = end.subtract(6, 'day').startOf('day')
@@ -2600,14 +1663,14 @@ export class QualityPlanningService {
       // Fill dateArray with all dates between end and start (inclusive) in YYYY-MM-DD format
       let current = end.clone()
       while (current.isSameOrAfter(start, 'day')) {
-        dateArray.push(current.format('YYYY-MM-DD'))
+        dateArray.push(current && current.format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD'))
         current = current.subtract(1, 'day')
       }
 
       const andInWhere = {
-        NOT: {
-          contract_code_id: null
-        }, // revers bal ไม่แสดง effect
+        // NOT: {
+        //   contract_code_id: null
+        // }, // revers bal ไม่แสดง effect
         query_shipper_nomination_status: {
           id: {
             in: [2, 5]
@@ -2636,13 +1699,14 @@ export class QualityPlanningService {
           }
         ]
       }
-      
+
       const nominationData = await this.findAllChunked(
         andInWhere,
         {
           group: true,
           query_shipper_nomination_status: true,
           contract_code: true,
+          reserve_balancing_gas_contract: true,
           nomination_type: true,
           nomination_version: {
             include: {
@@ -2821,7 +1885,12 @@ export class QualityPlanningService {
 
           // กรอง nomination แบบรายสัปดาห์สำหรับสัปดาห์ที่กำลังประมวลผล
           // ข้ามถ้ามี daily nomination สำหรับ contract เดียวกันแล้ว (daily nomination มีลำดับความสำคัญสูงกว่า)
-          const weeklyNominationList = nominationData.filter((nominationFile) => dayjs(nominationFile.gas_day).isSame(current, 'week') && nominationFile.nomination_type_id == 2 && !dailyNominationList.some((daily) => daily.contract_code_id == nominationFile.contract_code_id))
+          const weeklyNominationList = nominationData.filter(
+            (nominationFile) =>
+              dayjs(nominationFile.gas_day).isSame(current, 'week') &&
+              nominationFile.nomination_type_id == 2 &&
+              !dailyNominationList.some((daily) => daily.contract_code_id == nominationFile.contract_code_id || daily.reserve_balancing_gas_contract_id == nominationFile.reserve_balancing_gas_contract_id)
+          )
 
           // ประมวลผล daily nomination
           dailyNominationList.map((dailyNomination) => {
@@ -2856,7 +1925,7 @@ export class QualityPlanningService {
                     f?.entryExit === entryExit &&
                     f?.gas_day === current.format('DD/MM/YYYY') &&
                     f?.group_id === dailyNomination.group_id &&
-                    f?.contract_code_id === dailyNomination.contract_code_id
+                    (f?.contract_code_id === dailyNomination.contract_code_id || f?.reserve_balancing_gas_contract_id === dailyNomination.reserve_balancing_gas_contract_id)
                   )
                   // && f?.nomination_id === dailyNomination.id
                 })
@@ -2871,8 +1940,9 @@ export class QualityPlanningService {
                     group_id: dailyNomination.group_id,
                     shipper_name: dailyNomination.group?.name,
                     shipper_id_name: dailyNomination.group?.id_name,
-                    contract: dailyNomination.contract_code?.contract_code,
+                    contract: dailyNomination.contract_code?.contract_code || dailyNomination.reserve_balancing_gas_contract?.res_bal_gas_contract,
                     contract_code_id: dailyNomination.contract_code_id,
+                    reserve_balancing_gas_contract_id: dailyNomination.reserve_balancing_gas_contract_id,
                     // "nomination_id": dailyNomination.id,
                     nomination_code: dailyNomination.nomination_code,
                     zone_text: nominationRowJson.zone_text,
@@ -2908,37 +1978,33 @@ export class QualityPlanningService {
                 for (let i = 0; i <= 23; i++) {
                   let hourlyValue = null
                   for (let j = 0; j <= i; j++) {
-                    let hourlyValueTemp : number | null | undefined  = null
+                    let hourlyValueTemp: number | null | undefined = null
                     if (isMatch(unit, 'MMBTU/D') || isMatch(unit, 'MMBTU/H')) {
-                      hourlyValueTemp = adjustMMBTUList.find(adjustItem => 
-                        adjustItem.shipper == dailyNomination.group?.id_name
-                        && adjustItem.contract == dailyNomination.contract_code?.contract_code
-                        && adjustItem.gas_day == current.format('YYYY-MM-DD')
-                        && adjustItem.gas_hour == i + 1
-                      )?.data?.find(adjustItemData => 
-                        isMatch(adjustItemData.point, point)
-                        && isMatch(adjustItemData.zone, zone)
-                        && isMatch(adjustItemData.area, area)
-                        && isMatch(adjustItemData.entry_exit, entryExit)
-                      )?.value
-                    } else if (isMatch(unit, 'MMSCFD') || isMatch(unit, 'MMSCFH')){
-                      hourlyValueTemp = adjustMMSCFList.find(adjustItem => 
-                        adjustItem.shipper == dailyNomination.group?.id_name
-                        && adjustItem.contract == dailyNomination.contract_code?.contract_code
-                        && adjustItem.gas_day == current.format('YYYY-MM-DD')
-                        && adjustItem.gas_hour == i + 1
-                      )?.data?.find(adjustItemData => 
-                        isMatch(adjustItemData.point, point)
-                        && isMatch(adjustItemData.zone, zone)
-                        && isMatch(adjustItemData.area, area)
-                        && isMatch(adjustItemData.entry_exit, entryExit)
-                      )?.value
+                      hourlyValueTemp = adjustMMBTUList
+                        .find(
+                          (adjustItem) =>
+                            adjustItem.shipper == dailyNomination.group?.id_name &&
+                            adjustItem.contract == (dailyNomination.contract_code?.contract_code || dailyNomination.reserve_balancing_gas_contract?.res_bal_gas_contract) &&
+                            adjustItem.gas_day == current.format('YYYY-MM-DD') &&
+                            adjustItem.gas_hour == i + 1
+                        )
+                        ?.data?.find((adjustItemData) => isMatch(adjustItemData.point, point) && isMatch(adjustItemData.zone, zone) && isMatch(adjustItemData.area, area) && isMatch(adjustItemData.entry_exit, entryExit))?.value
+                    } else if (isMatch(unit, 'MMSCFD') || isMatch(unit, 'MMSCFH')) {
+                      hourlyValueTemp = adjustMMSCFList
+                        .find(
+                          (adjustItem) =>
+                            adjustItem.shipper == dailyNomination.group?.id_name &&
+                            adjustItem.contract == (dailyNomination.contract_code?.contract_code || dailyNomination.reserve_balancing_gas_contract?.res_bal_gas_contract) &&
+                            adjustItem.gas_day == current.format('YYYY-MM-DD') &&
+                            adjustItem.gas_hour == i + 1
+                        )
+                        ?.data?.find((adjustItemData) => isMatch(adjustItemData.point, point) && isMatch(adjustItemData.zone, zone) && isMatch(adjustItemData.area, area) && isMatch(adjustItemData.entry_exit, entryExit))?.value
                     }
 
-                    if(hourlyValueTemp == null || hourlyValueTemp == undefined){
+                    if (hourlyValueTemp == null || hourlyValueTemp == undefined) {
                       hourlyValueTemp = parseToNumber8Decimal(nominationRowJsonDataTemp[`${h1Key + j}`])
                     }
-                    
+
                     if (hourlyValueTemp != null && hourlyValueTemp != undefined) {
                       if (hourlyValue != null) {
                         hourlyValue = parseToNumber8Decimal(hourlyValue + parseToNumber8Decimal(hourlyValueTemp))
@@ -2989,7 +2055,7 @@ export class QualityPlanningService {
                         let yesterday = current.subtract(1, 'day')
                         while (yesterday.isSameOrAfter(minDateForGetMeterData, 'day') && gasHourMeterDataEachPoint.length == 0) {
                           const filMeterYeterday = meterDataList.filter((meterData: any) => {
-                            return meterData.meteringPointId == meterPointName && meterData.gasDay == yesterday.tz('Asia/Bangkok').format('YYYY-MM-DD') && parseToNumber(meterData?.energy) != null
+                            return meterData.meteringPointId == meterPointName && meterData && meterData.gasDay == yesterday.tz('Asia/Bangkok').format('YYYY-MM-DD') && parseToNumber(meterData?.energy) != null
                           })
 
                           if (filMeterYeterday.length > 0) {
@@ -3027,7 +2093,7 @@ export class QualityPlanningService {
                               sg: sgFromMeter
                             })
                             if (sumHeatingValueMutipleByVolume) {
-                              sumHeatingValueMutipleByVolume = parseToNumber8Decimal(sumHeatingValueMutipleByVolume + (heatingValueFromMeter * volumeFromMeter))
+                              sumHeatingValueMutipleByVolume = parseToNumber8Decimal(sumHeatingValueMutipleByVolume + heatingValueFromMeter * volumeFromMeter)
                             } else {
                               sumHeatingValueMutipleByVolume = heatingValueFromMeter * volumeFromMeter
                             }
@@ -3035,7 +2101,7 @@ export class QualityPlanningService {
 
                           if (sgFromMeter != null) {
                             if (sumSgMutipleByVolume) {
-                              sumSgMutipleByVolume = parseToNumber8Decimal(sumSgMutipleByVolume + (sgFromMeter * volumeFromMeter))
+                              sumSgMutipleByVolume = parseToNumber8Decimal(sumSgMutipleByVolume + sgFromMeter * volumeFromMeter)
                             } else {
                               sumSgMutipleByVolume = sgFromMeter * volumeFromMeter
                             }
@@ -3093,7 +2159,7 @@ export class QualityPlanningService {
                   } else {
                     // ถ้ามีแล้ว ให้บวกค่าเข้าไป (กรณีมีหลาย row สำหรับ point เดียวกัน)
                     if (isMatch(unit, 'MMBTU/D') || isMatch(unit, 'MMBTU/H') || isMatch(unit, 'MMSCFD') || isMatch(unit, 'MMSCFH')) {
-                      let timeShowValue = (isMatch(unit, 'MMBTU/D') || isMatch(unit, 'MMBTU/H')) ? timeShow[timeShowIndex].value : timeShow[timeShowIndex].valueMmscfd
+                      let timeShowValue = isMatch(unit, 'MMBTU/D') || isMatch(unit, 'MMBTU/H') ? timeShow[timeShowIndex].value : timeShow[timeShowIndex].valueMmscfd
                       if (timeShowValue != null) {
                         if (hourlyValue != null) {
                           timeShowValue = parseToNumber8Decimal(timeShowValue + hourlyValue)
@@ -3136,7 +2202,7 @@ export class QualityPlanningService {
                 // แบ่งค่ารายวันด้วย 24 เพื่อได้ค่ารายชั่วโมง
                 // const hourlyValue = thisDayValue3Decimal == null ? null : parseFloat((thisDayValue3Decimal / 24).toFixed(3))
                 // const hourlyValue = thisDayValue3Decimal == null ? null : thisDayValue3Decimal / 24
-                const hourlyValue = divideTo8Decimal(thisDayValue8Decimal, 24);
+                const hourlyValue = divideTo8Decimal(thisDayValue8Decimal, 24)
 
                 // ข้ามถ้าไม่มีข้อมูล zone, area (ต้องเป็น nomination point)
                 // quality planning ไม่ต้องคำนวณค่ารายชั่วโมงของ Exit
@@ -3155,7 +2221,7 @@ export class QualityPlanningService {
                     f?.entryExit === entryExit &&
                     f?.gas_day === current.format('DD/MM/YYYY') &&
                     f?.group_id === weeklyNomination.group_id &&
-                    f?.contract_code_id === weeklyNomination.contract_code_id
+                    (f?.contract_code_id === weeklyNomination.contract_code_id || f?.reserve_balancing_gas_contract_id === weeklyNomination.reserve_balancing_gas_contract_id)
                   )
                   // && f?.nomination_id === weeklyNomination.id
                 })
@@ -3169,8 +2235,9 @@ export class QualityPlanningService {
                     group_id: weeklyNomination.group_id,
                     shipper_name: weeklyNomination.group?.name,
                     shipper_id_name: weeklyNomination.group?.id_name,
-                    contract: weeklyNomination.contract_code?.contract_code,
+                    contract: weeklyNomination.contract_code?.contract_code || weeklyNomination.reserve_balancing_gas_contract?.res_bal_gas_contract,
                     contract_code_id: weeklyNomination.contract_code_id,
+                    reserve_balancing_gas_contract_id: weeklyNomination.reserve_balancing_gas_contract_id,
                     // "nomination_id": weeklyNomination.id,
                     nomination_code: weeklyNomination.nomination_code,
                     zone_text: nominationRowJson.zone_text,
@@ -3241,7 +2308,7 @@ export class QualityPlanningService {
                         let yesterday = current.subtract(1, 'day')
                         while (yesterday.isSameOrAfter(minDateForGetMeterData, 'day') && gasHourMeterDataEachPoint.length == 0) {
                           const filMeterYeterday = meterDataList.filter((meterData: any) => {
-                            return meterData.meteringPointId == meterPointName && meterData.gasDay == yesterday.tz('Asia/Bangkok').format('YYYY-MM-DD') && parseToNumber(meterData?.energy) != null
+                            return meterData.meteringPointId == meterPointName && meterData && meterData.gasDay == yesterday.tz('Asia/Bangkok').format('YYYY-MM-DD') && parseToNumber(meterData?.energy) != null
                           })
 
                           if (filMeterYeterday.length > 0) {
@@ -3278,7 +2345,7 @@ export class QualityPlanningService {
                               sg: sgFromMeter
                             })
                             if (sumHeatingValueMutipleByVolume) {
-                              sumHeatingValueMutipleByVolume = parseToNumber8Decimal(sumHeatingValueMutipleByVolume + (heatingValueFromMeter * volumeFromMeter))
+                              sumHeatingValueMutipleByVolume = parseToNumber8Decimal(sumHeatingValueMutipleByVolume + heatingValueFromMeter * volumeFromMeter)
                             } else {
                               sumHeatingValueMutipleByVolume = heatingValueFromMeter * volumeFromMeter
                             }
@@ -3286,7 +2353,7 @@ export class QualityPlanningService {
 
                           if (sgFromMeter != null) {
                             if (sumSgMutipleByVolume) {
-                              sumSgMutipleByVolume = parseToNumber8Decimal(sumSgMutipleByVolume + (sgFromMeter * volumeFromMeter))
+                              sumSgMutipleByVolume = parseToNumber8Decimal(sumSgMutipleByVolume + sgFromMeter * volumeFromMeter)
                             } else {
                               sumSgMutipleByVolume = sgFromMeter * volumeFromMeter
                             }
@@ -3320,19 +2387,17 @@ export class QualityPlanningService {
                     if (isMatch(unit, 'MMBTU/D') || isMatch(unit, 'MMBTU/H')) {
                       let sumHourlyValue = null
                       for (let j = 0; j <= i; j++) {
-                        const hourlyValueTemp = adjustMMBTUList.find(adjustItem => 
-                          adjustItem.shipper == weeklyNomination.group?.id_name
-                          && adjustItem.contract == weeklyNomination.contract_code?.contract_code
-                          && adjustItem.gas_day == current.format('YYYY-MM-DD')
-                          && adjustItem.gas_hour == i + 1
-                        )?.data?.find(adjustItemData => 
-                          isMatch(adjustItemData.point, point)
-                          && isMatch(adjustItemData.zone, zone)
-                          && isMatch(adjustItemData.area, area)
-                          && isMatch(adjustItemData.entry_exit, entryExit)
-                        )?.value
+                        const hourlyValueTemp = adjustMMBTUList
+                          .find(
+                            (adjustItem) =>
+                              adjustItem.shipper == weeklyNomination.group?.id_name &&
+                              adjustItem.contract == (weeklyNomination.contract_code?.contract_code || weeklyNomination.reserve_balancing_gas_contract?.res_bal_gas_contract) &&
+                              adjustItem.gas_day == current.format('YYYY-MM-DD') &&
+                              adjustItem.gas_hour == i + 1
+                          )
+                          ?.data?.find((adjustItemData) => isMatch(adjustItemData.point, point) && isMatch(adjustItemData.zone, zone) && isMatch(adjustItemData.area, area) && isMatch(adjustItemData.entry_exit, entryExit))?.value
 
-                        if(hourlyValueTemp == null || hourlyValueTemp == undefined){
+                        if (hourlyValueTemp == null || hourlyValueTemp == undefined) {
                           if (sumHourlyValue != null) {
                             sumHourlyValue = parseToNumber8Decimal(sumHourlyValue + hourlyValue)
                           } else {
@@ -3360,19 +2425,17 @@ export class QualityPlanningService {
                     } else if (isMatch(unit, 'MMSCFD') || isMatch(unit, 'MMSCFH')) {
                       let sumHourlyValue = null
                       for (let j = 0; j <= i; j++) {
-                        const hourlyValueTemp = adjustMMSCFList.find(adjustItem => 
-                          adjustItem.shipper == weeklyNomination.group?.id_name
-                          && adjustItem.contract == weeklyNomination.contract_code?.contract_code
-                          && adjustItem.gas_day == current.format('YYYY-MM-DD')
-                          && adjustItem.gas_hour == i + 1
-                        )?.data?.find(adjustItemData => 
-                          isMatch(adjustItemData.point, point)
-                          && isMatch(adjustItemData.zone, zone)
-                          && isMatch(adjustItemData.area, area)
-                          && isMatch(adjustItemData.entry_exit, entryExit)
-                        )?.value
+                        const hourlyValueTemp = adjustMMSCFList
+                          .find(
+                            (adjustItem) =>
+                              adjustItem.shipper == weeklyNomination.group?.id_name &&
+                              adjustItem.contract == (weeklyNomination.contract_code?.contract_code || weeklyNomination.reserve_balancing_gas_contract?.res_bal_gas_contract) &&
+                              adjustItem.gas_day == current.format('YYYY-MM-DD') &&
+                              adjustItem.gas_hour == i + 1
+                          )
+                          ?.data?.find((adjustItemData) => isMatch(adjustItemData.point, point) && isMatch(adjustItemData.zone, zone) && isMatch(adjustItemData.area, area) && isMatch(adjustItemData.entry_exit, entryExit))?.value
 
-                        if(hourlyValueTemp == null || hourlyValueTemp == undefined){
+                        if (hourlyValueTemp == null || hourlyValueTemp == undefined) {
                           if (sumHourlyValue != null) {
                             sumHourlyValue = parseToNumber8Decimal(sumHourlyValue + hourlyValue)
                           } else {
@@ -3407,19 +2470,17 @@ export class QualityPlanningService {
                         timeShowValue = timeShow[timeShowIndex].value
 
                         for (let j = 0; j <= i; j++) {
-                          const hourlyValueTemp = adjustMMBTUList.find(adjustItem => 
-                            adjustItem.shipper == weeklyNomination.group?.id_name
-                            && adjustItem.contract == weeklyNomination.contract_code?.contract_code
-                            && adjustItem.gas_day == current.format('YYYY-MM-DD')
-                            && adjustItem.gas_hour == i + 1
-                          )?.data?.find(adjustItemData => 
-                            isMatch(adjustItemData.point, point)
-                            && isMatch(adjustItemData.zone, zone)
-                            && isMatch(adjustItemData.area, area)
-                            && isMatch(adjustItemData.entry_exit, entryExit)
-                          )?.value
+                          const hourlyValueTemp = adjustMMBTUList
+                            .find(
+                              (adjustItem) =>
+                                adjustItem.shipper == weeklyNomination.group?.id_name &&
+                                adjustItem.contract == (weeklyNomination.contract_code?.contract_code || weeklyNomination.reserve_balancing_gas_contract?.res_bal_gas_contract) &&
+                                adjustItem.gas_day == current.format('YYYY-MM-DD') &&
+                                adjustItem.gas_hour == i + 1
+                            )
+                            ?.data?.find((adjustItemData) => isMatch(adjustItemData.point, point) && isMatch(adjustItemData.zone, zone) && isMatch(adjustItemData.area, area) && isMatch(adjustItemData.entry_exit, entryExit))?.value
 
-                          if(hourlyValueTemp == null || hourlyValueTemp == undefined){
+                          if (hourlyValueTemp == null || hourlyValueTemp == undefined) {
                             if (sumHourlyValue != null) {
                               sumHourlyValue = parseToNumber8Decimal(sumHourlyValue + hourlyValue)
                             } else {
@@ -3433,24 +2494,21 @@ export class QualityPlanningService {
                             }
                           }
                         }
-                      }
-                      else{
+                      } else {
                         timeShowValue = timeShow[timeShowIndex].valueMmscfd
 
                         for (let j = 0; j <= i; j++) {
-                          const hourlyValueTemp = adjustMMSCFList.find(adjustItem => 
-                            adjustItem.shipper == weeklyNomination.group?.id_name
-                            && adjustItem.contract == weeklyNomination.contract_code?.contract_code
-                            && adjustItem.gas_day == current.format('YYYY-MM-DD')
-                            && adjustItem.gas_hour == i + 1
-                          )?.data?.find(adjustItemData => 
-                            isMatch(adjustItemData.point, point)
-                            && isMatch(adjustItemData.zone, zone)
-                            && isMatch(adjustItemData.area, area)
-                            && isMatch(adjustItemData.entry_exit, entryExit)
-                          )?.value
+                          const hourlyValueTemp = adjustMMSCFList
+                            .find(
+                              (adjustItem) =>
+                                adjustItem.shipper == weeklyNomination.group?.id_name &&
+                                adjustItem.contract == (weeklyNomination.contract_code?.contract_code || weeklyNomination.reserve_balancing_gas_contract?.res_bal_gas_contract) &&
+                                adjustItem.gas_day == current.format('YYYY-MM-DD') &&
+                                adjustItem.gas_hour == i + 1
+                            )
+                            ?.data?.find((adjustItemData) => isMatch(adjustItemData.point, point) && isMatch(adjustItemData.zone, zone) && isMatch(adjustItemData.area, area) && isMatch(adjustItemData.entry_exit, entryExit))?.value
 
-                          if(hourlyValueTemp == null || hourlyValueTemp == undefined){
+                          if (hourlyValueTemp == null || hourlyValueTemp == undefined) {
                             if (sumHourlyValue != null) {
                               sumHourlyValue = parseToNumber8Decimal(sumHourlyValue + hourlyValue)
                             } else {
@@ -3495,7 +2553,7 @@ export class QualityPlanningService {
               const hvObject: any = {
                 gasday: current.format('DD/MM/YYYY'),
                 zone: area.zone,
-                zoneExit: zoneMaster.find((f: any) => f?.name === area.zone?.name && (f?.entry_exit_id === 2)) || null,
+                zoneExit: zoneMaster.find((f: any) => f?.name === area.zone?.name && f?.entry_exit_id === 2) || null,
                 area: area,
                 parameter: 'HV',
                 // "contractCodeId": {},
@@ -3527,7 +2585,7 @@ export class QualityPlanningService {
               const wiObject: any = {
                 gasday: current.format('DD/MM/YYYY'),
                 zone: area.zone,
-                zoneExit: zoneMaster.find((f: any) => f?.name === area.zone?.name && (f?.entry_exit_id === 2)) || null,
+                zoneExit: zoneMaster.find((f: any) => f?.name === area.zone?.name && f?.entry_exit_id === 2) || null,
                 area: area,
                 parameter: 'WI',
                 // "contractCodeId": {},
@@ -3559,7 +2617,7 @@ export class QualityPlanningService {
               const sgObject: any = {
                 gasday: current.format('DD/MM/YYYY'),
                 zone: area.zone,
-                zoneExit: zoneMaster.find((f: any) => f?.name === area.zone?.name && (f?.entry_exit_id === 2)) || null,
+                zoneExit: zoneMaster.find((f: any) => f?.name === area.zone?.name && f?.entry_exit_id === 2) || null,
                 area: area,
                 parameter: 'SG',
                 // "contractCodeId": {},
@@ -3610,7 +2668,6 @@ export class QualityPlanningService {
                     const tmpAreaText = data.area_text.replace('_', '(underscore)')
                     const areaKey = `${tmpAreaText}_${data.zone_text}_h${timeShow.gasHour}`
 
-
                     if (data.area_text == consoleAtArea && consoleAtHour == timeShow.gasHour) {
                     }
 
@@ -3619,19 +2676,17 @@ export class QualityPlanningService {
                         sumNomValueEachHour[areaKey].pointNameList.push(data.point)
                       }
                       if (timeShow.value != null) {
-                        if(sumNomValueEachHour[areaKey].value) {
+                        if (sumNomValueEachHour[areaKey].value) {
                           sumNomValueEachHour[areaKey].value = parseToNumber8Decimal(sumNomValueEachHour[areaKey].value + timeShow.value)
-                        }
-                        else{
+                        } else {
                           sumNomValueEachHour[areaKey].value = timeShow.value
                         }
                       }
-                      
+
                       if (timeShow.valueMmscfd != null) {
-                        if(sumNomValueEachHour[areaKey].valueMmscfd) {
+                        if (sumNomValueEachHour[areaKey].valueMmscfd) {
                           sumNomValueEachHour[areaKey].valueMmscfd = parseToNumber8Decimal(sumNomValueEachHour[areaKey].valueMmscfd + timeShow.valueMmscfd)
-                        }
-                        else{
+                        } else {
                           sumNomValueEachHour[areaKey].valueMmscfd = timeShow.valueMmscfd
                         }
                       }
@@ -3647,7 +2702,6 @@ export class QualityPlanningService {
                         sgMutipleByValueMmscfd: null
                       }
                     }
-
 
                     if (calculatedHeatingValueFromMeterEachHourAndPoint[key] == undefined || calculatedSgFromMeterEachHourAndPoint[key] == undefined) {
                       let currentCalculatedHeatingValueFromMeter = timeShow.calculatedHeatingValueFromMeter
@@ -3675,26 +2729,26 @@ export class QualityPlanningService {
 
                     if (calculatedHeatingValueFromMeterEachHourAndPoint[key] != null) {
                       if (sumNomValueEachHour[areaKey].hvMutipleByValue != null) {
-                        sumNomValueEachHour[areaKey].hvMutipleByValue = parseToNumber8Decimal(sumNomValueEachHour[areaKey].hvMutipleByValue + ((timeShow.value ?? 0) * calculatedHeatingValueFromMeterEachHourAndPoint[key]))
+                        sumNomValueEachHour[areaKey].hvMutipleByValue = parseToNumber8Decimal(sumNomValueEachHour[areaKey].hvMutipleByValue + (timeShow.value ?? 0) * calculatedHeatingValueFromMeterEachHourAndPoint[key])
                       } else {
                         sumNomValueEachHour[areaKey].hvMutipleByValue = (timeShow.value ?? 0) * calculatedHeatingValueFromMeterEachHourAndPoint[key]
                       }
 
                       if (sumNomValueEachHour[areaKey].hvMutipleByValueMmscfd != null) {
-                        sumNomValueEachHour[areaKey].hvMutipleByValueMmscfd = parseToNumber8Decimal(sumNomValueEachHour[areaKey].hvMutipleByValueMmscfd + ((timeShow.valueMmscfd ?? 0) * calculatedHeatingValueFromMeterEachHourAndPoint[key]))
+                        sumNomValueEachHour[areaKey].hvMutipleByValueMmscfd = parseToNumber8Decimal(sumNomValueEachHour[areaKey].hvMutipleByValueMmscfd + (timeShow.valueMmscfd ?? 0) * calculatedHeatingValueFromMeterEachHourAndPoint[key])
                       } else {
                         sumNomValueEachHour[areaKey].hvMutipleByValueMmscfd = (timeShow.valueMmscfd ?? 0) * calculatedHeatingValueFromMeterEachHourAndPoint[key]
                       }
                     }
                     if (calculatedSgFromMeterEachHourAndPoint[key] != null) {
                       if (sumNomValueEachHour[areaKey].sgMutipleByValue != null) {
-                        sumNomValueEachHour[areaKey].sgMutipleByValue = parseToNumber8Decimal(sumNomValueEachHour[areaKey].sgMutipleByValue + ((timeShow.value ?? 0) * calculatedSgFromMeterEachHourAndPoint[key]))
+                        sumNomValueEachHour[areaKey].sgMutipleByValue = parseToNumber8Decimal(sumNomValueEachHour[areaKey].sgMutipleByValue + (timeShow.value ?? 0) * calculatedSgFromMeterEachHourAndPoint[key])
                       } else {
                         sumNomValueEachHour[areaKey].sgMutipleByValue = (timeShow.value ?? 0) * calculatedSgFromMeterEachHourAndPoint[key]
                       }
 
                       if (sumNomValueEachHour[areaKey].sgMutipleByValueMmscfd != null) {
-                        sumNomValueEachHour[areaKey].sgMutipleByValueMmscfd = parseToNumber8Decimal(sumNomValueEachHour[areaKey].sgMutipleByValueMmscfd + ((timeShow.valueMmscfd ?? 0) * calculatedSgFromMeterEachHourAndPoint[key]))
+                        sumNomValueEachHour[areaKey].sgMutipleByValueMmscfd = parseToNumber8Decimal(sumNomValueEachHour[areaKey].sgMutipleByValueMmscfd + (timeShow.valueMmscfd ?? 0) * calculatedSgFromMeterEachHourAndPoint[key])
                       } else {
                         sumNomValueEachHour[areaKey].sgMutipleByValueMmscfd = (timeShow.valueMmscfd ?? 0) * calculatedSgFromMeterEachHourAndPoint[key]
                       }
@@ -3710,12 +2764,11 @@ export class QualityPlanningService {
                   const areaText = area.replace('(underscore)', '_')
                   const sumNomValue = sumNomValueEachHour[key]
 
-
                   if (areaText == consoleAtArea && `h${consoleAtHour}` == gasHour) {
                   }
                   const hv = sumNomValue?.valueMmscfd == null ? null : (sumNomValue.hvMutipleByValueMmscfd ?? 0) / sumNomValue.valueMmscfd
                   const sg = sumNomValue?.valueMmscfd == null ? null : (sumNomValue.sgMutipleByValueMmscfd ?? 0) / sumNomValue.valueMmscfd
-                  const wi = sumNomValue.sgMutipleByValueMmscfd == null || sumNomValue?.valueMmscfd == null ? null : (sumNomValue.hvMutipleByValueMmscfd ?? 0) / 0.982596 / Math.sqrt(sumNomValue.sgMutipleByValueMmscfd * sumNomValue.valueMmscfd)
+                  const wi = sumNomValue && (sumNomValue.sgMutipleByValueMmscfd == null || sumNomValue?.valueMmscfd == null ? null : (sumNomValue.hvMutipleByValueMmscfd ?? 0) / 0.982596 / Math.sqrt(sumNomValue.sgMutipleByValueMmscfd * sumNomValue.valueMmscfd)) || null
 
                   hvObject[gasHour] = parseToNumber3Decimal(hv)
                   sgObject[gasHour] = parseToNumber4Decimal(sg)

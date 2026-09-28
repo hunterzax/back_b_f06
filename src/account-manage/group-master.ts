@@ -628,7 +628,7 @@ export class AccountManageGroupMasterService {
                 },
                 {
                   end_date: {
-                    gte: dayjs(payload?.start_date, "YYYY-MM-DD").toDate()
+                    gte: dayjs(payload && payload?.start_date || undefined, "YYYY-MM-DD").toDate()
                   }
                 }
               ],

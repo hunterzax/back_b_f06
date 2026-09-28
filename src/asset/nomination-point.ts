@@ -12,8 +12,10 @@ import * as utc from 'dayjs/plugin/utc'
 import * as timezone from 'dayjs/plugin/timezone'
 import {
   getTodayEndAdd7,
+  getTodayEndYYYYMMDDDfaultAdd7,
   getTodayNowAdd7,
-  getTodayStartAdd7
+  getTodayStartAdd7,
+  getTodayStartYYYYMMDDDfaultAdd7
 } from 'src/common/utils/date.util'
 import {
   findMoveEndDatePoints,
@@ -25,7 +27,7 @@ import {
 } from 'src/common/utils/asset.util'
 import {parseToNumber} from 'src/common/utils/number.util'
 import {writeReq} from 'src/common/utils/write-req.util'
-import {Prisma} from '@prisma/client'
+import {Prisma, group} from '@prisma/client'
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -225,7 +227,7 @@ export class AssetNominationPointService {
     })
 
     const setData =
-      convertData.map(
+      (convertData || []).map(
         (eSum: any) => {
           const result =
             Object.keys(
@@ -414,7 +416,7 @@ export class AssetNominationPointService {
               )
 
             const setData =
-              convertData.map(
+              (convertData || []).map(
                 (
                   eSum: any
                 ) => {
@@ -1142,9 +1144,14 @@ export class AssetNominationPointService {
             }
           }
         },
-        orderBy: {
-          id: 'desc'
-        }
+        orderBy: [
+          {
+            nomination_point: 'asc'
+          },
+          {
+            id: 'desc'
+          },
+        ]
       }
     )
   }
@@ -2760,5 +2767,308 @@ export class AssetNominationPointService {
       nominationPoint:
         conflicts
     }
+  }
+
+  async nominationPointByShipperOrContract(payload: any, userId: any) {
+    const { shipper_id, contract_code, start_date, end_date, is_include_concept_point, is_only_RA6_and_BVW10_concept_point } = payload;
+    const isIncludeConceptPoint = is_include_concept_point == 'true' || is_include_concept_point == true;
+    const isOnlyRA6AndBVW10ConceptPoint = is_only_RA6_and_BVW10_concept_point == 'true' || is_only_RA6_and_BVW10_concept_point == true;
+    const userType = await this.prisma.user_type.findFirst({
+      where: {
+        account_manage: { some: { account_id: Number(userId) } }
+      }
+    })
+
+    if(!start_date || !end_date) {
+      throw new HttpException(
+        {
+          status: HttpStatus.FORBIDDEN,
+          error: 'Start date and end date are required.'
+        },
+        HttpStatus.FORBIDDEN
+      )
+    }
+    const startDay = getTodayStartYYYYMMDDDfaultAdd7(start_date);
+    const endDay = getTodayEndYYYYMMDDDfaultAdd7(end_date);
+    if(!startDay.isValid() || !endDay.isValid()) {
+      throw new HttpException(
+        {
+          status: HttpStatus.FORBIDDEN,
+          error: 'Start date and end date are invalid.'
+        },
+        HttpStatus.FORBIDDEN
+      )
+    }
+
+    let shipperIdList = shipper_id ? (JSON.parse(shipper_id) || []) : [];
+    let contractCodeList = [];
+    let group_ : group | null = null
+    if (userType?.id === 3) {
+      group_ = await this.prisma.group.findFirst({
+        where: {
+          account_manage: { some: { account_id: Number(userId)} }
+        }
+      })
+
+      if(group_){
+        shipperIdList = [group_.id_name];
+      }
+    }
+    if(contract_code){
+      try {
+        contractCodeList = JSON.parse(contract_code) || [] 
+      } catch (error) {
+        contractCodeList = [contract_code];
+      }
+    }
+
+    const bookingRowJson = await this.prisma.booking_row_json.findMany({
+      where: {
+        booking_version: {
+          flag_use: true,
+          contract_code: {
+            contract_start_date: { lte: endDay.toDate() }, // Started before or on target date
+            AND: [
+              // Not rejected
+              {
+                status_capacity_request_management: {
+                  NOT: {
+                    name: {
+                      equals: 'Rejected',
+                      mode: 'insensitive',
+                    },
+                  },
+                },
+              },
+              // If terminate_date exists and targetDate >= terminate_date, exclude (inactive)
+              {
+                OR: [
+                  { terminate_date: null, }, // No terminate date
+                  { terminate_date: { gt: startDay.toDate() } }, // Terminate date is after target date
+                ],
+              },
+              // Use extend_deadline if available, otherwise use contract_end_date
+              {
+                OR: [
+                  // If extend_deadline exists, use it as end date
+                  {
+                    AND: [
+                      { extend_deadline: { not: null } },
+                      { extend_deadline: { gt: startDay.toDate() } },
+                    ],
+                  },
+                  // If extend_deadline is null, use contract_end_date
+                  {
+                    AND: [
+                      { extend_deadline: null },
+                      {
+                        OR: [
+                          { contract_end_date: null },
+                          { contract_end_date: { gt: startDay.toDate() } },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+            ...((shipper_id || userType?.id === 3) && { group: { id_name: { in: shipperIdList } } }),
+            ...(contract_code && { contract_code: { in: contractCodeList } }),
+          },
+        },
+      },
+      select: { contract_point: true },
+    });
+
+    const nomData = await this.prisma.query_shipper_nomination_file.findMany({
+      where: {
+        query_shipper_nomination_status: {
+          id: { in: [2, 5] },
+        },
+        ...((shipper_id || userType?.id === 3) && { group: { id_name: { in: shipperIdList } } }),
+        ...(contract_code && { contract_code: { contract_code: { in: contractCodeList } } }),
+        AND: [
+          {
+            OR: [
+              { del_flag: false },
+              { del_flag: null },
+            ],
+          },
+          {
+            OR: [
+              // Daily nominations: exact date match
+              {
+                nomination_type: { id: 1 },
+                gas_day: {
+                  gte: startDay.toDate(),
+                  lte: endDay.toDate(),
+                },
+              },
+              // Weekly nominations: same week
+              {
+                nomination_type: { id: 2 },
+                gas_day: {
+                  gte: startDay.startOf('week').toDate(),
+                  lte: endDay.endOf('week').toDate(),
+                },
+              },
+            ],
+          },
+        ],
+      },
+      include: {
+        nomination_type: true,
+        query_shipper_nomination_status: true,
+        nomination_version: {
+          include: {
+            // nomination_full_json:true,
+            ...( isIncludeConceptPoint ?
+              {
+                nomination_row_json: true
+              }
+              : {
+            nomination_row_json: {
+              where: { query_shipper_nomination_type_id: 1 }
+            },
+              }
+            ),
+          },
+          where: { flag_use: true },
+        },
+      },
+      orderBy: { id: 'desc' },
+    });
+
+    const converData = nomData.map(e => {
+      const nomination_version = e.nomination_version.map(eN => {
+        const nomination_row_json = eN.nomination_row_json.map(eRj => {
+          const data_temp = JSON.parse(eRj.data_temp);
+          const nomPoint = (isIncludeConceptPoint ? (data_temp['3'] || data_temp['4'] || data_temp['5']) : data_temp['3']) || '';
+          if(eRj.query_shipper_nomination_type_id != 1) {
+            console.log(nomPoint, eRj.query_shipper_nomination_type_id)
+          }
+          return {
+            ...eRj,
+            data_temp,
+            nomPoint,
+          };
+        });
+
+        return {
+          ...eN,
+          nomination_row_json,
+        };
+      });
+
+      return {
+        ...e,
+        nomination_version,
+      };
+    });
+
+    let nominationPoint : {id: number, nomPoint: string, area_text: string, zone_text: string, entry_exit_id: number, query_shipper_nomination_type_id: number, nomination_version_id: number, contract_code_id: number, nomination_type_id: number, row_id: number, unit: string | null}[] = [];
+    for (let i = 0; i < converData.length; i++) {
+      for (let i1 = 0; i1 < converData[i]?.nomination_version.length; i1++) {
+        for (let i2 = 0; i2 < converData[i]?.nomination_version[i1]?.nomination_row_json.length; i2++) {
+          nominationPoint.push({
+            id: converData[i]?.nomination_version[i1]?.nomination_row_json[i2]?.id || -1,
+            nomPoint: converData[i]?.nomination_version[i1]?.nomination_row_json[i2]?.nomPoint || '',
+            area_text: converData[i]?.nomination_version[i1]?.nomination_row_json[i2]?.area_text || '',
+            zone_text: converData[i]?.nomination_version[i1]?.nomination_row_json[i2]?.zone_text || '',
+            entry_exit_id: converData[i]?.nomination_version[i1]?.nomination_row_json[i2]?.entry_exit_id || -1,
+            query_shipper_nomination_type_id: converData[i]?.nomination_version[i1]?.nomination_row_json[i2]?.query_shipper_nomination_type_id || -1,
+            nomination_version_id: converData[i]?.nomination_version[i1]?.id || -1,
+            contract_code_id: converData[i]?.contract_code_id || -1,
+            nomination_type_id: converData[i]?.nomination_type?.id || -1,
+            row_id: converData[i]?.id || -1,
+            unit: converData[i]?.nomination_version[i1]?.nomination_row_json[i2]?.data_temp['9'] || null,
+          });
+        }
+      }
+    }
+
+    const pointNameList = Array.from(new Set((nominationPoint || []).map(e => e.nomPoint)))
+    const nominationPointApi = await this.prisma.nomination_point.findMany({
+      where: {
+        AND: [
+          {
+            OR: [
+              {
+                nomination_point: {
+                  in: pointNameList,
+                },
+              },
+              {
+                contract_point_list: {
+                  some: {
+                    contract_point: {
+                      in: Array.from(new Set(bookingRowJson.map((e: any) => e.contract_point))),
+                    },
+                  },
+                },
+              },
+            ],
+          },
+          {
+            start_date: { lte: endDay.toDate() }, // start_date must be before or same as gas day
+          },
+          {
+            OR: [
+              { end_date: null }, // if end_date is null
+              { end_date: { gt: startDay.toDate() } }, // if end_date is not null, must be after gas day
+            ],
+          },
+        ],
+      },
+      orderBy: { nomination_point: 'asc' },
+    });
+
+    if(isIncludeConceptPoint) {
+      let conceptPointNameList = pointNameList;
+      if(isOnlyRA6AndBVW10ConceptPoint){
+        conceptPointNameList = pointNameList.filter(pointName => ['East_to_RA6', 'West_to_RA6', 'East_to_BVW10', 'West_to_BVW10'].includes(pointName));
+      }
+      const conceptPoint = await this.prisma.concept_point.findMany({
+        where: {
+          AND: [
+            {
+              concept_point: {
+                in: conceptPointNameList,
+              },
+            },
+            ...(group_
+              ? [
+                  {
+                    limit_concept_point_history: {
+                      some: {
+                        group_id: group_.id,
+                        create_date: { lte: endDay.toDate() },
+                        OR: [
+                          { deleted_date: null },
+                          { deleted_date: { gte: startDay.toDate() } },
+                        ],
+                      },
+                    },
+                  },
+                ]
+              : []),
+            {
+              start_date: { lte: endDay.toDate() }, // start_date must be before or same as gas day
+            },
+            {
+              OR: [
+                { end_date: null }, // if end_date is null
+                { end_date: { gt: startDay.toDate() } }, // if end_date is not null, must be after gas day
+              ],
+            },
+          ],
+        },
+        orderBy: { concept_point: 'asc' },
+      })
+
+      return [...nominationPointApi, ...conceptPoint];
+    }
+
+    return nominationPointApi;
   }
 }

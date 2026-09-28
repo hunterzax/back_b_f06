@@ -3,8 +3,8 @@ function loadPis() {
   process.env.PIS_SERVICE_AUTH = 'https://pis.example.test/oauth2/token';
   process.env.PIS_SERVICE_SEARCHUNIT = 'https://pis.example.test/PTT_PIS/SearchUnit';
   process.env.PIS_SERVICE_EMPLOYEE = 'https://pis.example.test/PTT_PIS/EmployeeDataNoJobGroup';
-  process.env.PIS_USERNAME = 'pis-username';
-  process.env.PIS_PASSWORD = 'pis-password';
+  process.env.PIS_USERNAME = process.env.TEST_PIS_USERNAME || '';
+  process.env.PIS_PASSWORD = process.env.TEST_PIS_PASSWORD || '';
 
   const mockAxios = { request: jest.fn() };
   jest.doMock('axios', () => ({ __esModule: true, default: mockAxios }));
@@ -30,7 +30,7 @@ describe('PIS utility', () => {
     expect(token).toBe('pis-token');
     expect(call.method).toBe('post');
     expect(call.url).toBe('https://pis.example.test/oauth2/token');
-    expect(call.auth).toEqual({ username: 'pis-username', password: 'pis-password' });
+    expect(call.auth).toEqual({ username: process.env.TEST_PIS_USERNAME || '', password: process.env.TEST_PIS_PASSWORD || '' });
     expect(call.headers['Content-Type']).toBe('application/x-www-form-urlencoded');
     expect(call.data.toString()).toBe('grant_type=client_credentials');
   });

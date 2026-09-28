@@ -2039,7 +2039,7 @@ export class EventController {
 
     const doc7Create = await this.eventService.doc7Create(body, req?.user?.sub)
 
-    await this.eventService.writeReq(req, `emer/doc7`, body?.id_runnumber ? 'edit' : 'create', doc7Create)
+    body && await this.eventService.writeReq(req, `emer/doc7`, body?.id_runnumber ? 'edit' : 'create', doc7Create)
     // inapp
     try {
       const zoneText = doc7Create?.event_doc_ofo_gas_tranmiss
@@ -2481,7 +2481,7 @@ export class EventController {
 
     const doc41Create = await this.eventService.doc41Create(body, req?.user?.sub)
 
-    await this.eventService.writeReq(req, `emer/doc41`, body?.id_documents ? 'edit' : 'create', doc41Create)
+    body && await this.eventService.writeReq(req, `emer/doc41`, body?.id_documents ? 'edit' : 'create', doc41Create)
 
     // inapp
     try {

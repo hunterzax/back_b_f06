@@ -179,7 +179,7 @@ export class AssetContractPointService {
       if(item.start_date){
         const itemStartDate = getTodayNowAdd7(item.start_date)
         if(itemStartDate.isBefore(startDayjs) || (endDayjs && !endDayjs.isValid() && itemStartDate.isAfter(endDayjs))){
-          const message = `${item?.nomination_point ? item?.nomination_point : 'Nomination point'} date is not in the contract point period.`
+          const message = item && `${item?.nomination_point ? item?.nomination_point : 'Nomination point'} date is not in the contract point period.` || ""
           if(!validateList.includes(message)){
             validateList.push(message)
           }
@@ -190,14 +190,14 @@ export class AssetContractPointService {
         
         const itemEndDate = getTodayNowAdd7(item.end_date)
         if(itemEndDate.isBefore(startDayjs) || (endDayjs && !endDayjs.isValid() && itemEndDate.isAfter(endDayjs))){
-          const message = `${item?.nomination_point ? item?.nomination_point : 'Nomination point'} date is not in the contract point period.`
+          const message = item && `${item?.nomination_point ? item?.nomination_point : 'Nomination point'} date is not in the contract point period.` || ""
           if(!validateList.includes(message)){
             validateList.push(message)
           }
         }
       }else{
         if(!!contract_point_end_date){ // https://app.clickup.com/t/9018502823/86euzxxpr
-          const message = `${item?.nomination_point ? item?.nomination_point : 'Nomination point'} date is not in the contract point period.`
+          const message = item && `${item?.nomination_point ? item?.nomination_point : 'Nomination point'} date is not in the contract point period.` || ""
           if(!validateList.includes(message)){
             validateList.push(message)
           }
@@ -575,7 +575,7 @@ export class AssetContractPointService {
       if(item.start_date){
         const itemStartDate = getTodayNowAdd7(item.start_date)
         if(itemStartDate.isBefore(startDayjs) || (endDayjs && !endDayjs.isValid() && itemStartDate.isAfter(endDayjs))){
-          const message = `${item?.nomination_point ? item?.nomination_point : 'Nomination point'} date is not in the contract point period.`
+          const message = item && `${item?.nomination_point ? item?.nomination_point : 'Nomination point'} date is not in the contract point period.` || ""
           if(!validateList.includes(message)){
             validateList.push(message)
           }
@@ -585,14 +585,14 @@ export class AssetContractPointService {
       if(item.end_date){
         const itemEndDate = getTodayNowAdd7(item.end_date)
         if(itemEndDate.isBefore(startDayjs) || (endDayjs && !endDayjs.isValid() && itemEndDate.isAfter(endDayjs))){
-          const message = `${item?.nomination_point ? item?.nomination_point : 'Nomination point'} date is not in the contract point period.`
+          const message = item && `${item?.nomination_point ? item?.nomination_point : 'Nomination point'} date is not in the contract point period.` || ""
           if(!validateList.includes(message)){
             validateList.push(message)
           }
         }
       }else{
         if(!!contract_point_end_date){ // https://app.clickup.com/t/9018502823/86euzxxpr
-          const message = `${item?.nomination_point ? item?.nomination_point : 'Nomination point'} date is not in the contract point period.`
+          const message = item && `${item?.nomination_point ? item?.nomination_point : 'Nomination point'} date is not in the contract point period.` || ""
           if(!validateList.includes(message)){
             validateList.push(message)
           }

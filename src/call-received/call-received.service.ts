@@ -22,10 +22,10 @@ export class CallReceivedService {
   ) { }
 
   async useReqs(req: any) {
-    const ip = req.headers['x-forwarded-for'] || req.ip
+    const ip = req?.headers?.['x-forwarded-for'] || req?.ip
     return {
       ip: ip,
-      sub: req?.user?.sub,
+      sub: (req?.user?.sub || -1),
       first_name: req?.user?.first_name,
       last_name: req?.user?.last_name,
       username: req?.user?.username,
@@ -95,7 +95,7 @@ export class CallReceivedService {
     if (shipperRangeStart?.isValid() && shipper?.action === 'create') {
       andInWhereForShipper.push({
         OR: [
-          { end_date: { gte: shipperRangeStart.toDate() } },
+          { end_date: { gte: (shipperRangeStart || dayjs()).toDate() } },
           { end_date: null },
         ],
       });
@@ -104,7 +104,7 @@ export class CallReceivedService {
 
     if (shipperRangeEnd?.isValid() && shipper?.action === 'create') {
       andInWhereForShipper.push({
-        start_date: { lte: shipperRangeEnd.toDate() },
+        start_date: { lte: (shipperRangeEnd || dayjs()).toDate() },
       });
     }
     // console.log('user : ', user);
@@ -946,7 +946,7 @@ export class CallReceivedService {
         if (account?.id) {
           const accountManage = await this.prisma.account_manage.create({
             data: {
-              account_id: account?.id,
+              account_id: account && account?.id || -1,
               ...accountNew?.account_manage,
               create_date: dayjs().toDate(),
               create_date_num: dayjs().unix()

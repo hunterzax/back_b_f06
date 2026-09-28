@@ -213,8 +213,8 @@ export class CapacityV2Service {
   async fnJSONtoOBJBook(payload: any) {
     const resultTranform = (await JSON.parse(payload?.json_data)) || null;
 
-    const fnIndex_ = (val_: any, key_: any) => val_.findIndex((row: any) => row?.[0] === key_)
-    const fnValue_ = (val_: any, key_: any) => val_.find((row: any) => row?.[0] === key_)
+    const fnIndex_ = (val_: any, key_: any) => (val_ || []).findIndex((row: any) => row?.[0] === key_)
+    const fnValue_ = (val_: any, key_: any) => (val_ || []).find((row: any) => row?.[0] === key_)
     const shiftKeysFrom = (obj: any, startKey = 3, offset = 4) => {
       return Object.fromEntries(
         Object.entries(obj).map(([k, v]) => {
@@ -1229,7 +1229,7 @@ export class CapacityV2Service {
           contract_point: e['0'],
           area: contractPoints?.area?.name || null,
           zone: contractPoints?.zone?.name || null,
-          contractPointName: entryPointName || null,
+          contractPointName: entryPointName,
         };
       }),
     );
@@ -1341,6 +1341,9 @@ export class CapacityV2Service {
                       const tempData = headerExitDate[capacityKey][dateKeyString]
                       delete resultTranform?.['headerExit'][capacityKey][dateKeyString]
                       delete headerExitDate[capacityKey][dateKeyString]
+                      
+                      // Coverity flags this as unused_expr (NO_EFFECT).
+                      // coverity[unused_expr:SUPPRESS]
                       resultTranform['headerExit'][capacityKey][dateKey] = tempData
                       headerExitDate[capacityKey][dateKey] = tempData
                     }
@@ -1480,7 +1483,7 @@ export class CapacityV2Service {
           contract_point: e['0'],
           area: contractPoints?.area?.name || null,
           zone: contractPoints?.zone?.name || null,
-          contractPointName: exitPointName || null,
+          contractPointName: exitPointName,
         };
       }),
     );
@@ -1804,7 +1807,7 @@ export class CapacityV2Service {
       for (let i_ = 0; i_ < ckPointDup.length; i_++) {
         const contractPoint = await this.prisma.contract_point.findFirst({
           where:{
-            contract_point: ckPointDup?.[i_]
+            contract_point: ckPointDup && ckPointDup?.[i_] || "-1"
           },
           select:{ contract_point:true },
         })
@@ -2713,7 +2716,7 @@ export class CapacityV2Service {
           contract_point: e['0'],
           area: contractPoints?.area?.name || null,
           zone: contractPoints?.zone?.name || null,
-          contractPointName: entryPointName || null,
+          contractPointName: entryPointName,
         };
       }),
     );
@@ -2825,6 +2828,9 @@ export class CapacityV2Service {
                       const tempData = headerExitDate[capacityKey][dateKeyString]
                       delete resultTranform?.['headerExit'][capacityKey][dateKeyString]
                       delete headerExitDate[capacityKey][dateKeyString]
+
+                      // Coverity flags this as unused_expr (NO_EFFECT).
+                      // coverity[unused_expr:SUPPRESS]
                       resultTranform['headerExit'][capacityKey][dateKey] = tempData
                       headerExitDate[capacityKey][dateKey] = tempData
                     }
@@ -2964,7 +2970,7 @@ export class CapacityV2Service {
           contract_point: e['0'],
           area: contractPoints?.area?.name || null,
           zone: contractPoints?.zone?.name || null,
-          contractPointName: exitPointName || null,
+          contractPointName: exitPointName,
         };
       }),
     );
@@ -3286,7 +3292,7 @@ export class CapacityV2Service {
       for (let i_ = 0; i_ < ckPointDup.length; i_++) {
         const contractPoint = await this.prisma.contract_point.findFirst({
           where:{
-            contract_point: ckPointDup?.[i_]
+            contract_point: ckPointDup && ckPointDup?.[i_] || "-1"
           },
           select:{ contract_point:true },
         })
@@ -4098,10 +4104,10 @@ export class CapacityV2Service {
   }
 
   async useReqs(req: any) {
-    const ip = req.headers['x-forwarded-for'] || req.ip;
+    const ip = req?.headers?.['x-forwarded-for'] || req?.ip;
     return {
       ip: ip,
-      sub: req?.user?.sub,
+      sub: (req?.user?.sub || -1),
       first_name: req?.user?.first_name,
       last_name: req?.user?.last_name,
       username: req?.user?.username,
@@ -4266,7 +4272,6 @@ export class CapacityV2Service {
     if ((data?.dataTemp?.entryValue || []).some((e: any) => isMatch(e?.["contractPoint"], "sumEntry"))) {
       isOriginalEntryVersion = false;
       try {
-        entry_head_1
         const onlySumEntryValueList = (data?.dataTemp?.entryValue || []).filter((e: any) => isMatch(e?.["contractPoint"], "sumEntry"));
         entry_sum_1 = Object.fromEntries(
           Object.entries(onlySumEntryValueList.reduce((acc, entry) => {
@@ -5634,7 +5639,7 @@ export class CapacityV2Service {
           contract_point: entryPointName,
           area: contractPoints?.area?.name || null,
           zone: contractPoints?.zone?.name || null,
-          contractPointName: entryPointName || null,
+          contractPointName: entryPointName,
         };
       }),
     );
@@ -5868,7 +5873,7 @@ export class CapacityV2Service {
           contract_point: exitPointName,
           area: contractPoints?.area?.name || null,
           zone: contractPoints?.zone?.name || null,
-          contractPointName: exitPointName || null,
+          contractPointName: exitPointName,
         };
       }),
     );
@@ -6199,7 +6204,7 @@ export class CapacityV2Service {
       for (let i_ = 0; i_ < ckPointDup.length; i_++) {
         const contractPoint = await this.prisma.contract_point.findFirst({
           where:{
-            contract_point: ckPointDup?.[i_]
+            contract_point: ckPointDup && ckPointDup?.[i_] || "-1"
           },
           select:{ contract_point:true },
         })
@@ -6878,8 +6883,8 @@ export class CapacityV2Service {
         body,
         {
           auth: {
-            username: process.env.TPA_WEBSITE_USERNAME ?? '5R7zJZt_VFmf0hIAqTU4ZRKFa1sa',
-            password: process.env.TPA_WEBSITE_PASSWORD ?? 'y0xcNclXHmOAyIbtzfdHGOEeKb8a',
+            username: process.env.TPA_WEBSITE_USERNAME || '',
+            password: process.env.TPA_WEBSITE_PASSWORD || '',
           },
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -7151,7 +7156,6 @@ export class CapacityV2Service {
               },
             }, userId)
           } catch (error) {
-            4
             // Log error แต่ไม่ throw เพื่อให้ sync shipper อื่น ๆ ต่อได้
             if (error?.message) {
               errorList.push(`Could not sync shipper ${user.email ?? user.userId} from TPAWebsite due to ${error?.message}`);
@@ -7282,7 +7286,7 @@ export class CapacityV2Service {
   }
   //#endregion TPA Website
 
-  async restorePreviousVersion(id: any, terminateDate?: any, userId?: any) {
+  async restorePreviousVersion(id: any, terminateDate?: any, userId?: any, extendStart?:any, extendEnd?:any) {
     const specificVersion = await this.prisma.booking_version.findFirst({
       where: {
         contract_code_id: Number(id),
@@ -7302,6 +7306,9 @@ export class CapacityV2Service {
           id,
           true,
           specificVersion.id,
+          null,
+          extendStart,
+          extendEnd,
         );
 
       // @@@
@@ -7485,7 +7492,7 @@ export class CapacityV2Service {
         await this.restorePreviousVersion(id);
       }
       const { pnmatchData, setDataUse, logWarnings } =
-        await this.capacityMiddleService.middleBooking(id, false);
+        await this.capacityMiddleService.middleBooking(id, false,null,null,);
 
       console.timeEnd('middleBooking process...');
 
@@ -7618,7 +7625,7 @@ export class CapacityV2Service {
 
       if (contractCodePeriod?.status_capacity_request_management_id === 2) {
         const { pnmatchData, setDataUse, logWarnings } =
-          await this.capacityMiddleService.middleBooking(id, true);
+          await this.capacityMiddleService.middleBooking(id, true,null,null,);
 
         for (let upi = 0; upi < setDataUse.length; upi++) {
           for (let fCp = 0; fCp < setDataUse[upi]?.resCalcNew.length; fCp++) {
@@ -7737,7 +7744,7 @@ export class CapacityV2Service {
                   },
                 });
                 await this.prisma.capacity_publication_date.createMany({
-                  data: updates?.map((cps: any) => cps?.data),
+                  data: (updates || [])?.map((cps: any) => cps?.data),
                 });
               }
 
@@ -7872,7 +7879,7 @@ export class CapacityV2Service {
         });
 
         const dataFull = JSON.parse(getData['booking_full_json'][0]?.data_temp);
-        let shipperName = dataFull?.shipperInfo[0]['Shipper Name'] || null;
+        let shipperName = dataFull && dataFull?.shipperInfo[0]['Shipper Name'] || null;
         let shipperIdName = dataFull?.shipperInfo[0]['Shipper ID Name'] || null;
         const getGroupByName = shipperIdName ?
           await this.capacityMiddleService.getGroupByIDName(shipperIdName)
@@ -8790,7 +8797,6 @@ export class CapacityV2Service {
       original_contract_end_date,  // มันจะกลายเป็น new contract start date เคสที่กด extend หลังจากสัญญา active
     } = payload;
 
-
     // ================== READ ME BRO ====================
     // พี่แนนผมอยากขอ Firm Extend ในกรณี ที่ Contract Active แล้วครับ ว่าเข้าใจถูกมั้ย
     // 1.เงื่อนไขการขยายเวลา ยึดตาม Period ของ Original Contract ไม่ใช่ New Shadow Period
@@ -8903,12 +8909,24 @@ export class CapacityV2Service {
     }
 
 
+    // test
+    // if(contractCode?.status_capacity_request_management_id === 2 &&
+    //   hasContractStarted){
+    //     console.log('if');
+    // }else{
+    //   console.log('else');
+    // }
+
+    // return null
+
+
     let mode_ = true
     if (
       contractCode?.status_capacity_request_management_id === 2 &&
       hasContractStarted
     ) { // active ไปแล้วเป็น amend เว่ยวัยรุ่น
       // amd
+      console.log('if');
       mode_ = true
       flagAmd = true;
       const checkContractCodeCheckLength =
@@ -9025,8 +9043,8 @@ export class CapacityV2Service {
 
       let data_temp: any = fnExtendDateJSONNew?.new_data_temp;
 
-      let newEntry = data_temp['entryValue'];
-      let newExit = data_temp['exitValue'];
+      let newEntry = data_temp && data_temp['entryValue'] || [];
+      let newExit = data_temp && data_temp['exitValue'] || [];
 
       console.log('id : ', id);
       console.log('payload : ', payload);
@@ -9361,20 +9379,18 @@ export class CapacityV2Service {
         console.warn('⚠️ amd 2 ละเว้น Error:', error.message); // แสดงเฉพาะ Warning แต่ไม่ให้โปรแกรมหยุด
       }
     } else { // ยังไม่ active
-      throw new HttpException(
-          {
-            status: HttpStatus.BAD_REQUEST,
-            error: `test... ยังไม่ active`,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-
+      console.log('else');
       mode_ = false
       flagAmd = false;
       contract_code = contractCode?.contract_code;
+      console.log('#1');
       if (contractCode.status_capacity_request_management_id === 2) {
+        // const extendStart = contract_start_date
+        // const extendEnd = contract_end_date
+        // await this.restorePreviousVersion(id, null, null, extendStart, extendEnd); // https://app.clickup.com/t/9018502823/86euzxxkq เคสนี้เลือกวันที่ entend start หลัง end เก่า เคสใหม่ (contract_end_date ปิดเพราะอะไรไม่รู้)
         await this.restorePreviousVersion(id);
       }
+      console.log('#2');
       const contractPointAPI = await this.prisma.contract_point.findMany({
         where: {
           AND: [
@@ -9409,7 +9425,7 @@ export class CapacityV2Service {
       });
       const { bookingTemplate, modeDayAndMonth, file_period_mode } =
         await this.capacityMiddleService.bookingTemplate(
-          Number(contractCode?.term_type_id),
+          contractCode && Number(contractCode?.term_type_id) || -1,
         );
 
       if (getTodayNowDDMMYYYYAdd7(contract_start_date).isSameOrAfter(getTodayNowDDMMYYYYAdd7(contract_end_date))) {
@@ -9479,8 +9495,6 @@ export class CapacityV2Service {
       }
 
       // ------------------------------------------
-      // ------------------------------------------
-
 
       const fnExtendDateJSONNew = await this.fnExtendDateJSONNewForExtend({
         bookingTemplate: bookingTemplate,
@@ -9495,7 +9509,7 @@ export class CapacityV2Service {
       startDate = fnExtendDateJSONNew?.nstartDate
       resultDate = fnExtendDateJSONNew?.nresultDate
       // fnExtendDateJSONNew?.new_data_temp
-
+      // console.log('## fnExtendDateJSONNew : ', fnExtendDateJSONNew);
       // return fnExtendDateJSONNew
 
       await this.prisma.extend_contract_capacity_request_management.create({
@@ -9518,8 +9532,8 @@ export class CapacityV2Service {
 
       let data_temp: any = fnExtendDateJSONNew?.new_data_temp;
 
-      let newEntry = data_temp['entryValue'];
-      let newExit = data_temp['exitValue'];
+      let newEntry = data_temp && data_temp['entryValue'] || [];
+      let newExit = data_temp && data_temp['exitValue'] || [];
 
 
       // เพิ่ม version ------------------------------------------
@@ -9649,7 +9663,8 @@ export class CapacityV2Service {
 
       const csd = contract_start_date ? getTodayNowDDMMYYYYDfaultAdd7(contract_start_date) : null
       const newContractStartDate = csd != null && csd.isValid() ? csd.toDate() : contractCode?.contract_start_date
-
+      
+      // https://app.clickup.com/t/9018502823/86euzxxkq เคสนี้เลือกวันที่ entend start หลัง end เก่า เคสใหม่ (contract_end_date ปิดเพราะอะไรไม่รู้)
       await this.prisma.contract_code.updateMany({
         where: {
           id: Number(contractCode?.id ?? -1),
@@ -9660,7 +9675,7 @@ export class CapacityV2Service {
           //   ? getTodayNowDDMMYYYYDfaultAdd7(contract_end_date).toDate()
           //   : null,
           extend_deadline: contract_end_date ? getTodayNowDDMMYYYYDfaultAdd7(contract_end_date).toDate() : null,
-          status_capacity_request_management_process_id: contractCode.status_capacity_request_management_id == 2 && todayStartDayjs.isSameOrAfter(csd) ? 1 : contractCode.status_capacity_request_management_process_id,
+          status_capacity_request_management_process_id: contractCode && contractCode.status_capacity_request_management_id == 2 && todayStartDayjs.isSameOrAfter(csd) ? 1 : contractCode.status_capacity_request_management_process_id,
           shadow_period: parseToNumber(shadow_period) || 0, // update shadow_period ใหม่เข้าไปด้วย
           shadow_time: parseToNumber(shadow_time) || 0, // update shadow_time ใหม่เข้าไปด้วย
         },
@@ -9673,7 +9688,7 @@ export class CapacityV2Service {
 
       if (contractCode?.status_capacity_request_management_id === 2) {
         const { pnmatchData, setDataUse, logWarnings } =
-          await this.capacityMiddleService.middleBooking(id, false);
+          await this.capacityMiddleService.middleBooking(id, false,null,null,);
 
         await this.capacityMiddleService.processGenPublicData(
           setDataUse,
@@ -9776,7 +9791,7 @@ export class CapacityV2Service {
       for (let i_ = 0; i_ < ckPointDup.length; i_++) {
         const contractPoint = await this.prisma.contract_point.findFirst({
           where:{
-            contract_point: ckPointDup?.[i_]
+            contract_point: ckPointDup && ckPointDup?.[i_] || "-1"
           },
           select:{ contract_point:true },
         })
@@ -10221,12 +10236,13 @@ export class CapacityV2Service {
             bookingVersion?.contract_code?.id,
             true,
             specificVersion.id,
+            null
           );
         await this.capacityMiddleService.processGenPublicData(resetDataUse, true);
 
 
         const { pnmatchData, setDataUse, logWarnings } =
-          await this.capacityMiddleService.middleBooking(bookingVersion?.contract_code?.id, false);
+          await this.capacityMiddleService.middleBooking(bookingVersion?.contract_code?.id, false, null);
         await this.capacityMiddleService.processGenPublicData(
           setDataUse,
           false,
@@ -10271,7 +10287,7 @@ export class CapacityV2Service {
 
     newBK = bookingVersion;
 
-    newBK['booking_full_json'] = await newBK?.booking_full_json.map(
+    newBK['booking_full_json'] = await (newBK && newBK?.booking_full_json)?.map(
       (e: any) => {
         const data_temp = JSON.parse(e['data_temp']);
         return { ...e, data_temp: data_temp };
@@ -10525,7 +10541,9 @@ export class CapacityV2Service {
     if (newBK['booking_full_json_release']?.length === 0) {
       return await this.capacityRequestManagementDownload(id)
     } else {
-
+      if(!newBK){
+        return null
+      }
       newBK['booking_full_json_release'] = await newBK?.booking_full_json_release.map(
         (e: any) => {
           const data_temp = JSON.parse(e['data_temp']);
@@ -11603,10 +11621,10 @@ export class CapacityV2Service {
             ...areaGroup,
             dataGroupArea: Object.values(
               areaGroup.dataGroupArea.reduce((acc, item) => {
-                const key = item.capacity_detail_point_id;
+                const key = item && item?.capacity_detail_point_id || "";
                 if (!acc[key]) {
                   acc[key] = {
-                    capacity_detail_point: item?.capacity_detail_point,
+                    capacity_detail_point: item && item?.capacity_detail_point || null,
                     capacity_detail_point_id: key,
                     data: [],
                   };

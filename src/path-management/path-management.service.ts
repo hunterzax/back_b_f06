@@ -61,7 +61,7 @@ export class PathManagementService {
       ] || req.ip
     return {
       ip: ip,
-      sub: req?.user?.sub,
+      sub: (req?.user?.sub || -1),
       first_name:
         req?.user?.first_name,
       last_name:
@@ -1183,15 +1183,14 @@ export class PathManagementService {
       )
     const resultGroup =
       result.map((e: any) => {
-        const paths =
-          JSON.parse(e?.temps)
+       
         const {
           temps,
           ...newE
         } = e
         return {
           ...newE,
-          paths: paths
+          paths: e && JSON.parse(e?.temps) || null
         }
       })
     const groupByExitIdTemp =

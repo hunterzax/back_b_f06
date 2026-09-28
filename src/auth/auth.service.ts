@@ -17,8 +17,7 @@ export class AuthService {
     {
       userId: 1,
       username: 'admin',
-      password:
-        '$2b$10$bEXWzNQG8eInI23DZAswMufeWvKA4luRTrZAkU4rb2hEqQCdBFf/i'
+      password: process.env.ADMIN_DEFAULT_PASSWORD_HASH || ''
     }
   ]
 
@@ -34,8 +33,7 @@ export class AuthService {
   > {
     return this.users.find(
       (user) =>
-        user.username ===
-        username
+        user.username
     )
   }
 
@@ -50,6 +48,9 @@ export class AuthService {
       await this.findOne(
         username
       )
+    if (!user) {
+      throw new Error('user not value')
+    }
     const isMatch =
       await bcrypt.compare(
         pass,
@@ -59,8 +60,8 @@ export class AuthService {
       throw new UnauthorizedException()
     }
     const payload = {
-      sub: user.userId,
-      username: user.username,
+      sub: user && user?.userId || -1,
+      username: user && user?.username || "",
       type: 'access'
     }
     return {
@@ -73,7 +74,7 @@ export class AuthService {
   }
 
   async genPass() {
-    const password = '1234'
+    const password = process.env.TEMP_GEN_PASSWORD || ''
     const salt =
       await bcrypt.genSalt()
     const hash =

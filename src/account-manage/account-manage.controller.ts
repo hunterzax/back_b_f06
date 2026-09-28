@@ -81,7 +81,7 @@ export class AccountManageController {
           HttpStatus.FORBIDDEN
         )
       }
-      const account = await this.accountManageService.accountLocal(user?.id)
+      const account = await this.accountManageService.accountLocal(user?.id) 
 
       if (!account) {
         throw new HttpException(
@@ -92,7 +92,7 @@ export class AccountManageController {
           HttpStatus.FORBIDDEN
         )
       }
-      if (account.active == false) {
+      if (account && account?.active == false) {
         throw new HttpException(
           {
             status: HttpStatus.FORBIDDEN,
@@ -100,7 +100,7 @@ export class AccountManageController {
           },
           HttpStatus.FORBIDDEN
         )
-      } else if (!account?.status) {
+      } else if (account && !account?.status) {
         throw new HttpException(
           {
             status: HttpStatus.FORBIDDEN,
@@ -285,7 +285,7 @@ export class AccountManageController {
   @UseGuards(AuthGuard)
   @Post('logout')
   logOut(@Req() req: any) {
-    return this.accountManageService.loginLogs(req?.user?.sub, 'logout', null)
+    return this.accountManageService.loginLogs((req?.user?.sub || -1), 'logout', null)
   }
 
   @Get('column-config-account/:id')
@@ -370,7 +370,7 @@ export class AccountManageController {
         )
       }
     }
-    const editAccount = await this.accountManageService.editAccount(id, body, req?.user?.sub, req)
+    const editAccount = await this.accountManageService.editAccount(id, body, (req?.user?.sub || -1), req)
 
     const account = await this.accountManageService.accountLocalGetSure(
       editAccount?.data?.id,
@@ -401,7 +401,7 @@ export class AccountManageController {
       )
     }
 
-    const editAccount = await this.accountManageService.signature(id, body, req?.user?.sub, req)
+    const editAccount = await this.accountManageService.signature(id, body, (req?.user?.sub || -1), req)
     const account = await this.accountManageService.accountLocalGetSure(editAccount?.id)
 
     await writeReq(this.prisma, 'DAM', req, `account`, 'signature', account)
@@ -580,7 +580,7 @@ export class AccountManageController {
         HttpStatus.BAD_REQUEST
       )
     }
-    const systemLoginConfig = await this.accountManageSystemLoginService.systemLoginConfigEdit(id, body, req?.user?.sub, req)
+    const systemLoginConfig = await this.accountManageSystemLoginService.systemLoginConfigEdit(id, body, (req?.user?.sub || -1), req)
     const systemLoginOne = await this.accountManageSystemLoginService.systemLoginOne(systemLoginConfig?.data?.id)
     await writeReq(this.prisma, 'DAM', req, 'system-login', 'edit', systemLoginOne)
 
@@ -639,7 +639,7 @@ export class AccountManageController {
         HttpStatus.BAD_REQUEST
       )
     }
-    return this.accountManageUserTypeService.accountUserType(req.user.sub)
+    return this.accountManageUserTypeService.accountUserType(req?.user?.sub)
   }
 
   // group-master
@@ -862,7 +862,7 @@ export class AccountManageController {
   @UseGuards(AuthGuard)
   @Put('role-master-edit/:id')
   async roleMasterEdit(@Body() body: any, @Param('id') id: any, @Req() req: any) {
-    const { name, user_type_id, start_date } = body
+    const { name, user_type_id, start_date, description } = (body || {})
     if (!name || !user_type_id || !start_date) {
       throw new HttpException(
         {
@@ -877,7 +877,7 @@ export class AccountManageController {
     const role = await this.accountManageRoleMasterService.roleMasterEdit(
       id,
       body,
-      req?.user?.sub,
+      (req?.user?.sub || -1),
     );
     const roleOne = await this.accountManageRoleMasterService.roleMasterOnce(
       Number(id),
@@ -889,7 +889,7 @@ export class AccountManageController {
       oldName: roleBefore?.name || role?.nameOld,
       name: name,
       by: req?.user?.username,
-      description: body?.description || '',
+      description: description || '',
     });
 
     return role
@@ -975,7 +975,7 @@ export class AccountManageController {
     const tac = await this.accountManageTandCService.tAndCOn()
     const account = await this.accountManageTandCService.accountLocalTandC(req?.user?.sub)
     await writeReq(this.prisma, 'DAM', req, `term-and-condition`, 'accept', {
-      id: req?.user?.sub,
+      id: (req?.user?.sub || -1),
       ...req?.user,
       tac: tac
     })

@@ -41,6 +41,8 @@ import {TariffService} from 'src/tariff/tariff.service'
 import {matchTypeWithMenu, renameMethod} from 'src/common/utils/export.util'
 import {parseToNumber} from 'src/common/utils/number.util'
 import {ParameterAuditLogService} from 'src/parameter/audit-log'
+import { limitConceptPointHistoryRecord } from '@type/prisma.type'
+import { AssetConceptPointService } from 'src/asset/concept-point'
 dayjs.extend(isBetween)
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -69,85 +71,84 @@ export class ExportFilesService {
     private readonly queryShipperNominationFileService: QueryShipperNominationFileService,
     @Inject(forwardRef(() => DailyAdjustmentService)) private readonly dailyAdjustmentService: DailyAdjustmentService,
     private readonly eventService: EventService,
+    private readonly assetConceptPointService: AssetConceptPointService,
     @Inject(forwardRef(() => TariffService))
     private readonly tariffService: TariffService,
     private readonly parameterAuditLogService: ParameterAuditLogService
     // @Inject(CACHE_MANAGER) private cacheService: Cache,
   ) {}
 
- formatNumberNoDecimal(number: any){
+  formatNumberNoDecimal(number: any) {
     // if (isNaN(number)) return '';
 
     if (number == null || number == undefined) {
-        return "";
+      return ''
     }
 
     if (number == 0) {
-        return "0"; // special case for zero
+      return '0' // special case for zero
     }
 
     // Convert number to a fixed 3-decimal format
-    const fixedNumber = parseFloat(number);
+    const fixedNumber = parseFloat(number)
 
     // Add thousand separators
     // return fixedNumber.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
     const string_num = fixedNumber.toLocaleString('en-US')
 
-    return string_num; // "1,050,000"
+    return string_num // "1,050,000"
+  }
 
-};
+  formatNumberFourDecimalNomRound(number: any) {
+    if (number == null || number === '') return ''
+    const num = this.formatNumberSixDecimalNomRound_pass(Number(number))
 
-
-formatNumberFourDecimalNomRound(number: any){
-    if (number == null || number === "") return "";
-    const num = this.formatNumberSixDecimalNomRound_pass( Number(number));
-    
-    if (Number.isNaN(num)) return number;
+    if (Number.isNaN(num)) return number
 
     // round 3 ตำแหน่ง
-    const rounded = Math.round((num + Number.EPSILON) * 10000) / 10000;
+    const rounded = Math.round((num + Number.EPSILON) * 10000) / 10000
 
     // แยก integer / decimal
-    const [integerPart, decimalPart = ""] = rounded.toString().split(".");
+    const [integerPart, decimalPart = ''] = rounded.toString().split('.')
 
     // เติม 0 ให้ครบ 3 ตำแหน่ง
-    const fixedDecimal = decimalPart.padEnd(4, "0");
+    const fixedDecimal = decimalPart.padEnd(4, '0')
 
     // ใส่ comma
-    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 
-    return `${formattedInteger}.${fixedDecimal}`;
-};
+    return `${formattedInteger}.${fixedDecimal}`
+  }
 
-formatNumberSixDecimalNomRound_pass(number: any){
-    if (number == null || number === "") return "";
-    const num = Number(number);
-    if (Number.isNaN(num)) return number;
+  formatNumberSixDecimalNomRound_pass(number: any) {
+    if (number == null || number === '') return ''
+    const num = Number(number)
+    if (Number.isNaN(num)) return number
 
-    const rounded = Math.round((num + Number.EPSILON) * 1000000) / 1000000;
+    const rounded = Math.round((num + Number.EPSILON) * 1000000) / 1000000
 
-    return rounded;
-};
+    return rounded
+  }
 
-formatNumberSixDecimalNomRound(number: any){
-    if (number == null || number === "") return "";
-    const num = Number(number);
-    
-    if (Number.isNaN(num)) return number;
+  formatNumberSixDecimalNomRound(number: any) {
+    if (number == null || number === '') return ''
+    const num = Number(number)
 
-    const rounded = Math.round((num + Number.EPSILON) * 1000000) / 1000000;
+    if (Number.isNaN(num)) return number
+
+    const rounded = Math.round((num + Number.EPSILON) * 1000000) / 1000000
 
     // แยก integer / decimal
-    const [integerPart, decimalPart = ""] = rounded.toString().split(".");
+    const [integerPart, decimalPart = ''] = rounded.toString().split('.')
 
-    const fixedDecimal = decimalPart.padEnd(6, "0");
+    const fixedDecimal = decimalPart.padEnd(6, '0')
 
     // ใส่ comma
-    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 
-    return `${formattedInteger}.${fixedDecimal}`;
-};
+    return `${formattedInteger}.${fixedDecimal}`
+  }
 
   // ตัวเลขชิคขวา
   isNumericLike(v: any) {
@@ -374,385 +375,202 @@ formatNumberSixDecimalNomRound(number: any){
 
   // new number
   exportDataToExcelNew(
-  data: any[],
-  response: Response,
-  nameFile: string,
-  skipFirstRow: boolean,
-  mergeColumns: string[] = [],
-  rowHeight: {
-    rowIndex: number
-    height: number
-  }[] = []
-): void {
-  /*
-   * ตรวจสอบข้อมูล
-   */
-  if (!Array.isArray(data) || data.length === 0) {
-    response.status(400).send({
-      message: 'Data is empty. Cannot generate Excel file.'
+    data: any[],
+    response: Response,
+    nameFile: string,
+    skipFirstRow: boolean,
+    mergeColumns: string[] = [],
+    rowHeight: {
+      rowIndex: number
+      height: number
+    }[] = []
+  ): void {
+    /*
+     * ตรวจสอบข้อมูล
+     */
+    if (!Array.isArray(data) || data.length === 0) {
+      response.status(400).send({
+        message: 'Data is empty. Cannot generate Excel file.'
+      })
+      return
+    }
+
+    /*
+     * สร้าง Workbook และ Worksheet
+     */
+    const wb = XLSX.utils.book_new()
+
+    const ws = skipFirstRow ? XLSX.utils.aoa_to_sheet([[]]) : XLSX.utils.aoa_to_sheet([])
+
+    /*
+     * Header
+     */
+    const headers = Object.keys(data[0] ?? {})
+
+    const headerRowIndex = skipFirstRow ? 1 : 0
+    const dataStartRow = skipFirstRow ? 2 : 1
+
+    XLSX.utils.sheet_add_aoa(ws, [headers], {
+      origin: headerRowIndex
     })
-    return
-  }
 
-  /*
-   * สร้าง Workbook และ Worksheet
-   */
-  const wb = XLSX.utils.book_new()
+    /*
+     * เก็บค่าต้นฉบับไว้ใช้ตรวจจำนวนทศนิยม
+     */
+    const originalRows = data.map((row: any) => headers.map((header) => row?.[header]))
 
-  const ws = skipFirstRow
-    ? XLSX.utils.aoa_to_sheet([[]])
-    : XLSX.utils.aoa_to_sheet([])
+    /*
+     * แปลงค่าที่เป็น numeric string ให้เป็น JavaScript number
+     * ก่อนเขียนลง Worksheet
+     */
+    const excelRows = originalRows.map((row) =>
+      row.map((originalValue) => {
+        const numericValue = this.parseExcelNumber(originalValue)
 
-  /*
-   * Header
-   */
-  const headers = Object.keys(data[0] ?? {})
+        if (numericValue !== null) {
+          return numericValue
+        }
 
-  const headerRowIndex = skipFirstRow ? 1 : 0
-  const dataStartRow = skipFirstRow ? 2 : 1
+        return originalValue
+      })
+    )
 
-  XLSX.utils.sheet_add_aoa(ws, [headers], {
-    origin: headerRowIndex
-  })
-
-  /*
-   * เก็บค่าต้นฉบับไว้ใช้ตรวจจำนวนทศนิยม
-   */
-  const originalRows = data.map((row: any) =>
-    headers.map((header) => row?.[header])
-  )
-
-  /*
-   * แปลงค่าที่เป็น numeric string ให้เป็น JavaScript number
-   * ก่อนเขียนลง Worksheet
-   */
-  const excelRows = originalRows.map((row) =>
-    row.map((originalValue) => {
-      const numericValue =
-        this.parseExcelNumber(originalValue)
-
-      if (numericValue !== null) {
-        return numericValue
-      }
-
-      return originalValue
+    /*
+     * เพิ่ม Data
+     */
+    XLSX.utils.sheet_add_aoa(ws, excelRows, {
+      origin: dataStartRow
     })
-  )
 
-  /*
-   * เพิ่ม Data
-   */
-  XLSX.utils.sheet_add_aoa(ws, excelRows, {
-    origin: dataStartRow
-  })
+    /*
+     * ตรวจสอบ Worksheet Range
+     */
+    if (!ws['!ref']) {
+      throw new Error('Worksheet is empty. Cannot generate Excel file.')
+    }
 
-  /*
-   * ตรวจสอบ Worksheet Range
-   */
-  if (!ws['!ref']) {
-    throw new Error(
-      'Worksheet is empty. Cannot generate Excel file.'
-    )
-  }
+    const range = XLSX.utils.decode_range(ws['!ref'])
 
-  const range = XLSX.utils.decode_range(
-    ws['!ref']
-  )
+    if (range.e.r < 0 || range.e.c < 0) {
+      throw new Error('Worksheet is empty. Cannot generate Excel file.')
+    }
 
-  if (range.e.r < 0 || range.e.c < 0) {
-    throw new Error(
-      'Worksheet is empty. Cannot generate Excel file.'
-    )
-  }
+    /*
+     * กำหนด Data Cell เป็น Number จริง
+     * พร้อมรักษาจำนวนทศนิยม
+     */
+    for (let rowIndex = 0; rowIndex < originalRows.length; rowIndex++) {
+      const sheetRowIndex = dataStartRow + rowIndex
 
-  /*
-   * กำหนด Data Cell เป็น Number จริง
-   * พร้อมรักษาจำนวนทศนิยม
-   */
-  for (
-    let rowIndex = 0;
-    rowIndex < originalRows.length;
-    rowIndex++
-  ) {
-    const sheetRowIndex =
-      dataStartRow + rowIndex
-
-    for (
-      let columnIndex = 0;
-      columnIndex < headers.length;
-      columnIndex++
-    ) {
-      const cellAddress =
-        XLSX.utils.encode_cell({
+      for (let columnIndex = 0; columnIndex < headers.length; columnIndex++) {
+        const cellAddress = XLSX.utils.encode_cell({
           r: sheetRowIndex,
           c: columnIndex
         })
 
-      const cell = ws[cellAddress]
+        const cell = ws[cellAddress]
 
-      if (!cell) {
-        continue
-      }
+        if (!cell) {
+          continue
+        }
 
-      const originalValue =
-        originalRows[rowIndex][columnIndex]
+        const originalValue = originalRows[rowIndex][columnIndex]
 
-      const numericValue =
-        this.parseExcelNumber(originalValue)
+        const numericValue = this.parseExcelNumber(originalValue)
 
-      if (numericValue !== null) {
-        const decimalFromOriginal =
-          this.getDecimalPlacesFromValue(
-            originalValue
-          )
+        if (numericValue !== null) {
+          const decimalFromOriginal = this.getDecimalPlacesFromValue(originalValue)
 
-        /*
-         * บังคับเป็น Excel Number
-         */
-        cell.v = numericValue
-        cell.t = 'n'
+          /*
+           * บังคับเป็น Excel Number
+           */
+          cell.v = numericValue
+          cell.t = 'n'
 
-        /*
-         * ถ้าต้นฉบับเป็น string:
-         * "1,234.000" -> #,##0.000
-         *
-         * ถ้าต้นฉบับเป็น JavaScript number:
-         * ใช้ทศนิยมยืดหยุ่นสูงสุด 10 ตำแหน่ง
-         */
-        cell.z =
-          decimalFromOriginal !== null
-            ? this.getExcelNumberFormat(
-                decimalFromOriginal
-              )
-            : '#,##0.##########'
+          /*
+           * ถ้าต้นฉบับเป็น string:
+           * "1,234.000" -> #,##0.000
+           *
+           * ถ้าต้นฉบับเป็น JavaScript number:
+           * ใช้ทศนิยมยืดหยุ่นสูงสุด 10 ตำแหน่ง
+           */
+          cell.z = decimalFromOriginal !== null ? this.getExcelNumberFormat(decimalFromOriginal) : '#,##0.##########'
 
-        /*
-         * ลบ cached formatted value เดิม
-         */
-        if ('w' in cell) {
-          delete cell.w
+          /*
+           * ลบ cached formatted value เดิม
+           */
+          if ('w' in cell) {
+            delete cell.w
+          }
         }
       }
     }
-  }
 
-  /*
-   * Merge Cell ตาม Column ที่กำหนด
-   */
-  if (
-    Array.isArray(mergeColumns) &&
-    mergeColumns.length > 0 &&
-    data.length > 1
-  ) {
-    const columnIndices: {
-      [key: string]: number
-    } = {}
+    /*
+     * Merge Cell ตาม Column ที่กำหนด
+     */
+    if (Array.isArray(mergeColumns) && mergeColumns.length > 0 && data.length > 1) {
+      const columnIndices: {
+        [key: string]: number
+      } = {}
 
-    mergeColumns.forEach((columnName) => {
-      const columnIndex =
-        headers.indexOf(columnName)
+      mergeColumns.forEach((columnName) => {
+        const columnIndex = headers.indexOf(columnName)
 
-      if (columnIndex !== -1) {
-        columnIndices[columnName] =
-          columnIndex
-      }
-    })
+        if (columnIndex !== -1) {
+          columnIndices[columnName] = columnIndex
+        }
+      })
 
-    const mergeRanges: XLSX.Range[] = []
+      const mergeRanges: XLSX.Range[] = []
 
-    Object.keys(columnIndices).forEach(
-      (columnName) => {
-        const columnIndex =
-          columnIndices[columnName]
+      Object.keys(columnIndices).forEach((columnName) => {
+        const columnIndex = columnIndices[columnName]
 
         let groupStartDataIndex = 0
 
-        for (
-          let dataIndex = 1;
-          dataIndex <= data.length;
-          dataIndex++
-        ) {
-          const currentValue =
-            data[groupStartDataIndex]?.[
-              columnName
-            ]
+        for (let dataIndex = 1; dataIndex <= data.length; dataIndex++) {
+          const currentValue = data[groupStartDataIndex]?.[columnName]
 
-          const nextValue =
-            dataIndex < data.length
-              ? data[dataIndex]?.[
-                  columnName
-                ]
-              : Symbol('END')
+          const nextValue = dataIndex < data.length ? data[dataIndex]?.[columnName] : Symbol('END')
 
           /*
            * เมื่อค่าถัดไปไม่เท่ากัน ให้ปิดกลุ่ม
            */
           if (currentValue !== nextValue) {
-            const groupEndDataIndex =
-              dataIndex - 1
+            const groupEndDataIndex = dataIndex - 1
 
-            if (
-              groupEndDataIndex >
-              groupStartDataIndex
-            ) {
+            if (groupEndDataIndex > groupStartDataIndex) {
               mergeRanges.push({
                 s: {
-                  r:
-                    dataStartRow +
-                    groupStartDataIndex,
+                  r: dataStartRow + groupStartDataIndex,
                   c: columnIndex
                 },
                 e: {
-                  r:
-                    dataStartRow +
-                    groupEndDataIndex,
+                  r: dataStartRow + groupEndDataIndex,
                   c: columnIndex
                 }
               })
             }
 
-            groupStartDataIndex =
-              dataIndex
+            groupStartDataIndex = dataIndex
           }
         }
+      })
+
+      if (mergeRanges.length > 0) {
+        ws['!merges'] = [...(ws['!merges'] ?? []), ...mergeRanges]
       }
-    )
-
-    if (mergeRanges.length > 0) {
-      ws['!merges'] = [
-        ...(ws['!merges'] ?? []),
-        ...mergeRanges
-      ]
     }
-  }
 
-  /*
-   * Style Header
-   */
-  for (
-    let columnIndex = 0;
-    columnIndex < headers.length;
-    columnIndex++
-  ) {
-    const cellAddress =
-      XLSX.utils.encode_cell({
+    /*
+     * Style Header
+     */
+    for (let columnIndex = 0; columnIndex < headers.length; columnIndex++) {
+      const cellAddress = XLSX.utils.encode_cell({
         r: headerRowIndex,
         c: columnIndex
       })
-
-    const cell = ws[cellAddress]
-
-    if (!cell) {
-      continue
-    }
-
-    cell.s = {
-      ...cell.s,
-      font: {
-        ...cell.s?.font,
-        bold: true
-      },
-      alignment: {
-        horizontal: 'center',
-        vertical: 'center',
-        wrapText: true
-      },
-      fill: {
-        patternType: 'solid',
-        fgColor: {
-          rgb: 'F4F4F4'
-        }
-      },
-      border: {
-        top: {
-          style: 'thin',
-          color: {
-            rgb: '999999'
-          }
-        },
-        bottom: {
-          style: 'thin',
-          color: {
-            rgb: '999999'
-          }
-        },
-        left: {
-          style: 'thin',
-          color: {
-            rgb: '999999'
-          }
-        },
-        right: {
-          style: 'thin',
-          color: {
-            rgb: '999999'
-          }
-        }
-      }
-    }
-  }
-
-  /*
-   * ปรับ Column Width
-   */
-  const objectMaxLength =
-    headers.map((header) => header.length)
-
-  originalRows.forEach((row) => {
-    row.forEach(
-      (
-        originalValue,
-        columnIndex
-      ) => {
-        const valueLength =
-          originalValue === null ||
-          originalValue === undefined
-            ? 0
-            : String(
-                originalValue
-              ).length
-
-        objectMaxLength[columnIndex] =
-          Math.max(
-            objectMaxLength[columnIndex] ??
-              0,
-            valueLength
-          )
-      }
-    )
-  })
-
-  ws['!cols'] = objectMaxLength.map(
-    (maxLength) => ({
-      wch: Math.min(
-        Math.max(maxLength + 5, 10),
-        30
-      )
-    })
-  )
-
-  /*
-   * ปรับ Alignment และ Row Height
-   */
-  ws['!rows'] = []
-
-  for (
-    let R = range.s.r;
-    R <= range.e.r;
-    R++
-  ) {
-    let maxHeight = 20
-
-    for (
-      let C = range.s.c;
-      C <= range.e.c;
-      C++
-    ) {
-      const cellAddress =
-        XLSX.utils.encode_cell({
-          r: R,
-          c: C
-        })
 
       const cell = ws[cellAddress]
 
@@ -760,183 +578,218 @@ formatNumberSixDecimalNomRound(number: any){
         continue
       }
 
-      /*
-       * Header จัดกลาง
-       */
-      if (R === headerRowIndex) {
-        cell.s = {
-          ...cell.s,
-          alignment: {
-            ...cell.s?.alignment,
-            horizontal: 'center',
-            vertical: 'center',
-            wrapText: true
+      cell.s = {
+        ...cell.s,
+        font: {
+          ...cell.s?.font,
+          bold: true
+        },
+        alignment: {
+          horizontal: 'center',
+          vertical: 'center',
+          wrapText: true
+        },
+        fill: {
+          patternType: 'solid',
+          fgColor: {
+            rgb: 'F4F4F4'
           }
-        }
-      } else if (cell.t === 'n') {
-        /*
-         * Number ชิดขวา
-         */
-        cell.s = {
-          ...cell.s,
-          alignment: {
-            ...cell.s?.alignment,
-            vertical: 'top',
-            horizontal: 'right',
-            wrapText: false
-          }
-        }
-      } else if (
-        typeof cell.v === 'string'
-      ) {
-        /*
-         * Text ชิดซ้ายและ Wrap
-         */
-        cell.s = {
-          ...cell.s,
-          alignment: {
-            ...cell.s?.alignment,
-            wrapText: true,
-            vertical: 'top',
-            horizontal: 'left'
+        },
+        border: {
+          top: {
+            style: 'thin',
+            color: {
+              rgb: '999999'
+            }
+          },
+          bottom: {
+            style: 'thin',
+            color: {
+              rgb: '999999'
+            }
+          },
+          left: {
+            style: 'thin',
+            color: {
+              rgb: '999999'
+            }
+          },
+          right: {
+            style: 'thin',
+            color: {
+              rgb: '999999'
+            }
           }
         }
       }
-
-      const cellText =
-        cell.v === null ||
-        cell.v === undefined
-          ? ''
-          : String(cell.v)
-
-      const lines = Math.max(
-        1,
-        Math.ceil(cellText.length / 30)
-      )
-
-      maxHeight = Math.max(
-        maxHeight,
-        lines * 15
-      )
     }
 
-    ws['!rows'][R] = {
-      hpx: maxHeight
-    }
-  }
+    /*
+     * ปรับ Column Width
+     */
+    const objectMaxLength = headers.map((header) => header.length)
 
-  /*
-   * ซ่อนแถวแรกเฉพาะเมื่อ skipFirstRow = true
-   */
-  if (skipFirstRow) {
-    ws['!rows'][0] = {
-      ...(ws['!rows'][0] ?? {}),
-      hidden: true
-    }
-  }
+    originalRows.forEach((row) => {
+      row.forEach((originalValue, columnIndex) => {
+        const valueLength = originalValue === null || originalValue === undefined ? 0 : String(originalValue).length
 
-  /*
-   * Custom Row Height
-   */
-  if (Array.isArray(rowHeight)) {
-    rowHeight.forEach((item) => {
-      if (
-        item?.rowIndex === undefined ||
-        item?.rowIndex === null
-      ) {
-        return
-      }
-
-      ws['!rows'][item.rowIndex] = {
-        ...(ws['!rows'][
-          item.rowIndex
-        ] ?? {}),
-        hpt: item.height
-      }
+        objectMaxLength[columnIndex] = Math.max(objectMaxLength[columnIndex] ?? 0, valueLength)
+      })
     })
-  }
 
-  /*
-   * เพิ่ม Worksheet ลง Workbook
-   */
-  XLSX.utils.book_append_sheet(
-    wb,
-    ws,
-    'DataSheet'
-  )
+    ws['!cols'] = objectMaxLength.map((maxLength) => ({
+      wch: Math.min(Math.max(maxLength + 5, 10), 30)
+    }))
 
-  if (!wb.SheetNames.length) {
-    throw new Error(
-      'Workbook is empty. Cannot generate Excel file.'
-    )
-  }
+    /*
+     * ปรับ Alignment และ Row Height
+     */
+    ws['!rows'] = []
 
-  /*
-   * Debug ตรวจสอบ Number Cell
-   * ลบภายหลังได้
-   */
-  const firstNumericCell = (() => {
-    for (
-      let rowIndex = 0;
-      rowIndex < originalRows.length;
-      rowIndex++
-    ) {
-      for (
-        let columnIndex = 0;
-        columnIndex < headers.length;
-        columnIndex++
-      ) {
-        const address =
-          XLSX.utils.encode_cell({
-            r:
-              dataStartRow +
-              rowIndex,
+    for (let R = range.s.r; R <= range.e.r; R++) {
+      let maxHeight = 20
+
+      for (let C = range.s.c; C <= range.e.c; C++) {
+        const cellAddress = XLSX.utils.encode_cell({
+          r: R,
+          c: C
+        })
+
+        const cell = ws[cellAddress]
+
+        if (!cell) {
+          continue
+        }
+
+        /*
+         * Header จัดกลาง
+         */
+        if (R === headerRowIndex) {
+          cell.s = {
+            ...cell.s,
+            alignment: {
+              ...cell.s?.alignment,
+              horizontal: 'center',
+              vertical: 'center',
+              wrapText: true
+            }
+          }
+        } else if (cell.t === 'n') {
+          /*
+           * Number ชิดขวา
+           */
+          cell.s = {
+            ...cell.s,
+            alignment: {
+              ...cell.s?.alignment,
+              vertical: 'top',
+              horizontal: 'right',
+              wrapText: false
+            }
+          }
+        } else if (typeof cell.v === 'string') {
+          /*
+           * Text ชิดซ้ายและ Wrap
+           */
+          cell.s = {
+            ...cell.s,
+            alignment: {
+              ...cell.s?.alignment,
+              wrapText: true,
+              vertical: 'top',
+              horizontal: 'left'
+            }
+          }
+        }
+
+        const cellText = cell.v === null || cell.v === undefined ? '' : String(cell.v)
+
+        const lines = Math.max(1, Math.ceil(cellText.length / 30))
+
+        maxHeight = Math.max(maxHeight, lines * 15)
+      }
+
+      ws['!rows'][R] = {
+        hpx: maxHeight
+      }
+    }
+
+    /*
+     * ซ่อนแถวแรกเฉพาะเมื่อ skipFirstRow = true
+     */
+    if (skipFirstRow) {
+      ws['!rows'][0] = {
+        ...(ws['!rows'][0] ?? {}),
+        hidden: true
+      }
+    }
+
+    /*
+     * Custom Row Height
+     */
+    if (Array.isArray(rowHeight)) {
+      rowHeight.forEach((item) => {
+        if (item?.rowIndex === undefined || item?.rowIndex === null) {
+          return
+        }
+
+        ws['!rows'][item.rowIndex] = {
+          ...(ws['!rows'][item.rowIndex] ?? {}),
+          hpt: item.height
+        }
+      })
+    }
+
+    /*
+     * เพิ่ม Worksheet ลง Workbook
+     */
+    XLSX.utils.book_append_sheet(wb, ws, 'DataSheet')
+
+    if (!wb.SheetNames.length) {
+      throw new Error('Workbook is empty. Cannot generate Excel file.')
+    }
+
+    /*
+     * Debug ตรวจสอบ Number Cell
+     * ลบภายหลังได้
+     */
+    const firstNumericCell = (() => {
+      for (let rowIndex = 0; rowIndex < originalRows.length; rowIndex++) {
+        for (let columnIndex = 0; columnIndex < headers.length; columnIndex++) {
+          const address = XLSX.utils.encode_cell({
+            r: dataStartRow + rowIndex,
             c: columnIndex
           })
 
-        if (ws[address]?.t === 'n') {
-          return {
-            address,
-            cell: ws[address]
+          if (ws[address]?.t === 'n') {
+            return {
+              address,
+              cell: ws[address]
+            }
           }
         }
       }
-    }
 
-    return null
-  })()
+      return null
+    })()
 
-  console.log(
-    'First numeric Excel cell:',
-    firstNumericCell
-  )
+    console.log('First numeric Excel cell:', firstNumericCell)
 
-  /*
-   * เขียน Excel Buffer
-   */
-  const excelBuffer = XLSX.write(
-    wb,
-    {
+    /*
+     * เขียน Excel Buffer
+     */
+    const excelBuffer = XLSX.write(wb, {
       bookType: 'xlsx',
       type: 'buffer',
       cellStyles: true
-    }
-  )
+    })
 
-  response.setHeader(
-    'Content-Disposition',
-    `attachment; filename="${getTodayNowAdd7().format(
-      'YYYY-MM-DD HH-mm'
-    )}_${nameFile}.xlsx"`
-  )
+    response.setHeader('Content-Disposition', `attachment; filename="${getTodayNowAdd7().format('YYYY-MM-DD HH-mm')}_${nameFile}.xlsx"`)
 
-  response.setHeader(
-    'Content-Type',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  )
+    response.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
-  response.send(excelBuffer)
-}
+    response.send(excelBuffer)
+  }
 
   exportDataToExcelNewWithHead(
     data: any[],
@@ -1232,22 +1085,24 @@ formatNumberSixDecimalNomRound(number: any){
   }
 
   formatNumberFourDecimal(number: any) {
-    if (isNaN(number)) return '';
+    if (isNaN(number)) return ''
 
     if (number == 0) {
-        return "0.0000"; // special case for zero
+      // Coverity flags this as unused_expr (NO_EFFECT).
+      // coverity[unused_expr:SUPPRESS]
+      return '0.0000' // special case for zero
     }
 
     if (number == null || number == undefined) {
-        return "";
+      return ''
     }
 
-    const fixedNumber = parseFloat(number).toFixed(4); // Keep 4 decimal places
-    const [intPart, decimalPart] = fixedNumber.split(".");
-    const withCommas = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const fixedNumber = parseFloat(number).toFixed(4) // Keep 4 decimal places
+    const [intPart, decimalPart] = fixedNumber.split('.')
+    const withCommas = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 
-    return `${withCommas}.${decimalPart}`;
-};
+    return `${withCommas}.${decimalPart}`
+  }
 
   // digit2 new
   dcimal2 = (number: any) => {
@@ -1308,6 +1163,8 @@ formatNumberSixDecimalNomRound(number: any){
     if (isNaN(numbers)) return numbers
 
     if (numbers == 0) {
+      // Coverity flags this as unused_expr (NO_EFFECT).
+      // coverity[unused_expr:SUPPRESS]
       return '0.0000' // special case for zero
     }
 
@@ -1544,6 +1401,8 @@ formatNumberSixDecimalNomRound(number: any){
 
     if (number)
       if (number == 0) {
+        // Coverity flags this as unused_expr (NO_EFFECT).
+        // coverity[unused_expr:SUPPRESS]
         return '0.0000' // special case for zero
       }
 
@@ -1570,43 +1429,6 @@ formatNumberSixDecimalNomRound(number: any){
 
     return `${formattedInteger}.${trimmedDecimal}`
   }
-
-  // formatNumberFourDecimalNom(number: any) {
-  //   if (number === null || number === undefined || number === '') return ''
-
-  //   const num = Number(String(number).replace(/,/g, ''))
-  //   if (Number.isNaN(num)) return number
-
-  //   return num.toLocaleString('en-US', {
-  //     minimumFractionDigits: 4,
-  //     maximumFractionDigits: 4
-  //   })
-  // }
-
-  // เติมทศนิยม 4 ตำแหน่ง
-  // formatNumberFDecimal(number: any) {
-  //   if (isNaN(number)) return number; // Handle invalid numbers gracefully
-
-  //   // Convert number to a fixed 4-decimal format
-  //   const fixedNumber = parseFloat(number).toFixed(4);
-
-  //   // Add thousand separators
-  //   return fixedNumber.replace(/\B(?=(\d{4})+(?!\d))/g, ',');
-  // }
-  // formatNumberFDecimal = (number: any) => {
-  //   if (isNaN(number)) return number;
-
-  //   if (number == 0) {
-  //     return '0.0000'; // special case for zero
-  //   }
-
-  //   const fixedNumber = parseFloat(number).toFixed(4); // Keep 4 decimal places
-  //   const [intPart, decimalPart] = fixedNumber.split('.');
-
-  //   const withCommas = intPart?.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-
-  //   return `${withCommas}.${decimalPart}`;
-  // };
 
   // formate เวลา 00:00
   formatNumberHour(hour: any, minute: any) {
@@ -2295,11 +2117,11 @@ formatNumberSixDecimalNomRound(number: any){
       const reqUser = e?.create_by_account ?? JSON?.parse(e?.reqUser)
       const firstName = reqUser?.first_name
       const last_name = reqUser?.last_name
-      const fullName = `${firstName ? `${firstName} ` : ''}${last_name ?? ''}`
+      const fullName = `${firstName ? `${firstName} ` : ''}${last_name ?? ''}`.trim()
 
       let setData = {
-        ['ID']: e['id'],
-        ['Module']: e['module'],
+        ['ID']: e && e['id'] || null,
+        ['Module']: e && e['module'] || null,
         ['Action Date']: (!!e['create_date'] && dayjs(e['create_date']).format('DD/MM/YYYY HH:mm')) || null,
         ['First Name / Last Name']: fullName,
         //   (JSON.parse(
@@ -2311,7 +2133,7 @@ formatNumberSixDecimalNomRound(number: any){
         //   )?.last_name ||
         //     null),
         // // ['Description']: e['method'],
-        ['Description']: `${renameMethod(e?.method, e?.type)} ${matchTypeWithMenu(e?.type)}`
+        ['Description']: e && `${renameMethod(e?.method, e?.type)} ${matchTypeWithMenu(e?.type)}` || ""
       }
       let filteredData = Object.keys(setData)
         .filter((key) => filter.includes(key)) // กรอง key ที่ตรงกับ filter
@@ -2631,17 +2453,20 @@ formatNumberSixDecimalNomRound(number: any){
     const sortedResData = resData.sort((a, b) => idArray.indexOf(a.id) - idArray.indexOf(b.id))
     const formateData = await sortedResData.map((e: any) => {
       let setData = {
+        ['Nomination Point']: e['nomination_point'],
+        ['Description']: e['description'],
         ['Entry / Exit']: e['entry_exit']?.['name'],
         ['Zone']: e['zone']?.['name'],
         ['Area']: e['area']?.['name'],
         // ['Contract Point']: e['contract_point']?.['contract_point'],
         ['Contract Point']: (e['contract_point_list'].length > 0 && e['contract_point_list'].map((contract_point_list: any) => `${contract_point_list?.contract_point}`).join(',')) || null,
-        ['Nomination Point']: e['nomination_point'],
-        ['Description']: e['description'],
         ['Customer Type']: e['customer_type']?.['name'],
         ['Maximum Capacity (MMSCFD)']: (!!e['maximum_capacity'] && this.formatNumberThreeDecimal(e['maximum_capacity'])) || null,
         ['Start Date']: !!e['start_date'] ? dayjs(e['start_date']).format('DD/MM/YYYY') : null,
-        ['End Date']: !!e['end_date'] ? dayjs(e['end_date']).format('DD/MM/YYYY') : null
+        ['End Date']: !!e['end_date'] ? dayjs(e['end_date']).format('DD/MM/YYYY') : null,
+        ['Updated by']: `${(!!e['update_by_account']?.['first_name'] && e['update_by_account']?.['first_name']) || ''} ${(!!e['update_by_account']?.['last_name'] && e['update_by_account']?.['last_name']) || ''} ${
+          !!e['update_date'] ? '(' + dayjs(e['update_date']).format('DD/MM/YYYY HH:mm:ss') + ')' : ''
+        }`
       }
       let filteredData = Object.keys(setData)
         .filter((key) => filter.includes(key)) // กรอง key ที่ตรงกับ filter
@@ -2758,6 +2583,41 @@ formatNumberSixDecimalNomRound(number: any){
         ['Type Concept Points']: e['type_concept_point']?.['name'],
         ['Start Date']: !!e['start_date'] ? dayjs(e['start_date']).format('DD/MM/YYYY') : null,
         ['End Date']: !!e['end_date'] ? dayjs(e['end_date']).format('DD/MM/YYYY') : null
+      }
+      let filteredData = Object.keys(setData)
+        .filter((key) => filter.includes(key)) // กรอง key ที่ตรงกับ filter
+        .reduce((obj, key) => {
+          obj[key] = setData[key] // เพิ่ม key และ value ที่ผ่านการกรอง
+          return obj
+        }, {})
+      // filter
+      return filteredData
+    })
+    await this.exportDataToExcelNew(formateData, response, 'Concept Point', true)
+  }
+
+  async epDamConceptPointLimit(response: Response, payload: any) {
+    const {filter, body} = payload
+    const resData = await this.assetConceptPointService.limitConceptPointHistory({
+      ignorePagination: true,
+      limit: 3000,
+      offset: 0,
+      q: body?.q || '',
+      groupId: body?.groupId || '',
+      conceptPointId: body?.conceptPointId || '',
+      startDate: body?.startDate || '',
+      endDate: body?.endDate || '',
+      orderByName: body?.orderByName || '',
+      orderBy: body?.orderBy || ''
+    })
+    const formateData = (resData?.data || []).map((e: limitConceptPointHistoryRecord) => {
+      let setData = {
+        ['Shipper name']: e.group?.name || '',
+        ['Concept point']: e.concept_point?.concept_point || '',
+        ['Created date']: `${!!e.create_date ? dayjs(e.create_date).format('DD/MM/YYYY HH:mm') : ''}`,
+        ['Deleted date']: `${!!e.deleted_date ? dayjs(e.deleted_date).format('DD/MM/YYYY HH:mm') : ''}`,
+        ['Created by']: `${(!!e.create_by_account?.first_name && e.create_by_account?.first_name) || ''} ${(!!e.create_by_account?.last_name && e.create_by_account?.last_name) || ''}`,
+        ['Deleted by']: `${(!!e.update_by_account?.first_name && e.update_by_account?.first_name) || ''} ${(!!e.update_by_account?.last_name && e.update_by_account?.last_name) || ''}`,
       }
       let filteredData = Object.keys(setData)
         .filter((key) => filter.includes(key)) // กรอง key ที่ตรงกับ filter
@@ -3780,7 +3640,7 @@ formatNumberSixDecimalNomRound(number: any){
         ['Type']: e['hv_type']?.['type'],
         ['Shipper Name']: e['group']?.['name'],
         // ['Meter Point/Concept Point']: e['metering_point']?.['metered_point_name'],
-        ['Type Meter/Concept']: e?.meter_concept_type_id === 1 || e?.meter_concept_type_id === null ? 'Meter Point' : 'Concept Poin (Type Meter)',
+        ['Type Meter/Concept']: e && (e?.meter_concept_type_id === 1 || e?.meter_concept_type_id === null) ? 'Meter Point' : 'Concept Poin (Type Meter)',
         ['Meter Point']: e?.metering_point?.metered_point_name || '',
         ['Concept Point']: e?.concept_point?.concept_point || '',
         ['Start Date']: !!e['start_date'] ? dayjs(e['start_date']).format('DD/MM/YYYY') : null,
@@ -4567,7 +4427,7 @@ formatNumberSixDecimalNomRound(number: any){
         const rowData = e[1].map((item: any) => {
           const setData = {
             ['Point']: item.temp_contract_point || null,
-            ['Start Date']: !!item?.temp_start_date ? dayjs(item?.temp_start_date).format('DD/MM/YYYY') : null,
+            ['Start Date']: item && !!item?.temp_start_date ? dayjs(item?.temp_start_date).format('DD/MM/YYYY') : null,
             ['End Date']: !!item?.temp_end_date ? dayjs(item?.temp_end_date).format('DD/MM/YYYY') : null,
             ['Contracted (MMBTU/D)']: (!!item?.total_contracted_mmbtu_d && this.formatNumberThreeDecimal(item?.total_contracted_mmbtu_d)) || null,
             ['Contracted (MMSCFD)']: (!!item?.total_contracted_mmscfd && this.formatNumberThreeDecimal(item?.total_contracted_mmscfd)) || null,
@@ -4758,7 +4618,7 @@ formatNumberSixDecimalNomRound(number: any){
 
     const mergeColumns = ['Release Start Date', 'Release End Date', 'Submitted Timestamp', 'Contract Code', 'Shipper Name']
 
-    // await this.exportDataToExcelNew( 
+    // await this.exportDataToExcelNew(
     //   formateData,
     //   response,
     //   'Release/UILIO Smmary Management',
@@ -4782,7 +4642,7 @@ formatNumberSixDecimalNomRound(number: any){
       return item
     })
 
-    if (maxDay == undefined && payload?.maxDay) {
+    if (maxDay == undefined && payload && payload?.maxDay) {
       const day = dayjs(payload?.maxDay, 'MMM YYYY', true)
       if (day.isValid()) {
         maxDay = day
@@ -4790,7 +4650,7 @@ formatNumberSixDecimalNomRound(number: any){
     }
 
     const resData = await this.useItOrLoseItService.findAll2({
-      startDate: maxDay.format('MM/YYYY')
+      startDate: maxDay ? maxDay.format('MM/YYYY') : dayjs().format('MM/YYYY')
     })
 
     let newData = []
@@ -4912,7 +4772,7 @@ formatNumberSixDecimalNomRound(number: any){
       return item
     })
 
-    if (maxDay == undefined && payload?.maxDay) {
+    if (maxDay == undefined && payload && payload?.maxDay) {
       const day = dayjs(payload?.maxDay, 'MMM YYYY', true)
       if (day.isValid()) {
         maxDay = day
@@ -4920,7 +4780,7 @@ formatNumberSixDecimalNomRound(number: any){
     }
 
     const resData = await this.useItOrLoseItService.findAll3({
-      startDate: maxDay.format('MM/YYYY'),
+      startDate: (maxDay || dayjs()).format('MM/YYYY'),
       shipper: bodys?.shipper
     })
 
@@ -5524,6 +5384,13 @@ formatNumberSixDecimalNomRound(number: any){
       let setData = {
         ['Term']: e['term_type']?.['name'],
         ['Shipper Name']: e['group']?.['name'],
+        ['Nomination Point']: (
+          e.planning_file_submission_template_nom && Array.isArray(e.planning_file_submission_template_nom) ?
+          e.planning_file_submission_template_nom
+            .sort((a: any, b: any) => (a.nomination_point?.nomination_point || '').toLowerCase().localeCompare(b.nomination_point?.nomination_point || ''))
+            .map((nom: any) => `${nom?.nomination_point?.nomination_point || ''}`).join(',')
+          : null
+        ),
         ['Start Date']: !!e['start_date'] ? dayjs(e['start_date']).format('DD/MM/YYYY') : null,
         ['End Date']: !!e['end_date'] ? dayjs(e['end_date']).format('DD/MM/YYYY') : null,
         ['Created by']: `${(!!e['create_by_account']?.['first_name'] && e['create_by_account']?.['first_name']) || ''} ${(!!e['create_by_account']?.['last_name'] && e['create_by_account']?.['last_name']) || ''} ${
@@ -6304,7 +6171,7 @@ formatNumberSixDecimalNomRound(number: any){
           }
         }
       } catch (error) {
-        if (e?.submitted_timestamp) {
+        if (e && e?.submitted_timestamp) {
           const defaultDate = dayjs(e?.submitted_timestamp)
           if (defaultDate.isValid()) {
             submittedTimestamp = defaultDate.tz('Asia/Bangkok').format('DD/MM/YYYY HH:mm')
@@ -6484,7 +6351,7 @@ formatNumberSixDecimalNomRound(number: any){
           }
         }
       } catch (error) {
-        if (e?.submitted_timestamp) {
+        if (e && e?.submitted_timestamp) {
           const defaultDate = dayjs(e?.submitted_timestamp)
           if (defaultDate.isValid()) {
             submittedTimestamp = defaultDate.tz('Asia/Bangkok').format('DD/MM/YYYY HH:mm')
@@ -6638,7 +6505,7 @@ formatNumberSixDecimalNomRound(number: any){
     let nrestype = []
     let gasdayjs: dayjs.Dayjs | undefined
     if (gasday) {
-      nrestype = restype.filter((f: any) => {
+      nrestype = (restype || []).filter((f: any) => {
         return f?.gasday === gasday
       })
       gasdayjs = dayjs(gasday, 'DD/MM/YYYY')
@@ -6646,7 +6513,7 @@ formatNumberSixDecimalNomRound(number: any){
       nrestype = restype
     }
 
-    const formateData = await (!!data ? data : nrestype).map((e: any) => {
+    const formateData = await (!!data ? data : nrestype || []).map((e: any) => {
       let setData = {
         ['Gas Day']: e['gasday'],
         ['Zone']: e['zone']?.['name'],
@@ -6711,17 +6578,14 @@ formatNumberSixDecimalNomRound(number: any){
     const gasDay = gasDayjs.isValid() ? gasDayjs.format('YYYY-MM-DD') : dayjs().tz('Asia/Bangkok').format('YYYY-MM-DD')
     const resData = await this.qualityPlanningService.findAll({
       gasDay,
-      tab: type == 3 ? '0' : `${type}`
+      tab: type == 4 ? '0' : `${type}`
     })
-    const restype = type === 1 ? resData?.newDaily : type === 2 ? resData?.newWeekly : resData?.intraday
+    const restype = type === 1 ? resData?.newAll : type === 2 ? resData?.newDaily : type === 3 ? resData?.newWeekly : resData?.intraday
 
     // "gasday": "01/04/2025"
     let nrestype = []
     let gasdayjs: dayjs.Dayjs | undefined
     if (gasday) {
-      // nrestype = restype.filter((f: any) => {
-      //   return f?.gasday === gasday;
-      // });
       gasdayjs = dayjs(gasday, 'DD/MM/YYYY')
     } else {
       //   nrestype = restype;
@@ -6749,14 +6613,14 @@ formatNumberSixDecimalNomRound(number: any){
       return result
     }
 
-    if (type === 1) {
+    if (type === 1 || type == 2) {
       const next7 = getNext7Days(gasday)
-      nrestype = restype.filter((f: any) => {
+      nrestype = (restype || []).filter((f: any) => {
         return next7.includes(f?.gasday)
       })
-    } else if (type === 2) {
+    } else if (type === 3) {
       const prev7 = getPrev7Days(gasday)
-      nrestype = restype.filter((f: any) => {
+      nrestype = (restype || []).filter((f: any) => {
         return prev7.includes(f?.gasday)
       })
     } else {
@@ -6770,7 +6634,7 @@ formatNumberSixDecimalNomRound(number: any){
     //   ['desc', 'asc']
     // );
 
-    const formateData = await nrestype.map((e: any) => {
+    const formateData = (nrestype || []).map((e: any) => {
       let setData = {
         ['Gas Day']: e['gasday'],
         ['Zone']: e['zone']?.['name'],
@@ -7826,7 +7690,7 @@ formatNumberSixDecimalNomRound(number: any){
     const formateData = await nomDatas?.table.map((e: any) => {
       let setData = {
         // ['Contract Code']: e['contract_code']?.['contract_code'] || '',
-        ['Contract Code']: e['reserve_balancing_gas_contract'] ? e?.reserve_balancing_gas_contract?.res_bal_gas_contract : e['contract_code']?.['contract_code'] || '',
+        ['Contract Code']: e && (e['reserve_balancing_gas_contract'] ? e?.reserve_balancing_gas_contract?.res_bal_gas_contract : e['contract_code']?.['contract_code'] || '') || "",
         ['Shipper Name']: e['group']?.['name'] || '',
         ['Entry Quality']: e['entry_quality'] ? '✖' : '✔',
         ['Overuse Quantity']: e['overuse_quantity'] ? '✖' : '✔',
@@ -7868,13 +7732,13 @@ formatNumberSixDecimalNomRound(number: any){
       .flatMap((e: any) => {
         const yesterdayDataPark = e?.['dataParkD-1']?.data
 
-        const eData = e['data'].map((eD: any) => {
+        const eData = (e && e['data'] || []).map((eD: any) => {
           const {data, ...neD} = eD
           const yesterdayItemPark = yesterdayDataPark?.find((yesterdayItem: any) => (yesterdayItem?.contract_code ? yesterdayItem?.contract_code == eD?.data?.[0]?.contract_code?.contract_code : yesterdayItem?.reserve_balancing_gas_contract == eD?.data?.[0]?.reserve_balancing_gas_contract))
           const parkF = data?.find((f: any) => f?.type === 'Park')
-          const park = !!parkF ? this.formatNumberThreeDecimal(parkF?.value) : ''
+          const park = !!parkF ? this.formatNumberFourDecimal(parkF?.value) : ''
           const unparkF = data?.find((f: any) => f?.type === 'Unpark')
-          const unpark = !!unparkF ? this.formatNumberThreeDecimal(unparkF?.value) : ''
+          const unpark = !!unparkF ? this.formatNumberFourDecimal(unparkF?.value) : ''
           const zone = e['zone']
           const zoneObj = e['zoneObj']
           const group = eD['data'][0]?.['group']?.['name']
@@ -7882,7 +7746,7 @@ formatNumberSixDecimalNomRound(number: any){
           const parkDefault = e['parkDefault']
           const lastUserParkValue = e['lastUserParkValue']
           const version = eD['data'][0]?.['version']?.['version']
-          const EODPark = yesterdayItemPark?.EODPark !== null && yesterdayItemPark?.EODPark !== undefined ? this.formatNumberThreeDecimal(yesterdayItemPark?.EODPark) : ''
+          const EODPark = yesterdayItemPark?.EODPark !== null && yesterdayItemPark?.EODPark !== undefined ? this.formatNumberFourDecimal(yesterdayItemPark?.EODPark) : ''
           return {
             ...neD,
             park,
@@ -7908,14 +7772,14 @@ formatNumberSixDecimalNomRound(number: any){
         // )
         const total = [
           {
-            zone: `Maximum Park Value : ${(e['parkDefault']?.['value'] && this.formatNumberThreeDecimal(e['parkDefault']?.['value'])) || ''}`,
+            zone: `Maximum Park Value : ${(e['parkDefault']?.['value'] && this.formatNumberFourDecimal(e['parkDefault']?.['value'])) || ''}`,
             group: '',
             contract_code_text: '',
-            nomination_code: `EOD Value (D-1)  : ${e?.['EODValueSumD-1'] ? this.formatNumberThreeDecimal(e?.['EODValueSumD-1']) : ''}`,
+            nomination_code: `EOD Value (D-1)  : ${e && e?.['EODValueSumD-1'] ? this.formatNumberFourDecimal(e?.['EODValueSumD-1']) : ''}`,
             version: '',
             EODPark: 'Available Parking Value',
-            unpark: this.formatNumberThreeDecimal(eData?.map((p: any) => p?.['unpark'])?.reduce((accumulator, currentValue) => accumulator + Number(currentValue?.replace(/,/g, '') || 0), 0) || 0),
-            park: this.formatNumberThreeDecimal(eData?.map((p: any) => p?.['park'])?.reduce((accumulator, currentValue) => accumulator + Number(currentValue?.replace(/,/g, '') || 0), 0) || 0),
+            unpark: this.formatNumberFourDecimal(eData?.map((p: any) => p?.['unpark'])?.reduce((accumulator, currentValue) => accumulator + Number(currentValue?.replace(/,/g, '') || 0), 0) || 0),
+            park: this.formatNumberFourDecimal(eData?.map((p: any) => p?.['park'])?.reduce((accumulator, currentValue) => accumulator + Number(currentValue?.replace(/,/g, '') || 0), 0) || 0),
             parkAllocatedMMBTUD: this.formatNumberThreeDecimal(`${calcTotal}`)
           }
         ]
@@ -8054,12 +7918,13 @@ formatNumberSixDecimalNomRound(number: any){
           ['Contract Code']: e['contract'],
           ['Nomination Point / Concept Point']: e['point'],
           ['Entry / Exit']: e['entry_exit_obj']?.['name'],
-          ['Zone']: e['zone_obj']?.['name'] || e?.['zone'],
-          ['Area']: e['area_obj']?.['name'] || e?.['area'],
+          ['Zone']: e && (e['zone_obj']?.['name'] || e['zone']) || null,
+          ['Area']: e && (e['area_obj']?.['name'] || e['area']) || null,
           ['Nominated Value (MMBTU/D)']: this.formatNumberThreeDecimal(e['nominationValue']),
           ['System Allocation (MMBTU/D)']: e['systemAllocation'] && this.formatNumberFDecimal(e['systemAllocation']),
           ['Previous Allocation TPA for Review (MMBTU/D)']: e['previousAllocationTPAforReview'] && this.formatNumberFDecimal(e['previousAllocationTPAforReview']),
           ['Shipper Review Allocation (MMBTU/D)']: e['allocation_management_shipper_review']?.length > 0 ? this.formatNumberFDecimal(e['allocation_management_shipper_review'][0]?.shipper_allocation_review) : '',
+          ['Shipper Allocation Review (MMBTU/D)']: e['allocation_management_shipper_review']?.length > 0 ? this.formatNumberFDecimal(e['allocation_management_shipper_review'][0]?.shipper_allocation_review) : '',
           ['Review Code']: e['review_code'] || '',
           ['Comment']: lengthSubmission.length > 32767 ? lengthSubmission.slice(0, 32700) + 'เกินลิมิตแล้วโปรดดูที่เว็บ' : lengthSubmission
         }
@@ -8088,10 +7953,24 @@ formatNumberSixDecimalNomRound(number: any){
     // const formateData = await sortedResData.map((e: any) => {
     const formateData = await resData.map((e: any) => {
       let setData = {
+        ['Entry / Exit']: '',
+        ['Zone']: '',
+        ['Gas Day']: '',
+        ['Gas Hour']: '',
+        ['Shipper Name']: '',
+        ['Contract Code']: '',
+        ['Nomination Point / Concept Point']: '',
+        ['Nominated Value (MMBTU/D)']: '',
+        ['System Allocation (MMBTU/D)']: '',
+        ['Timestamp']: ''
+      }
+
+      if(e){
+      setData = {
         ['Entry / Exit']: e['entry_exit_obj']?.['name'],
         ['Zone']: e['zone_obj']?.['name'],
         ['Gas Day']: !!e['gas_day'] ? dayjs(e['gas_day']).format('DD/MM/YYYY') : '',
-        ['Gas Hour']: (e['gas_hour'] && `${e?.gas_hour > 10 ? e?.gas_hour + ':00' : '0' + e?.gas_hour + ':00'}`) || '', //
+        ['Gas Hour']: e !== null && e !== undefined && (e['gas_hour'] && `${e.gas_hour > 10 ? e.gas_hour + ':00' : '0' + e.gas_hour + ':00'}`) || '', //
         ['Shipper Name']: e['group']?.['name'],
         ['Contract Code']: e['contract'],
         ['Nomination Point / Concept Point']: e['point'],
@@ -8099,6 +7978,7 @@ formatNumberSixDecimalNomRound(number: any){
         ['Nominated Value (MMBTU/D)']: this.dcimal3(e['nominationValue'] || 0),
         ['System Allocation (MMBTU/D)']: (e['systemAllocation'] !== null && e['systemAllocation'] !== undefined && this.dcimal4(e['systemAllocation'])) || null,
         ['Timestamp']: e['execute_timestamp'] && dayjs(e['execute_timestamp'] * 1000).format('DD/MM/YYYY HH:mm')
+      }
       }
       let filteredData = Object.keys(setData)
         .filter((key) => filter.includes(key)) // กรอง key ที่ตรงกับ filter
@@ -8110,18 +7990,16 @@ formatNumberSixDecimalNomRound(number: any){
       return filteredData
     })
 
-    
-
     // await this.exportDataToExcelNew(formateData, response, 'Allocation Query', true)
 
     // ---------------- manage table excel
 
     // sort header
     const filterHeader = filter || []
-   
+
     const headerColorMap = {
       'Entry / Exit': '1573A1', // #1573A1
-      'Zone': '1573A1', // #1573A1
+      Zone: '1573A1', // #1573A1
       'Gas Day': '1573A1', // #1573A1
       'Gas Hour': '1573A1', // #1573A1
       'Shipper Name': '1573A1', // #1573A1
@@ -8129,7 +8007,7 @@ formatNumberSixDecimalNomRound(number: any){
       'Nomination Point / Concept Point': '1573A1', // #1573A1
       'Nominated Value (MMBTU/D)': '1573A1', // #1573A1
       'System Allocation (MMBTU/D)': '1573A1', // #1573A1
-      'Timestamp': '1573A1', // #1573A1
+      Timestamp: '1573A1' // #1573A1
     }
 
     function generateCellHighlightMapMultiple(keys: string[], data: any[], color: string): Record<string, Record<number, string>> {
@@ -8146,10 +8024,10 @@ formatNumberSixDecimalNomRound(number: any){
     }
 
     const cellHighlightMap = generateCellHighlightMapMultiple(filterHeader, formateData, 'EAF5F8')
-  
+
     const result = this.filterNestedData(formateData, filterHeader)
     // allocations1
-    return await this.exportDataToExcelWithMultiLevelHeaderNew(result, response, 'Allocation Query', true, headerColorMap, cellHighlightMap, null, "allocations1")
+    return await this.exportDataToExcelWithMultiLevelHeaderNew(result, response, 'Allocation Query', true, headerColorMap, cellHighlightMap, null, 'allocations1')
   }
 
   insertSignatureEveryNRowsSafe(
@@ -8309,7 +8187,7 @@ formatNumberSixDecimalNomRound(number: any){
           rec.data.map((ed: any) => {
             const dateIndex = resultDate.indexOf(ed?.date)
             if (dateIndex !== -1) {
-              row[3 + dateIndex] = ed.value ?? 0
+              row[3 + dateIndex] = ed && ed.value || 0
             }
 
             return ed
@@ -8567,46 +8445,140 @@ formatNumberSixDecimalNomRound(number: any){
     }
     return chunks
   }
+  chunkRowsKeepAreaTogether(rows: any[][], maxRowsPerSheet: number, areaColumnIndex = 0) {
+    /**
+     * แบ่ง rows เป็น block ตาม Area
+     *
+     * ตัวอย่าง:
+     *
+     * [
+     *   [X1, ...],
+     *   [X1, ...],
+     *   [X1, ...],
+     *   [A2, ...],
+     *   [A2, ...],
+     * ]
+     *
+     * =>
+     *
+     * [
+     *   [ X1 rows... ],
+     *   [ A2 rows... ]
+     * ]
+     */
+    const areaBlocks: any[][][] = []
+
+    let currentBlock: any[][] = []
+    let currentArea: any = undefined
+
+    for (const row of rows) {
+      const area = row?.[areaColumnIndex]
+
+      if (currentBlock.length === 0 || area === currentArea) {
+        currentBlock.push(row)
+        currentArea = area
+        continue
+      }
+
+      areaBlocks.push(currentBlock)
+
+      currentBlock = [row]
+      currentArea = area
+    }
+
+    if (currentBlock.length > 0) {
+      areaBlocks.push(currentBlock)
+    }
+
+    /**
+     * เอา Area block ลงแต่ละ sheet
+     */
+    const chunks: any[][][] = []
+
+    let currentSheetRows: any[][] = []
+
+    for (const block of areaBlocks) {
+      /**
+       * กรณี Area เดียวมีจำนวนแถวมากกว่า
+       * limit ของ Sheet ทั้งหน้า
+       *
+       * กรณีนี้หลีกเลี่ยงการ split ไม่ได้
+       * ถ้ายังต้องการยึด limit เช่น 78 rows
+       */
+      if (block.length > maxRowsPerSheet) {
+        /**
+         * flush ของเดิมก่อน
+         */
+        if (currentSheetRows.length > 0) {
+          chunks.push(currentSheetRows)
+          currentSheetRows = []
+        }
+
+        /**
+         * Area ใหญ่กว่า 1 sheet จริง ๆ
+         * จำเป็นต้องแบ่ง
+         */
+        for (let i = 0; i < block.length; i += maxRowsPerSheet) {
+          chunks.push(block.slice(i, i + maxRowsPerSheet))
+        }
+
+        continue
+      }
+
+      /**
+       * ถ้าเอา Area นี้ใส่ต่อแล้วเกิน limit
+       * ให้ขึ้น Sheet ใหม่ก่อน
+       */
+      if (currentSheetRows.length + block.length > maxRowsPerSheet) {
+        if (currentSheetRows.length > 0) {
+          chunks.push(currentSheetRows)
+        }
+
+        /**
+         * เริ่ม Sheet ใหม่ด้วย Area block นี้
+         */
+        currentSheetRows = [...block]
+      } else {
+        /**
+         * ยังใส่ Sheet ปัจจุบันได้ครบทั้ง Area
+         */
+        currentSheetRows.push(...block)
+      }
+    }
+
+    if (currentSheetRows.length > 0) {
+      chunks.push(currentSheetRows)
+    }
+
+    return chunks
+  }
   //
   private parseExcelJsNumber(value: any): number | null {
-    if (
-      value === null ||
-      value === undefined ||
-      value === ''
-    ) {
+    if (value === null || value === undefined || value === '') {
       return null
     }
 
     if (typeof value === 'number') {
-      return Number.isFinite(value)
-        ? value
-        : null
+      return Number.isFinite(value) ? value : null
     }
 
     if (typeof value !== 'string') {
       return null
     }
 
-    const normalized = value
-      .trim()
-      .replace(/,/g, '')
+    const normalized = value.trim().replace(/,/g, '')
 
-    if (
-      !/^-?(?:\d+(?:\.\d*)?|\.\d+)$/.test(
-        normalized
-      )
-    ) {
+    if (!/^-?(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) {
       return null
     }
 
     const result = Number(normalized)
 
-    return Number.isFinite(result)
-      ? result
-      : null
+    return Number.isFinite(result) ? result : null
   }
 
-  async exportDataToExcelNewMontly(dataRes: any, response: any, nameFile: string, userId?: any, allMonthly?: any) {
+  //
+  async exportDataToExcelNewMontlyOLD(dataRes: any, response: any, nameFile: string, userId?: any, allMonthly?: any) {
     const {headDate, data, typeReport} = dataRes
 
     const fName = allMonthly ? `Allocation Monthly Report ${allMonthly?.monthText} (Rev.${allMonthly?.version?.split('V.')?.[1]})` : nameFile
@@ -8688,11 +8660,7 @@ formatNumberSixDecimalNomRound(number: any){
         if (!isSame) {
           const mergeEnd = r - 1
 
-          if (
-            prevValue !== null &&
-            prevValue !== '' &&
-            mergeEnd > mergeStart
-          ) {
+          if (prevValue !== null && prevValue !== '' && mergeEnd > mergeStart) {
             ws.mergeCells(mergeStart, areaCol, mergeEnd, areaCol)
 
             const cell = ws.getCell(mergeStart, areaCol)
@@ -8733,22 +8701,14 @@ formatNumberSixDecimalNomRound(number: any){
       areaGroups.forEach((area: any) => {
         // const dateMap = Object.fromEntries(area?.total.map((r) => [r.date, r.value]))
         // const row = [area?.area, 'Total', 'Total', ...resultDate.map((date) => this.formatNumberFDecimal(dateMap[date]) ?? 0)]
-        const dateMap = Object.fromEntries(
-          (area?.total ?? []).map((item: any) => [
-            item.date,
-            item.value
-          ])
-        )
+        const dateMap = Object.fromEntries((area?.total ?? []).map((item: any) => [item.date, item.value]))
 
         const row = [
           area?.area,
           'Total',
           'Total',
           ...resultDate.map((date) => {
-            const numericValue =
-              this.parseExcelJsNumber(
-                dateMap[date]
-              )
+            const numericValue = this.parseExcelJsNumber(dateMap[date])
 
             return numericValue ?? 0
           })
@@ -8783,24 +8743,17 @@ formatNumberSixDecimalNomRound(number: any){
           //   const dateIndex = resultDate.indexOf(ed?.date)
           //   if (dateIndex !== -1) row[3 + dateIndex] = this.formatNumberFDecimal(ed.value) ?? 0
           // })
-          ;(rec?.data ?? []).forEach(
-            (item: any) => {
-              const dateIndex =
-                resultDate.indexOf(item?.date)
+          ;(rec && rec?.data || []).forEach((item: any) => {
+            const dateIndex = resultDate.indexOf(item?.date)
 
-              if (dateIndex === -1) {
-                return
-              }
-
-              const numericValue =
-                this.parseExcelJsNumber(
-                  item?.value
-                )
-
-              row[3 + dateIndex] =
-                numericValue ?? 0
+            if (dateIndex === -1) {
+              return
             }
-          )
+
+            const numericValue = this.parseExcelJsNumber(item?.value)
+
+            row[3 + dateIndex] = numericValue ?? 0
+          })
 
           for (let i = 3; i < row.length; i++) {
             if (row[i] === '') row[i] = 0
@@ -8970,80 +8923,65 @@ formatNumberSixDecimalNomRound(number: any){
         //   })
         // })
 
-        ws.eachRow(
-          { includeEmpty: true },
-          (row, rowNumber) => {
-            row.eachCell(
-              { includeEmpty: true },
-              (cell: ExcelJS.Cell, colNumber) => {
+        ws.eachRow({includeEmpty: true}, (row, rowNumber) => {
+          row.eachCell({includeEmpty: true}, (cell: ExcelJS.Cell, colNumber) => {
+            /*
+             * Header
+             */
+            if ((rowNumber === 1 || rowNumber === 2) && colNumber !== 1) {
+              cell.style = headerStyle as Partial<ExcelJS.Style>
+
+              return
+            }
+
+            if (colNumber === 1) {
+              return
+            }
+
+            /*
+             * คอลัมน์วันที่เริ่มจาก Column E
+             * เนื่องจากมี blank column A
+             */
+            if (colNumber >= 5) {
+              const numericValue = this.parseExcelJsNumber(cell.value)
+
+              if (numericValue !== null) {
                 /*
-                * Header
-                */
-                if (
-                  (rowNumber === 1 ||
-                    rowNumber === 2) &&
-                  colNumber !== 1
-                ) {
-                  cell.style =
-                    headerStyle as Partial<ExcelJS.Style>
-
-                  return
-                }
-
-                if (colNumber === 1) {
-                  return
-                }
+                 * บังคับเป็น Number จริง
+                 */
+                cell.value = numericValue
 
                 /*
-                * คอลัมน์วันที่เริ่มจาก Column E
-                * เนื่องจากมี blank column A
-                */
-                if (colNumber >= 5) {
-                  const numericValue =
-                    this.parseExcelJsNumber(
-                      cell.value
-                    )
+                 * แสดง 4 ตำแหน่ง
+                 */
+                cell.numFmt = '#,##0.0000'
 
-                  if (numericValue !== null) {
-                    /*
-                    * บังคับเป็น Number จริง
-                    */
-                    cell.value = numericValue
-
-                    /*
-                    * แสดง 4 ตำแหน่ง
-                    */
-                    cell.numFmt = '#,##0.0000'
-
-                    cell.style = {
-                      ...baseCellStyle,
-                      numFmt: '#,##0.0000',
-                      alignment: {
-                        vertical: 'middle',
-                        horizontal: 'right',
-                        wrapText: false
-                      }
-                    } as Partial<ExcelJS.Style>
-                  } else {
-                    cell.style = {
-                      ...baseCellStyle,
-                      alignment: {
-                        vertical: 'middle',
-                        horizontal: 'left',
-                        wrapText: true
-                      }
-                    } as Partial<ExcelJS.Style>
+                cell.style = {
+                  ...baseCellStyle,
+                  numFmt: '#,##0.0000',
+                  alignment: {
+                    vertical: 'middle',
+                    horizontal: 'right',
+                    wrapText: false
                   }
-
-                  return
-                }
-
-                cell.style =
-                  baseCellStyle as Partial<ExcelJS.Style>
+                } as Partial<ExcelJS.Style>
+              } else {
+                cell.style = {
+                  ...baseCellStyle,
+                  alignment: {
+                    vertical: 'middle',
+                    horizontal: 'left',
+                    wrapText: true
+                  }
+                } as Partial<ExcelJS.Style>
               }
-            )
-          }
-        )
+
+              return
+            }
+
+            cell.style = baseCellStyle as Partial<ExcelJS.Style>
+          })
+        })
 
         ws.getCell('A1').style = {
           fill: {
@@ -9205,10 +9143,1058 @@ formatNumberSixDecimalNomRound(number: any){
     response.send(buffer)
   }
 
+  async exportDataToExcelNewMontly(dataRes: any, response: any, nameFile: string, userId?: any, allMonthly?: any, flagEx = false) {
+    const {headDate, data, typeReport} = dataRes
+
+    const fName = allMonthly ? `Allocation Monthly Report ${allMonthly?.monthText} (Rev.${allMonthly?.version?.split('V.')?.[1]})` : nameFile
+
+    const user = userId
+      ? await this.prisma.account.findFirst({
+          where: {
+            id: Number(userId)
+          },
+          select: {
+            first_name: true,
+            last_name: true,
+            signature: true
+          }
+        })
+      : null
+
+    /**
+     * จำนวน row สูงสุดที่ต้องการต่อ Sheet
+     *
+     * Header = 2 rows
+     * Body ปกติ = 78 rows
+     */
+    const sheetRowLimit = flagEx ? 1000 : 80
+
+    const licenseSignature = user?.signature || null
+    const licenseFullName = `${user?.first_name || ''} ${user?.last_name || ''}`.trim()
+
+    if (!data || data.length === 0) {
+      response.status(400).send({
+        message: 'Data is empty. Cannot generate Excel file.'
+      })
+
+      return
+    }
+
+    /**
+     * ================================================
+     * GROUP BY CONTRACT
+     * ================================================
+     */
+    const groupedByContract = data.reduce(
+      (acc, item) => {
+        const key = item.contract
+
+        if (!acc[key]) {
+          acc[key] = []
+        }
+
+        acc[key] = [...acc[key], ...item.data]
+
+        return acc
+      },
+      {} as Record<number, typeof data>
+    )
+
+    const resultDate = headDate
+
+    const workbook = new ExcelJS.Workbook()
+
+    const imageResponse = licenseSignature
+      ? await axios.get(licenseSignature, {
+          responseType: 'arraybuffer'
+        })
+      : null
+
+    /**
+     * ================================================
+     * FORCE FONT SIZE
+     * ================================================
+     */
+    function forceFontSize(ws: ExcelJS.Worksheet, size = 9) {
+      ws.eachRow(
+        {
+          includeEmpty: true
+        },
+        (row) => {
+          row.eachCell(
+            {
+              includeEmpty: true
+            },
+            (cell) => {
+              const prev = cell.font ?? {}
+
+              cell.font = {
+                ...prev,
+                size
+              }
+            }
+          )
+        }
+      )
+    }
+
+    /**
+     * ================================================
+     * MERGE AREA COLUMN
+     * ================================================
+     *
+     * ตัวอย่าง
+     *
+     * X1
+     * X1
+     * X1
+     * A2
+     * A2
+     *
+     * =>
+     *
+     * X1 merge 3 rows
+     * A2 merge 2 rows
+     */
+    function mergeSameArea(ws: ExcelJS.Worksheet, startRow: number, areaCol = 2) {
+      const lastRow = ws.lastRow?.number ?? 0
+
+      if (lastRow < startRow) {
+        return
+      }
+
+      let mergeStart = startRow
+
+      let prevValue = ws.getCell(startRow, areaCol).value
+
+      for (let r = startRow + 1; r <= lastRow + 1; r++) {
+        const currentValue = r <= lastRow ? ws.getCell(r, areaCol).value : null
+
+        const isSame = currentValue === prevValue && currentValue !== null && currentValue !== ''
+
+        if (!isSame) {
+          const mergeEnd = r - 1
+
+          if (prevValue !== null && prevValue !== '' && mergeEnd > mergeStart) {
+            ws.mergeCells(mergeStart, areaCol, mergeEnd, areaCol)
+
+            const cell = ws.getCell(mergeStart, areaCol)
+
+            cell.alignment = {
+              vertical: 'middle',
+              horizontal: 'center',
+              wrapText: true
+            }
+          }
+
+          mergeStart = r
+          prevValue = currentValue
+        }
+      }
+    }
+
+    /**
+     * ================================================
+     * NEW
+     * CHUNK ROW โดยห้ามตัด AREA กลางกลุ่ม
+     * ================================================
+     *
+     * เดิม:
+     *
+     * 78 rows / sheet
+     *
+     * ถ้าเหลือ 3 rows แต่ Area X1 มี 10 rows
+     *
+     * Sheet 1:
+     * X1
+     * X1
+     * X1
+     *
+     * Sheet 2:
+     * X1
+     * X1
+     * ...
+     *
+     * --------------------------------
+     *
+     * ใหม่:
+     *
+     * Sheet 1:
+     * ... Area ก่อนหน้า
+     *
+     * Sheet 2:
+     * X1
+     * X1
+     * X1
+     * X1
+     * ...
+     *
+     * คือย้าย X1 ทั้งก้อนไป Sheet ใหม่
+     */
+    function chunkRowsKeepAreaTogether(rows: any[][], maxRowsPerSheet: number, areaColumnIndex = 0): any[][][] {
+      if (!Array.isArray(rows) || rows.length === 0) {
+        return []
+      }
+
+      /**
+       * --------------------------------
+       * Step 1:
+       * แปลง rows เป็น Area Blocks
+       * --------------------------------
+       *
+       * [
+       *   X1,
+       *   X1,
+       *   X1,
+       *   A2,
+       *   A2,
+       *   C1
+       * ]
+       *
+       * =>
+       *
+       * [
+       *   [X1, X1, X1],
+       *   [A2, A2],
+       *   [C1]
+       * ]
+       */
+      const areaBlocks: any[][][] = []
+
+      let currentBlock: any[][] = []
+      let currentArea: any = undefined
+
+      for (const row of rows) {
+        const area = row?.[areaColumnIndex]
+
+        /**
+         * block แรก
+         */
+        if (currentBlock.length === 0) {
+          currentBlock = [row]
+          currentArea = area
+          continue
+        }
+
+        /**
+         * Area เดิม
+         */
+        if (area === currentArea) {
+          currentBlock.push(row)
+          continue
+        }
+
+        /**
+         * Area เปลี่ยน
+         * ปิด block เดิมก่อน
+         */
+        areaBlocks.push(currentBlock)
+
+        currentBlock = [row]
+        currentArea = area
+      }
+
+      /**
+       * push block สุดท้าย
+       */
+      if (currentBlock.length > 0) {
+        areaBlocks.push(currentBlock)
+      }
+
+      /**
+       * --------------------------------
+       * Step 2:
+       * จัด Area Blocks ลงแต่ละ Sheet
+       * --------------------------------
+       */
+      const chunks: any[][][] = []
+
+      let currentChunk: any[][] = []
+
+      for (const areaBlock of areaBlocks) {
+        /**
+         * =====================================
+         * CASE 1
+         *
+         * Area เดียวใหญ่เกิน limit ทั้งหน้า
+         *
+         * เช่น:
+         *
+         * bodyRowLimit = 78
+         * Area X1 = 85 rows
+         *
+         * Requirement คือห้ามตัด Area
+         *
+         * เพราะฉะนั้นยอมให้ Sheet นี้มี 85 rows
+         * =====================================
+         */
+        if (areaBlock.length > maxRowsPerSheet) {
+          /**
+           * ถ้ามีข้อมูลหน้าเดิมอยู่
+           * ปิดหน้าเดิมก่อน
+           */
+          if (currentChunk.length > 0) {
+            chunks.push(currentChunk)
+
+            currentChunk = []
+          }
+
+          /**
+           * Area ใหญ่ทั้งก้อน
+           * อยู่ Sheet เดียว
+           */
+          chunks.push([...areaBlock])
+
+          continue
+        }
+
+        /**
+         * =====================================
+         * CASE 2
+         *
+         * Area นี้ใส่ต่อหน้าเดิมแล้วเกิน limit
+         *
+         * เช่น:
+         *
+         * current = 74 rows
+         * Area X1 = 10 rows
+         *
+         * 74 + 10 = 84 > 78
+         *
+         * => ปิด Sheet เก่าที่ 74
+         * => X1 ไป Sheet ใหม่ทั้ง 10 rows
+         * =====================================
+         */
+        if (currentChunk.length > 0 && currentChunk.length + areaBlock.length > maxRowsPerSheet) {
+          chunks.push(currentChunk)
+
+          currentChunk = [...areaBlock]
+
+          continue
+        }
+
+        /**
+         * =====================================
+         * CASE 3
+         *
+         * ยังใส่ Area นี้ใน Sheet ปัจจุบันได้
+         * =====================================
+         */
+        currentChunk.push(...areaBlock)
+      }
+
+      /**
+       * push Sheet สุดท้าย
+       */
+      if (currentChunk.length > 0) {
+        chunks.push(currentChunk)
+      }
+
+      return chunks
+    }
+
+    /**
+     * ================================================
+     * CREATE SHEETS BY CONTRACT
+     * ================================================
+     */
+    Object.entries(groupedByContract).forEach(([contract, areaGroups]: any) => {
+      const sheetData: any[] = []
+
+      /**
+       * --------------------------------
+       * HEADER DATE FORMAT
+       * --------------------------------
+       */
+      const formatHeaderDate = (date: string) => {
+        if (!date) {
+          return ''
+        }
+
+        const [year, month, day] = String(date).split('-')
+
+        if (!year || !month || !day) {
+          return date
+        }
+
+        return `${day}/${month}/${year}`
+      }
+
+      /**
+       * =================================
+       * HEADER
+       * =================================
+       */
+      const header0 = ['Area', 'Point', 'Type', ...resultDate.map((_, ix) => ix + 1)]
+
+      const header1 = ['Area', 'Point', 'Type', ...resultDate.map((date) => formatHeaderDate(date))]
+
+      sheetData.push(header0)
+      sheetData.push(header1)
+
+      /**
+       * =================================
+       * TOTAL ROWS
+       * =================================
+       */
+      const mergeRanges1: any[] = []
+
+      areaGroups.forEach((area: any) => {
+        const dateMap = Object.fromEntries((area?.total ?? []).map((item: any) => [item.date, item.value]))
+
+        const row = [
+          area?.area,
+          'Total',
+          'Total',
+
+          ...resultDate.map((date) => {
+            const numericValue = this.parseExcelJsNumber(dateMap[date])
+
+            return numericValue ?? 0
+          })
+        ]
+
+        const mergeRowIndex = sheetData.length
+
+        mergeRanges1.push({
+          s: {
+            r: mergeRowIndex,
+            c: 2
+          },
+          e: {
+            r: mergeRowIndex,
+            c: 3
+          }
+        })
+
+        sheetData.push(row)
+      })
+
+      /**
+       * =================================
+       * DETAIL ROWS
+       * =================================
+       */
+      const mergeRanges: any[] = []
+
+      let currentRowIndex = sheetData.length
+
+      areaGroups.forEach((area: any) => {
+        const rowsForThisArea: any[] = []
+
+        ;(area?.data ?? []).forEach((rec: any) => {
+          const row = new Array(3 + resultDate.length).fill('')
+
+          row[0] = area?.area
+
+          row[1] = rec?.point || ''
+
+          row[2] = rec?.customer_type || ''
+          ;(rec && rec?.data || []).forEach((item: any) => {
+            const dateIndex = resultDate.indexOf(item?.date)
+
+            if (dateIndex === -1) {
+              return
+            }
+
+            const numericValue = this.parseExcelJsNumber(item?.value)
+
+            row[3 + dateIndex] = numericValue ?? 0
+          })
+
+          /**
+           * วันที่ที่ไม่มีข้อมูล
+           * ใส่ 0
+           */
+          for (let i = 3; i < row.length; i++) {
+            if (row[i] === '') {
+              row[i] = 0
+            }
+          }
+
+          rowsForThisArea.push(row)
+        })
+
+        if (rowsForThisArea.length > 0) {
+          mergeRanges.push({
+            s: {
+              r: currentRowIndex,
+              c: 0
+            },
+            e: {
+              r: currentRowIndex + rowsForThisArea.length - 1,
+              c: 0
+            }
+          })
+
+          sheetData.push(...rowsForThisArea)
+
+          currentRowIndex += rowsForThisArea.length
+        }
+      })
+
+      /**
+       * =================================
+       * STYLE
+       * =================================
+       */
+      const textSize = 9
+
+      const baseCellStyle = {
+        border: {
+          top: {
+            style: 'thin',
+            color: {
+              argb: 'FF000000'
+            }
+          },
+          left: {
+            style: 'thin',
+            color: {
+              argb: 'FF000000'
+            }
+          },
+          bottom: {
+            style: 'thin',
+            color: {
+              argb: 'FF000000'
+            }
+          },
+          right: {
+            style: 'thin',
+            color: {
+              argb: 'FF000000'
+            }
+          }
+        },
+
+        alignment: {
+          vertical: 'middle',
+          horizontal: 'center',
+          wrapText: true
+        },
+
+        font: {
+          size: textSize
+        }
+      }
+
+      const headerStyle = {
+        alignment: {
+          vertical: 'middle',
+          horizontal: 'center',
+          wrapText: true
+        },
+
+        fill: {
+          type: 'pattern',
+          pattern: 'solid',
+
+          fgColor: {
+            argb: 'FF002060'
+          }
+        },
+
+        font: {
+          color: {
+            argb: 'FFFFFFFF'
+          },
+
+          bold: true,
+          size: textSize
+        }
+      }
+
+      /**
+       * ================================================
+       * SPLIT SHEET
+       * ================================================
+       */
+
+      /**
+       * Header 2 rows
+       */
+      const headerRows = sheetData.slice(0, 2)
+
+      /**
+       * ข้อมูลทั้งหมดที่เหลือ
+       */
+      const bodyRows = sheetData.slice(2)
+
+      /**
+       * 80 - 2 header
+       * = 78 rows
+       */
+      const bodyRowLimit = sheetRowLimit - headerRows.length
+
+      /**
+       * ================================================
+       * NEW PAGINATION
+       *
+       * ห้ามตัด Area กลางกลุ่ม
+       * ================================================
+       */
+      const chunkedRows = chunkRowsKeepAreaTogether(bodyRows, bodyRowLimit, 0)
+
+      /**
+       * ================================================
+       * CREATE EXCEL WORKSHEET
+       * ================================================
+       */
+
+      const PAPER_A3 = 8 as unknown as ExcelJS.PaperSize
+
+      chunkedRows.forEach((rowsChunk, chunkIndex) => {
+        /**
+         * --------------------------------
+         * SHEET NAME
+         * --------------------------------
+         */
+        const sheetName = chunkIndex === 0 ? contract.substring(0, 31) : `${contract.substring(0, 28)} (${chunkIndex + 1})`
+
+        /**
+         * --------------------------------
+         * WORKSHEET
+         * --------------------------------
+         */
+        const ws = workbook.addWorksheet(sheetName, {
+          pageSetup: {
+            paperSize: PAPER_A3,
+
+            orientation: 'landscape',
+
+            fitToPage: true,
+
+            fitToWidth: 1,
+
+            fitToHeight: 0
+          }
+        })
+
+        /**
+         * ทุก Sheet มี header
+         */
+        const effectiveRows = [...headerRows, ...rowsChunk]
+
+        effectiveRows.forEach((row) => ws.addRow(['', ...row]))
+
+        /**
+         * =================================
+         * MERGE AREA
+         * =================================
+         *
+         * Column A = Contract
+         * Column B = Area
+         *
+         * Data เริ่ม row 3
+         */
+        if (!flagEx) {
+          // https://app.clickup.com/t/9018502823/86ey4naht
+          mergeSameArea(ws, 3, 2)
+        }
+
+        /**
+         * =================================
+         * CONTRACT
+         * =================================
+         */
+        ws.getCell('A1').value = contract
+
+        /**
+         * =================================
+         * COLUMN WIDTH
+         * =================================
+         */
+        ws.columns = Array.from(
+          {
+            length: effectiveRows[0].length + 1
+          },
+          () => ({
+            width: 10
+          })
+        )
+
+        /**
+         * =================================
+         * MERGE HEADER
+         * =================================
+         */
+        ws.mergeCells('B1:B2')
+        ws.mergeCells('C1:C2')
+        ws.mergeCells('D1:D2')
+
+        /**
+         * =================================
+         * CELL STYLE
+         * =================================
+         */
+        ws.eachRow(
+          {
+            includeEmpty: true
+          },
+          (row, rowNumber) => {
+            row.eachCell(
+              {
+                includeEmpty: true
+              },
+              (cell: ExcelJS.Cell, colNumber) => {
+                /**
+                 * -------------------------
+                 * HEADER
+                 * -------------------------
+                 */
+                if ((rowNumber === 1 || rowNumber === 2) && colNumber !== 1) {
+                  cell.style = headerStyle as Partial<ExcelJS.Style>
+
+                  return
+                }
+
+                /**
+                 * Contract Column
+                 */
+                if (colNumber === 1) {
+                  return
+                }
+
+                /**
+                 * -------------------------
+                 * DATE COLUMN
+                 *
+                 * E เป็นต้นไป
+                 * -------------------------
+                 */
+                if (colNumber >= 5) {
+                  const numericValue = this.parseExcelJsNumber(cell.value)
+
+                  if (numericValue !== null) {
+                    /**
+                     * Number จริง
+                     */
+                    cell.value = numericValue
+
+                    /**
+                     * 4 decimal
+                     */
+                    cell.numFmt = '#,##0.0000'
+
+                    cell.style = {
+                      ...baseCellStyle,
+
+                      numFmt: '#,##0.0000',
+
+                      alignment: {
+                        vertical: 'middle',
+
+                        horizontal: 'right',
+
+                        wrapText: false
+                      }
+                    } as Partial<ExcelJS.Style>
+                  } else {
+                    cell.style = {
+                      ...baseCellStyle,
+
+                      alignment: {
+                        vertical: 'middle',
+
+                        horizontal: 'left',
+
+                        wrapText: true
+                      }
+                    } as Partial<ExcelJS.Style>
+                  }
+
+                  return
+                }
+
+                /**
+                 * -------------------------
+                 * NORMAL CELL
+                 * -------------------------
+                 */
+                cell.style = baseCellStyle as Partial<ExcelJS.Style>
+              }
+            )
+          }
+        )
+
+        /**
+         * =================================
+         * A1 CONTRACT STYLE
+         * =================================
+         */
+        ws.getCell('A1').style = {
+          fill: {
+            type: 'pattern',
+            pattern: 'solid',
+
+            fgColor: {
+              argb: 'FFFFFF00'
+            }
+          },
+
+          font: {
+            bold: true,
+            size: textSize
+          },
+
+          alignment: {
+            vertical: 'middle',
+            horizontal: 'center'
+          }
+        }
+
+        /**
+         * =================================
+         * MERGE CONTRACT COLUMN A
+         * =================================
+         */
+        const startRowA = 2
+
+        const endRowA = ws.lastRow?.number ?? 1
+
+        if (endRowA >= startRowA) {
+          ws.mergeCells(startRowA, 1, endRowA, 1)
+
+          const thinBlack = {
+            style: 'thin',
+
+            color: {
+              argb: 'FF000000'
+            }
+          }
+
+          for (let r = startRowA; r <= endRowA; r++) {
+            const c = ws.getCell(r, 1)
+
+            const prevStyle: any = c.style || {}
+
+            const prevBorder: any = prevStyle.border || {}
+
+            c.style = {
+              ...prevStyle,
+
+              border: {
+                ...prevBorder,
+
+                left: thinBlack,
+                right: thinBlack,
+
+                ...(r === startRowA
+                  ? {
+                      top: thinBlack
+                    }
+                  : {}),
+
+                ...(r === endRowA
+                  ? {
+                      bottom: thinBlack
+                    }
+                  : {})
+              }
+            }
+          }
+        }
+
+        /**
+         * =================================
+         * BORDER A1
+         * =================================
+         */
+        const thinBlack = {
+          style: 'thin',
+
+          color: {
+            argb: 'FF000000'
+          }
+        }
+
+        const a1 = ws.getCell('A1')
+
+        const prevStyle: any = a1.style || {}
+
+        const prevBorder: any = prevStyle.border || {}
+
+        a1.style = {
+          ...prevStyle,
+
+          border: {
+            ...prevBorder,
+
+            top: thinBlack,
+            left: thinBlack,
+            bottom: thinBlack,
+            right: thinBlack
+          }
+        }
+
+        /**
+         * =================================
+         * SIGNATURE
+         * =================================
+         */
+        if (userId) {
+          /**
+           * สำคัญ:
+           *
+           * เดิม:
+           *
+           * Math.min(
+           *   ws.lastRow.number,
+           *   sheetRowLimit
+           * )
+           *
+           * มีโอกาส signature ทับข้อมูล
+           * ถ้า Area เดียว > 78 rows
+           *
+           * ใหม่ใช้ lastRow จริง
+           */
+          const dataLastRow = ws.lastRow?.number ?? 0
+
+          const signatureRow = dataLastRow + 3
+
+          const lastCol = ws.columnCount
+
+          const sigEndRow = signatureRow + 2
+
+          /**
+           * ensure row exist
+           */
+          ws.getRow(sigEndRow)
+
+          ws.mergeCells(signatureRow, 1, sigEndRow, lastCol)
+
+          ws.getRow(signatureRow).height = 40
+
+          ws.getRow(signatureRow + 1).height = 12
+
+          ws.getRow(signatureRow + 2).height = 18
+
+          const sigCell = ws.getCell(signatureRow, 1)
+
+          const lineText = `( .................................................. )`
+
+          const nameText = licenseFullName ?? ''
+
+          const NBSP = '\u00A0'
+
+          const padCount = Math.max(0, Math.floor((lineText.length - nameText.length) / 4))
+
+          const tweak = 1
+
+          const paddedName = nameText + NBSP.repeat(Math.max(0, padCount + tweak))
+
+          sigCell.value = `${lineText}\n\n${paddedName}`
+
+          sigCell.alignment = {
+            horizontal: 'right',
+
+            vertical: 'bottom',
+
+            wrapText: true,
+
+            indent: 2
+          }
+
+          /**
+           * Signature Image
+           */
+          const imgW = 80
+          const imgH = 40
+
+          const imgCol = Math.max(0, lastCol - 1)
+
+          const imgRow = signatureRow - 1
+
+          if (licenseSignature && imageResponse) {
+            try {
+              const imageBuffer = imageResponse.data
+
+              const imageId = workbook.addImage({
+                buffer: imageBuffer,
+
+                extension: 'png'
+              })
+
+              ws.addImage(imageId, {
+                tl: {
+                  col: imgCol,
+                  row: imgRow
+                },
+
+                ext: {
+                  width: imgW,
+                  height: imgH
+                },
+
+                editAs: 'oneCell'
+              })
+
+              /**
+               * Border รอบส่วนลายเซ็น
+               */
+              for (let r = dataLastRow + 1; r <= sigEndRow; r++) {
+                for (let c = 1; c <= lastCol; c++) {
+                  const cell = ws.getCell(r, c)
+
+                  const prevBorder: any = cell.border || {}
+
+                  cell.border = {
+                    ...prevBorder,
+
+                    ...(c === 1
+                      ? {
+                          left: thinBlack
+                        }
+                      : {}),
+
+                    ...(c === lastCol
+                      ? {
+                          right: thinBlack
+                        }
+                      : {}),
+
+                    ...(r === sigEndRow
+                      ? {
+                          bottom: thinBlack
+                        }
+                      : {})
+                  }
+                }
+              }
+            } catch (err) {
+              console.error('Add signature image error:', err)
+            }
+          }
+        }
+
+        /**
+         * =================================
+         * FORCE FONT SIZE
+         * =================================
+         */
+        forceFontSize(ws, textSize)
+      })
+    })
+
+    /**
+     * ================================================
+     * RESPONSE
+     * ================================================
+     */
+    const buffer = await workbook.xlsx.writeBuffer()
+
+    response.setHeader('Content-Disposition', `attachment; filename="${getTodayNowAdd7().format('YYYY-MM-DD HH:mm')}_${fName}.xlsx"`)
+
+    response.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+    response.send(buffer)
+  }
+
   // ---
   async epAllocationAllocationMonthlyReport(response: Response, payload: any, userId: any) {
     const resData = await this.allocationService.allocationMonthlyReport(payload, userId)
-    await this.exportDataToExcelNewMontly(resData, response, 'Allocation Report', null)
+    await this.exportDataToExcelNewMontly(resData, response, 'Allocation Report', null, null, true)
   }
 
   async epAllocationAllocationMonthlyReportDownload(response: Response, payload: any, userId: any) {
@@ -9756,78 +10742,67 @@ formatNumberSixDecimalNomRound(number: any){
     response.send(excelBuffer)
   }
 
-
-// new Number
-normalizeExcelNumberText = (value: any): string => {
-  return String(value ?? '')
-    .trim()
-    .replace(/,/g, '');
-};
-// new Number
-isExcelNumericValue = (value: any): boolean => {
-  if (typeof value === 'number') {
-    return Number.isFinite(value);
-  }
-
-  if (typeof value !== 'string') {
-    return false;
-  }
-
-  const normalized = this.normalizeExcelNumberText(value);
-
-  if (!normalized) {
-    return false;
-  }
-
-  if (/^-?0\d+$/.test(normalized)) {
-    return false
-  }
-  return /^-?(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized);
-};
-// new Number
-parseExcelNumber = (value: any): number | null => {
-  if (!this.isExcelNumericValue(value)) {
-    return null;
-  }
-
-  const parsed = Number(this.normalizeExcelNumberText(value));
-
-  return Number.isFinite(parsed) ? parsed : null;
-};
-// new Number
-getDecimalPlacesFromValue = (value: any): number => {
-  if (typeof value !== 'string') {
-    return 0;
-  }
-
-  const normalized = this.normalizeExcelNumberText(value);
-  const decimalPart = normalized.split('.')[1];
-
-  return decimalPart?.length ?? 0;
-};
-
-// new Number
-getExcelNumberFormat = (decimal: number): string => {
-  const safeDecimal = Math.max(
-    0,
-    Number.isFinite(Number(decimal))
-      ? Number(decimal)
-      : 0
-  );
-
-  if (safeDecimal === 0) {
-    return '#,##0';
-  }
-
-  return `#,##0.${'0'.repeat(safeDecimal)}`;
-};
   // new Number
-  exportDataToExcelWithMultiLevelHeader(
-    data: any[],
-    response: Response,
-    nameFile: string,
-    skipFirstRow: boolean
-  ): void {
+  normalizeExcelNumberText = (value: any): string => {
+    return String(value ?? '')
+      .trim()
+      .replace(/,/g, '')
+  }
+  // new Number
+  isExcelNumericValue = (value: any): boolean => {
+    if (typeof value === 'number') {
+      return Number.isFinite(value)
+    }
+
+    if (typeof value !== 'string') {
+      return false
+    }
+
+    const normalized = this.normalizeExcelNumberText(value)
+
+    if (!normalized) {
+      return false
+    }
+
+    if (/^-?0\d+$/.test(normalized)) {
+      return false
+    }
+    return /^-?(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)
+  }
+  // new Number
+  parseExcelNumber = (value: any): number | null => {
+    if (!this.isExcelNumericValue(value)) {
+      return null
+    }
+
+    const parsed = Number(this.normalizeExcelNumberText(value))
+
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  // new Number
+  getDecimalPlacesFromValue = (value: any): number => {
+    if (typeof value !== 'string') {
+      return 0
+    }
+
+    const normalized = this.normalizeExcelNumberText(value)
+    const decimalPart = normalized.split('.')[1]
+
+    return decimalPart?.length ?? 0
+  }
+
+  // new Number
+  getExcelNumberFormat = (decimal: number): string => {
+    const safeDecimal = Math.max(0, Number.isFinite(Number(decimal)) ? Number(decimal) : 0)
+
+    if (safeDecimal === 0) {
+      return '#,##0'
+    }
+
+    return `#,##0.${'0'.repeat(safeDecimal)}`
+  }
+  // new Number
+  exportDataToExcelWithMultiLevelHeader(data: any[], response: Response, nameFile: string, skipFirstRow: boolean): void {
     if (!Array.isArray(data) || data.length === 0) {
       response.status(400).send({
         message: 'Data is empty. Cannot generate Excel file.'
@@ -9837,9 +10812,7 @@ getExcelNumberFormat = (decimal: number): string => {
 
     const wb = XLSX.utils.book_new()
 
-    const flatData = data.map((d) =>
-      this.flattenObject(d)
-    )
+    const flatData = data.map((d) => this.flattenObject(d))
 
     const allKeys = flatData[0]?.result
     const allPaths = flatData[0]?.pathArray
@@ -9852,44 +10825,33 @@ getExcelNumberFormat = (decimal: number): string => {
     }
 
     const headers = Object.keys(allKeys)
-    const headerRows =
-      this.buildHeaderRows(allPaths)
+    const headerRows = this.buildHeaderRows(allPaths)
 
     const ws = XLSX.utils.aoa_to_sheet([])
 
     const rowOffset = 1
 
     /*
-    * เพิ่ม Header
-    */
-    XLSX.utils.sheet_add_aoa(
-      ws,
-      headerRows,
-      {
-        origin: rowOffset
-      }
-    )
+     * เพิ่ม Header
+     */
+    XLSX.utils.sheet_add_aoa(ws, headerRows, {
+      origin: rowOffset
+    })
 
     /*
-    * เก็บค่าต้นฉบับ
-    */
-    const jsonData = flatData.map(
-      (item) => item.result
-    )
+     * เก็บค่าต้นฉบับ
+     */
+    const jsonData = flatData.map((item) => item.result)
 
-    const originalRows = jsonData.map(
-      (row) =>
-        headers.map((key) => row?.[key])
-    )
+    const originalRows = jsonData.map((row) => headers.map((key) => row?.[key]))
 
     /*
-    * แปลงค่าที่เป็นตัวเลขให้เป็น JavaScript Number
-    * ก่อนเขียนลง Worksheet
-    */
+     * แปลงค่าที่เป็นตัวเลขให้เป็น JavaScript Number
+     * ก่อนเขียนลง Worksheet
+     */
     const rows = originalRows.map((row) =>
       row.map((originalValue) => {
-        const numericValue =
-          this.parseExcelNumber(originalValue)
+        const numericValue = this.parseExcelNumber(originalValue)
 
         if (numericValue !== null) {
           return numericValue
@@ -9899,75 +10861,51 @@ getExcelNumberFormat = (decimal: number): string => {
       })
     )
 
-    const dataStartRow =
-      headerRows.length + rowOffset
+    const dataStartRow = headerRows.length + rowOffset
 
-    XLSX.utils.sheet_add_aoa(
-      ws,
-      rows,
-      {
-        origin: dataStartRow
-      }
-    )
+    XLSX.utils.sheet_add_aoa(ws, rows, {
+      origin: dataStartRow
+    })
 
     /*
-    * กำหนด Number Type, Number Format
-    * และ Alignment ของ Data Cell
-    */
-    for (
-      let r = dataStartRow;
-      r < dataStartRow + rows.length;
-      r++
-    ) {
+     * กำหนด Number Type, Number Format
+     * และ Alignment ของ Data Cell
+     */
+    for (let r = dataStartRow; r < dataStartRow + rows.length; r++) {
       const rowIndex = r - dataStartRow
 
-      for (
-        let c = 0;
-        c < headers.length;
-        c++
-      ) {
-        const cellAddr =
-          XLSX.utils.encode_cell({
-            r,
-            c
-          })
+      for (let c = 0; c < headers.length; c++) {
+        const cellAddr = XLSX.utils.encode_cell({
+          r,
+          c
+        })
 
         const cell = ws[cellAddr]
 
         if (!cell) continue
 
-        const originalValue =
-          originalRows?.[rowIndex]?.[c]
+        const originalValue = originalRows && originalRows?.[rowIndex]?.[c] || null
 
-        const numericValue =
-          this.parseExcelNumber(originalValue)
+        const numericValue = this.parseExcelNumber(originalValue)
 
         if (numericValue !== null) {
-          const decimalFromOriginal =
-            this.getDecimalPlacesFromValue(
-              originalValue
-            )
+          const decimalFromOriginal = this.getDecimalPlacesFromValue(originalValue)
 
           cell.v = numericValue
           cell.t = 'n'
 
           /*
-          * ถ้าค่าเดิมเป็น string เช่น "152,100.000"
-          * จะรักษา 3 ตำแหน่งไว้
-          *
-          * ถ้าค่าเดิมเป็น JavaScript number
-          * จะใช้รูปแบบทั่วไป รองรับทศนิยมสูงสุด 10 ตำแหน่ง
-          */
-          cell.z =
-            decimalFromOriginal !== null
-              ? this.getExcelNumberFormat(
-                  decimalFromOriginal
-                )
-              : '#,##0.##########'
+           * ถ้าค่าเดิมเป็น string เช่น "152,100.000"
+           * จะรักษา 3 ตำแหน่งไว้
+           *
+           * ถ้าค่าเดิมเป็น JavaScript number
+           * จะใช้รูปแบบทั่วไป รองรับทศนิยมสูงสุด 10 ตำแหน่ง
+           */
+          cell.z = decimalFromOriginal !== null ? this.getExcelNumberFormat(decimalFromOriginal) : '#,##0.##########'
 
           /*
-          * ลบ cached text เดิม
-          */
+           * ลบ cached text เดิม
+           */
           if ('w' in cell) {
             delete cell.w
           }
@@ -9977,10 +10915,7 @@ getExcelNumberFormat = (decimal: number): string => {
           ...cell.s,
           alignment: {
             ...cell.s?.alignment,
-            horizontal:
-              cell.t === 'n'
-                ? 'right'
-                : 'right',
+            horizontal: 'right', // cell.t === 'n' ? 'right' : 'right'
             vertical: 'center'
           }
         }
@@ -9988,23 +10923,14 @@ getExcelNumberFormat = (decimal: number): string => {
     }
 
     /*
-    * Style Header
-    */
-    for (
-      let R = 0;
-      R < headerRows.length;
-      R++
-    ) {
-      for (
-        let C = 0;
-        C < headers.length;
-        C++
-      ) {
-        const cellAddress =
-          XLSX.utils.encode_cell({
-            r: R + rowOffset,
-            c: C
-          })
+     * Style Header
+     */
+    for (let R = 0; R < headerRows.length; R++) {
+      for (let C = 0; C < headers.length; C++) {
+        const cellAddress = XLSX.utils.encode_cell({
+          r: R + rowOffset,
+          c: C
+        })
 
         const cell = ws[cellAddress]
 
@@ -10058,31 +10984,19 @@ getExcelNumberFormat = (decimal: number): string => {
     }
 
     /*
-    * Merge Header
-    */
+     * Merge Header
+     */
     const merges: XLSX.Range[] = []
 
     /*
-    * Vertical Merge
-    */
-    for (
-      let C = 0;
-      C < headers.length;
-      C++
-    ) {
-      const colHeader = headerRows.map(
-        (row) => row[C]
-      )
+     * Vertical Merge
+     */
+    for (let C = 0; C < headers.length; C++) {
+      const colHeader = headerRows.map((row) => row[C])
 
-      const firstNonEmpty = colHeader.find(
-        (value) => value !== ''
-      )
+      const firstNonEmpty = colHeader.find((value) => value !== '')
 
-      const isStaticColumn = colHeader.every(
-        (value) =>
-          value === firstNonEmpty ||
-          value === ''
-      )
+      const isStaticColumn = colHeader.every((value) => value === firstNonEmpty || value === '')
 
       if (isStaticColumn) {
         merges.push({
@@ -10091,25 +11005,15 @@ getExcelNumberFormat = (decimal: number): string => {
             c: C
           },
           e: {
-            r:
-              headerRows.length -
-              1 +
-              rowOffset,
+            r: headerRows.length - 1 + rowOffset,
             c: C
           }
         })
       } else {
         let startR = 0
 
-        for (
-          let R = 1;
-          R < headerRows.length;
-          R++
-        ) {
-          if (
-            headerRows[R][C] !==
-            headerRows[startR][C]
-          ) {
+        for (let R = 1; R < headerRows.length; R++) {
+          if (headerRows[R][C] !== headerRows[startR][C]) {
             if (R - startR > 1) {
               merges.push({
                 s: {
@@ -10127,19 +11031,14 @@ getExcelNumberFormat = (decimal: number): string => {
           }
         }
 
-        if (
-          headerRows.length - startR > 1
-        ) {
+        if (headerRows.length - startR > 1) {
           merges.push({
             s: {
               r: startR + rowOffset,
               c: C
             },
             e: {
-              r:
-                headerRows.length -
-                1 +
-                rowOffset,
+              r: headerRows.length - 1 + rowOffset,
               c: C
             }
           })
@@ -10148,29 +11047,14 @@ getExcelNumberFormat = (decimal: number): string => {
     }
 
     /*
-    * Horizontal Merge
-    */
-    for (
-      let R = 0;
-      R < headerRows.length;
-      R++
-    ) {
+     * Horizontal Merge
+     */
+    for (let R = 0; R < headerRows.length; R++) {
       let startC = 0
 
-      for (
-        let C = 1;
-        C <= headers.length;
-        C++
-      ) {
-        if (
-          C === headers.length ||
-          headerRows[R][C] !==
-            headerRows[R][startC]
-        ) {
-          if (
-            C - startC > 1 &&
-            headerRows[R][startC] !== ''
-          ) {
+      for (let C = 1; C <= headers.length; C++) {
+        if (C === headers.length || headerRows[R][C] !== headerRows[R][startC]) {
+          if (C - startC > 1 && headerRows[R][startC] !== '') {
             merges.push({
               s: {
                 r: R + rowOffset,
@@ -10189,13 +11073,9 @@ getExcelNumberFormat = (decimal: number): string => {
     }
 
     /*
-    * Style TOTAL / TOTAL ALL
-    */
-    for (
-      let r = dataStartRow;
-      r < dataStartRow + rows.length;
-      r++
-    ) {
+     * Style TOTAL / TOTAL ALL
+     */
+    for (let r = dataStartRow; r < dataStartRow + rows.length; r++) {
       const firstCell =
         ws[
           XLSX.utils.encode_cell({
@@ -10212,41 +11092,25 @@ getExcelNumberFormat = (decimal: number): string => {
           })
         ]
 
-      const firstValue =
-        String(firstCell?.v ?? '')
+      const firstValue = String(firstCell?.v ?? '')
 
-      const secondValue =
-        String(secondCell?.v ?? '')
+      const secondValue = String(secondCell?.v ?? '')
 
-      const isTotalAll =
-        firstValue.includes('TOTAL ALL :') ||
-        secondValue.includes('TOTAL ALL :')
+      const isTotalAll = firstValue.includes('TOTAL ALL :') || secondValue.includes('TOTAL ALL :')
 
-      const isTotal =
-        !isTotalAll &&
-        (
-          firstValue.includes('TOTAL :') ||
-          secondValue.includes('TOTAL :')
-        )
+      const isTotal = !isTotalAll && (firstValue.includes('TOTAL :') || secondValue.includes('TOTAL :'))
 
       if (!isTotal && !isTotalAll) {
         continue
       }
 
-      const fillColor = isTotalAll
-        ? 'FFFACD'
-        : 'E6F8FF'
+      const fillColor = isTotalAll ? 'FFFACD' : 'E6F8FF'
 
-      for (
-        let c = 0;
-        c < headers.length;
-        c++
-      ) {
-        const cellAddr =
-          XLSX.utils.encode_cell({
-            r,
-            c
-          })
+      for (let c = 0; c < headers.length; c++) {
+        const cellAddr = XLSX.utils.encode_cell({
+          r,
+          c
+        })
 
         const cell = ws[cellAddr]
 
@@ -10266,12 +11130,7 @@ getExcelNumberFormat = (decimal: number): string => {
           },
           alignment: {
             ...cell.s?.alignment,
-            horizontal:
-              cell.t === 'n'
-                ? 'right'
-                : cell.s?.alignment
-                    ?.horizontal ??
-                  'left',
+            horizontal: cell.t === 'n' ? 'right' : (cell.s?.alignment?.horizontal ?? 'left'),
             vertical: 'center',
             wrapText: true
           }
@@ -10280,12 +11139,9 @@ getExcelNumberFormat = (decimal: number): string => {
     }
 
     /*
-    * Row Size
-    */
-    const totalRows =
-      headerRows.length +
-      rows.length +
-      rowOffset
+     * Row Size
+     */
+    const totalRows = headerRows.length + rows.length + rowOffset
 
     ws['!rows'] = Array.from(
       {
@@ -10293,12 +11149,7 @@ getExcelNumberFormat = (decimal: number): string => {
       },
       (_, index) => {
         return {
-          hpx:
-            index <
-            headerRows.length +
-              rowOffset
-              ? 40
-              : 30
+          hpx: index < headerRows.length + rowOffset ? 40 : 30
         }
       }
     )
@@ -10311,69 +11162,33 @@ getExcelNumberFormat = (decimal: number): string => {
     }
 
     /*
-    * Column Width
-    */
-    const colWidths = headers.map(
-      (_, colIndex) => {
-        const values = [
-          ...headerRows.map(
-            (row) =>
-              String(
-                row?.[colIndex] ?? ''
-              )
-          ),
-          ...originalRows.map(
-            (row) =>
-              String(
-                row?.[colIndex] ?? ''
-              )
-          )
-        ]
+     * Column Width
+     */
+    const colWidths = headers.map((_, colIndex) => {
+      const values = [...headerRows.map((row) => String(row?.[colIndex] ?? '')), ...originalRows.map((row) => String(row?.[colIndex] ?? ''))]
 
-        const maxLength = Math.max(
-          0,
-          ...values.map(
-            (value) => value.length
-          )
-        )
+      const maxLength = Math.max(0, ...values.map((value) => value.length))
 
-        return {
-          wch: Math.min(
-            Math.max(maxLength + 5, 10),
-            40
-          )
-        }
+      return {
+        wch: Math.min(Math.max(maxLength + 5, 10), 40)
       }
-    )
+    })
 
     ws['!cols'] = colWidths
     ws['!merges'] = merges
 
-    XLSX.utils.book_append_sheet(
-      wb,
-      ws,
-      'Data'
-    )
+    XLSX.utils.book_append_sheet(wb, ws, 'Data')
 
     /*
-    * Debug สามารถลบออกได้
-    */
+     * Debug สามารถลบออกได้
+     */
     const firstNumberCell = (() => {
-      for (
-        let r = dataStartRow;
-        r < dataStartRow + rows.length;
-        r++
-      ) {
-        for (
-          let c = 0;
-          c < headers.length;
-          c++
-        ) {
-          const address =
-            XLSX.utils.encode_cell({
-              r,
-              c
-            })
+      for (let r = dataStartRow; r < dataStartRow + rows.length; r++) {
+        for (let c = 0; c < headers.length; c++) {
+          const address = XLSX.utils.encode_cell({
+            r,
+            c
+          })
 
           if (ws[address]?.t === 'n') {
             return {
@@ -10387,31 +11202,17 @@ getExcelNumberFormat = (decimal: number): string => {
       return null
     })()
 
-    console.log(
-      'First numeric cell:',
-      firstNumberCell
-    )
+    console.log('First numeric cell:', firstNumberCell)
 
-    const excelBuffer = XLSX.write(
-      wb,
-      {
-        bookType: 'xlsx',
-        type: 'buffer',
-        cellStyles: true
-      }
-    )
+    const excelBuffer = XLSX.write(wb, {
+      bookType: 'xlsx',
+      type: 'buffer',
+      cellStyles: true
+    })
 
-    response.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${getTodayNowAdd7().format(
-        'YYYY-MM-DD_HH-mm'
-      )}_${nameFile}.xlsx"`
-    )
+    response.setHeader('Content-Disposition', `attachment; filename="${getTodayNowAdd7().format('YYYY-MM-DD_HH-mm')}_${nameFile}.xlsx"`)
 
-    response.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
+    response.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
     response.send(excelBuffer)
   }
@@ -10589,22 +11390,7 @@ getExcelNumberFormat = (decimal: number): string => {
       'detail_exit_E_east',
       'detail_exit_E_west'
     ]
-
-    // const dcimal4 = (number: any) => {
-    //   if (isNaN(number)) return number;
-
-    //   if (number == 0) {
-    //     return '0.0000'; // special case for zero
-    //   }
-
-    //   const fixedNumber = parseFloat(number).toFixed(4); // Keep 4 decimal places
-    //   const [intPart, decimalPart] = fixedNumber.split('.');
-
-    //   const withCommas = intPart?.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-
-    //   return `${withCommas}.${decimalPart}`;
-    // };
-    // arr to obj
+   
     const todayStart = getTodayStartAdd7().toDate()
     const todayEnd = getTodayEndAdd7().toDate()
     const groupMaster = await this.prisma.group.findMany({
@@ -10865,14 +11651,14 @@ getExcelNumberFormat = (decimal: number): string => {
               ['Bypass GSP']: e['detail_entry_east_bypassGas'],
               ['LNG']: e['detail_entry_east_lng'],
               // ['Others']: e['custom_detail_entry_east_'],
-              ['Others']: sumDetail(e?.['values_'], 'detail_entry_east_', ['gsp', 'bypassGas', 'lng', 'F2andG']) ?? ''
+              ['Others']: sumDetail(e['values_'], 'detail_entry_east_', ['gsp', 'bypassGas', 'lng', 'F2andG']) ?? ''
             },
             ['West']: {
               ['YDN']: e['detail_entry_west_yadana'],
               ['YTG']: e['detail_entry_west_yetagun'],
               ['ZTK']: e['detail_entry_west_zawtika'],
               // ['Others']: e['custom_detail_entry_west_'],
-              ['Others']: sumDetail(e?.['values_'], 'detail_entry_west_', ['yadana', 'yetagun', 'zawtika', 'F2andG']) ?? ''
+              ['Others']: sumDetail(e['values_'], 'detail_entry_west_', ['yadana', 'yetagun', 'zawtika', 'F2andG']) ?? ''
             },
             ['East-West']: {
               ['RA6 East']: e['detail_entry_east-west_ra6East'],
@@ -11222,6 +12008,8 @@ getExcelNumberFormat = (decimal: number): string => {
       if (isNaN(number)) return number
 
       if (number == 0) {
+        // Coverity flags this as unused_expr (NO_EFFECT).
+        // coverity[unused_expr:SUPPRESS]
         return '0.0000' // special case for zero
       }
 
@@ -11287,6 +12075,8 @@ getExcelNumberFormat = (decimal: number): string => {
       if (isNaN(number)) return number
 
       if (number == 0) {
+        // Coverity flags this as unused_expr (NO_EFFECT).
+        // coverity[unused_expr:SUPPRESS]
         return '0.0000' // special case for zero
       }
 
@@ -11532,7 +12322,7 @@ getExcelNumberFormat = (decimal: number): string => {
         decimal: number
       }[]
     },
-    sheetName?:any
+    sheetName?: any
   ): void {
     const wb = XLSX.utils.book_new()
     const flatData = data.map((d) => this.flattenObjectNew(d))
@@ -11557,14 +12347,12 @@ getExcelNumberFormat = (decimal: number): string => {
     })
 
     const headerMerges = this.createMultiLevelHeaderMerges(
-
       headerRows,
 
       rowOffset
+    )
 
-    );
-
-    ws['!merges'] = headerMerges;
+    ws['!merges'] = headerMerges
 
     XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Data')
     const excelBuffer = XLSX.write(wb, {
@@ -11633,14 +12421,12 @@ getExcelNumberFormat = (decimal: number): string => {
     // })
 
     const headerMerges = this.createMultiLevelHeaderMerges(
-
       headerRows,
 
       rowOffset
+    )
 
-    );
-
-    ws['!merges'] = headerMerges;
+    ws['!merges'] = headerMerges
 
     XLSX.utils.book_append_sheet(wb, ws, 'Data')
 
@@ -11685,137 +12471,111 @@ getExcelNumberFormat = (decimal: number): string => {
         : '000000' //#000000
   }
 
+  private createMultiLevelHeaderMerges(headerRows: string[][], rowOffset: number): XLSX.Range[] {
+    const merges: XLSX.Range[] = []
 
-  private createMultiLevelHeaderMerges(
-  headerRows: string[][],
-  rowOffset: number
-): XLSX.Range[] {
-  const merges: XLSX.Range[] = [];
+    const totalHeaderRows = headerRows?.length ?? 0
+    const totalColumns = headerRows?.[0]?.length ?? 0
 
-  const totalHeaderRows = headerRows?.length ?? 0;
-  const totalColumns = headerRows?.[0]?.length ?? 0;
+    // Header ที่ไม่ต้องการให้ Merge แนวนอน
+    const excludeHorizontalMergeHeaders = new Set(['Shipper', 'Ratio East'])
 
-  // Header ที่ไม่ต้องการให้ Merge แนวนอน
-  const excludeHorizontalMergeHeaders = new Set([
-    'Shipper',
-    'Ratio East', 
-  ]);
+    /**
+     * 1. Merge แนวนอน
+     *
+     * ตัวอย่าง:
+     *
+     * Document 1 | Document 2 | Document 3
+     *
+     * กรณีข้อมูลจริงจาก object อาจเป็น:
+     *
+     * Document | Document | Document
+     *
+     * ระบบจะรวม Header ที่ชื่อเหมือนกันและอยู่ติดกัน
+     */
+    for (let rowIndex = 0; rowIndex < totalHeaderRows; rowIndex++) {
+      let startColumn = 0
 
-  /**
-   * 1. Merge แนวนอน
-   *
-   * ตัวอย่าง:
-   *
-   * Document 1 | Document 2 | Document 3
-   *
-   * กรณีข้อมูลจริงจาก object อาจเป็น:
-   *
-   * Document | Document | Document
-   *
-   * ระบบจะรวม Header ที่ชื่อเหมือนกันและอยู่ติดกัน
-   */
-  for (let rowIndex = 0; rowIndex < totalHeaderRows; rowIndex++) {
-    let startColumn = 0;
+      while (startColumn < totalColumns) {
+        const currentHeader = headerRows && String(headerRows[rowIndex]?.[startColumn] ?? '').trim() || ""
 
-    while (startColumn < totalColumns) {
-      const currentHeader = String(
-        headerRows[rowIndex]?.[startColumn] ?? ''
-      ).trim();
+        let endColumn = startColumn
 
-      let endColumn = startColumn;
+        // หาคอลัมน์ถัดไปที่มี Header ชื่อเดียวกัน
+        while (endColumn + 1 < totalColumns && String(headerRows[rowIndex]?.[endColumn + 1] ?? '').trim() === currentHeader) {
+          endColumn++
+        }
 
-      // หาคอลัมน์ถัดไปที่มี Header ชื่อเดียวกัน
-      while (
-        endColumn + 1 < totalColumns &&
-        String(
-          headerRows[rowIndex]?.[endColumn + 1] ?? ''
-        ).trim() === currentHeader
-      ) {
-        endColumn++;
+        const hasMultipleColumns = endColumn > startColumn
+
+        const isExcludedHeader = excludeHorizontalMergeHeaders.has(currentHeader)
+
+        // Merge เฉพาะ Header ที่:
+        // 1. ไม่ใช่ค่าว่าง
+        // 2. มีมากกว่า 1 คอลัมน์
+        // 3. ไม่ได้อยู่ในรายการที่ห้าม Merge
+        if (currentHeader !== '' && hasMultipleColumns && !isExcludedHeader) {
+          merges.push({
+            s: {
+              r: rowOffset + rowIndex,
+              c: startColumn
+            },
+            e: {
+              r: rowOffset + rowIndex,
+              c: endColumn
+            }
+          })
+        }
+
+        startColumn = endColumn + 1
       }
-
-      const hasMultipleColumns = endColumn > startColumn;
-
-      const isExcludedHeader =
-        excludeHorizontalMergeHeaders.has(currentHeader);
-
-      // Merge เฉพาะ Header ที่:
-      // 1. ไม่ใช่ค่าว่าง
-      // 2. มีมากกว่า 1 คอลัมน์
-      // 3. ไม่ได้อยู่ในรายการที่ห้าม Merge
-      if (
-        currentHeader !== '' &&
-        hasMultipleColumns &&
-        !isExcludedHeader
-      ) {
-        merges.push({
-          s: {
-            r: rowOffset + rowIndex,
-            c: startColumn
-          },
-          e: {
-            r: rowOffset + rowIndex,
-            c: endColumn
-          }
-        });
-      }
-
-      startColumn = endColumn + 1;
     }
-  }
 
-  /**
-   * 2. Merge แนวตั้ง
-   *
-   * เช่น Event Code อยู่แถว Header แรก
-   * และ Header แถวล่างเป็นค่าว่าง
-   *
-   * จะ Merge A2:A3
-   */
-  for (let columnIndex = 0; columnIndex < totalColumns; columnIndex++) {
-    let rowIndex = 0;
+    /**
+     * 2. Merge แนวตั้ง
+     *
+     * เช่น Event Code อยู่แถว Header แรก
+     * และ Header แถวล่างเป็นค่าว่าง
+     *
+     * จะ Merge A2:A3
+     */
+    for (let columnIndex = 0; columnIndex < totalColumns; columnIndex++) {
+      let rowIndex = 0
 
-    while (rowIndex < totalHeaderRows) {
-      const currentHeader = String(
-        headerRows[rowIndex]?.[columnIndex] ?? ''
-      ).trim();
+      while (rowIndex < totalHeaderRows) {
+        const currentHeader = String(headerRows[rowIndex]?.[columnIndex] ?? '').trim()
 
-      if (currentHeader === '') {
-        rowIndex++;
-        continue;
+        if (currentHeader === '') {
+          rowIndex++
+          continue
+        }
+
+        let endRow = rowIndex
+
+        // Header แถวถัดไปต้องเป็นค่าว่าง จึงจะ Merge แนวตั้ง
+        while (endRow + 1 < totalHeaderRows && String(headerRows[endRow + 1]?.[columnIndex] ?? '').trim() === '') {
+          endRow++
+        }
+
+        if (endRow > rowIndex) {
+          merges.push({
+            s: {
+              r: rowOffset + rowIndex,
+              c: columnIndex
+            },
+            e: {
+              r: rowOffset + endRow,
+              c: columnIndex
+            }
+          })
+        }
+
+        rowIndex = endRow + 1
       }
-
-      let endRow = rowIndex;
-
-      // Header แถวถัดไปต้องเป็นค่าว่าง จึงจะ Merge แนวตั้ง
-      while (
-        endRow + 1 < totalHeaderRows &&
-        String(
-          headerRows[endRow + 1]?.[columnIndex] ?? ''
-        ).trim() === ''
-      ) {
-        endRow++;
-      }
-
-      if (endRow > rowIndex) {
-        merges.push({
-          s: {
-            r: rowOffset + rowIndex,
-            c: columnIndex
-          },
-          e: {
-            r: rowOffset + endRow,
-            c: columnIndex
-          }
-        });
-      }
-
-      rowIndex = endRow + 1;
     }
-  }
 
-  return merges;
-}
+    return merges
+  }
 
   setWorkSheetDataAndStyleOLD({
     ws,
@@ -11846,8 +12606,6 @@ getExcelNumberFormat = (decimal: number): string => {
     }
     extraHeader?: string[][]
   }) {
-   
-
     let extraHeaderRowOffset = 0
     if (extraHeader && extraHeader.length > 0) {
       XLSX.utils.sheet_add_aoa(ws, extraHeader, {origin: rowOffset})
@@ -12195,128 +12953,102 @@ getExcelNumberFormat = (decimal: number): string => {
     // }
 
     //   Size & Visibility
-    
+
     // ======================================================
-// Style เฉพาะข้อมูล ไม่กระทบ Header
-// ======================================================
+    // Style เฉพาะข้อมูล ไม่กระทบ Header
+    // ======================================================
 
-// คอลัมน์ข้อมูลที่ต้องจัดแนวนอนอยู่กึ่งกลาง
-//
-// Level East      = System Level (East).Level
-// Level West      = System Level (West).Level
-// Condition East  = Condition East
-// Condition West  = Condition West
-const centerDataColumns = new Set([
-  'Time',
-  'Plan/Actual',
-  'System Level (East).Level',
-  'System Level (West).Level',
-  'Condition East',
-  'Condition West',
-])
+    // คอลัมน์ข้อมูลที่ต้องจัดแนวนอนอยู่กึ่งกลาง
+    //
+    // Level East      = System Level (East).Level
+    // Level West      = System Level (West).Level
+    // Condition East  = Condition East
+    // Condition West  = Condition West
+    const centerDataColumns = new Set(['Time', 'Plan/Actual', 'System Level (East).Level', 'System Level (West).Level', 'Condition East', 'Condition West'])
 
-// ตรวจสอบว่า cell ปัจจุบันอยู่ในช่วง merge แนวตั้งหรือไม่
-const isVerticalMergedCell = (
-  row: number,
-  col: number
-): boolean => {
-  return merges.some((merge) => {
-    // ต้องเป็น merge แนวตั้งก่อน
-    const isVerticalMerge = merge.e.r > merge.s.r
+    // ตรวจสอบว่า cell ปัจจุบันอยู่ในช่วง merge แนวตั้งหรือไม่
+    const isVerticalMergedCell = (row: number, col: number): boolean => {
+      return merges.some((merge) => {
+        // ต้องเป็น merge แนวตั้งก่อน
+        const isVerticalMerge = merge.e.r > merge.s.r
 
-    if (!isVerticalMerge) {
-      return false
-    }
-
-    // ตรวจว่า cell อยู่ภายในช่วง merge หรือไม่
-    const isInsideMerge =
-      row >= merge.s.r &&
-      row <= merge.e.r &&
-      col >= merge.s.c &&
-      col <= merge.e.c
-
-    return isInsideMerge
-  })
-}
-
-// แถวแรกของข้อมูล
-const dataStartRow =
-  headerRows.length +
-  rowOffset +
-  extraHeaderRowOffset
-
-// แถวสุดท้ายของข้อมูล
-const dataEndRow =
-  dataStartRow +
-  rows.length
-
-for (let r = dataStartRow; r < dataEndRow; r++) {
-  // index ของข้อมูลจริง เริ่มจาก 0
-  const rowIndex = r - dataStartRow
-
-  for (let c = 0; c < headers.length; c++) {
-    const cellAddr = XLSX.utils.encode_cell({
-      r,
-      c
-    })
-
-    const cell = ws[cellAddr]
-
-    if (!cell) continue
-
-    // key เต็มของ column เช่น:
-    // Time
-    // Plan/Actual
-    // System Level (East).Level
-    // Condition East
-    const key = headers[c]
-
-    // สีพื้นหลังเดิม
-    const bgColor =
-      cellHighlightMap?.[key]?.[rowIndex] ?? null
-
-    // 6 คอลัมน์ที่กำหนดให้อยู่กลาง
-    // คอลัมน์อื่นอยู่ขวา
-    const horizontalAlignment =
-      centerDataColumns.has(key)
-        ? 'center'
-        : 'right'
-
-    // ถ้า merge แนวตั้งให้อยู่กลาง
-    // ถ้าไม่ได้ merge แนวตั้งให้อยู่ชิดล่าง
-    const verticalAlignment =
-      isVerticalMergedCell(r, c)
-        ? 'center'
-        : 'bottom'
-
-    cell.s = {
-      ...cell.s,
-
-      alignment: {
-        ...cell.s?.alignment,
-
-        // Time, Plan/Actual, Level, Condition = center
-        // column อื่น = right
-        horizontal: horizontalAlignment,
-
-        // merge แนวตั้ง = center
-        // ไม่ merge = bottom
-        vertical: verticalAlignment,
-
-        wrapText: true
-      },
-
-      // เก็บระบบ Highlight สีเดิมไว้
-      ...(bgColor && {
-        fill: {
-          fgColor: {
-            rgb: bgColor
-          }
+        if (!isVerticalMerge) {
+          return false
         }
+
+        // ตรวจว่า cell อยู่ภายในช่วง merge หรือไม่
+        const isInsideMerge = row >= merge.s.r && row <= merge.e.r && col >= merge.s.c && col <= merge.e.c
+
+        return isInsideMerge
       })
     }
-  }
-}
+
+    // แถวแรกของข้อมูล
+    const dataStartRow = headerRows.length + rowOffset + extraHeaderRowOffset
+
+    // แถวสุดท้ายของข้อมูล
+    const dataEndRow = dataStartRow + rows.length
+
+    for (let r = dataStartRow; r < dataEndRow; r++) {
+      // index ของข้อมูลจริง เริ่มจาก 0
+      const rowIndex = r - dataStartRow
+
+      for (let c = 0; c < headers.length; c++) {
+        const cellAddr = XLSX.utils.encode_cell({
+          r,
+          c
+        })
+
+        const cell = ws[cellAddr]
+
+        if (!cell) continue
+
+        // key เต็มของ column เช่น:
+        // Time
+        // Plan/Actual
+        // System Level (East).Level
+        // Condition East
+        const key = headers[c]
+
+        // สีพื้นหลังเดิม
+        const bgColor = cellHighlightMap?.[key]?.[rowIndex] ?? null
+
+        // 6 คอลัมน์ที่กำหนดให้อยู่กลาง
+        // คอลัมน์อื่นอยู่ขวา
+        const horizontalAlignment = centerDataColumns.has(key) ? 'center' : 'right'
+
+        // ถ้า merge แนวตั้งให้อยู่กลาง
+        // ถ้าไม่ได้ merge แนวตั้งให้อยู่ชิดล่าง
+        const verticalAlignment = isVerticalMergedCell(r, c) ? 'center' : 'bottom'
+
+        cell.s = {
+          ...cell.s,
+
+          alignment: {
+            ...cell.s?.alignment,
+
+            // Time, Plan/Actual, Level, Condition = center
+            // column อื่น = right
+            horizontal: horizontalAlignment,
+
+            // merge แนวตั้ง = center
+            // ไม่ merge = bottom
+            vertical: verticalAlignment,
+
+            wrapText: true
+          },
+
+          // เก็บระบบ Highlight สีเดิมไว้
+          ...(bgColor && {
+            fill: {
+              fgColor: {
+                rgb: bgColor
+              }
+            }
+          })
+        }
+      }
+    }
 
     const totalRows = headerRows.length + rows.length + rowOffset + extraHeaderRowOffset
     ws['!rows'] = Array.from({length: totalRows}, (_, i) => {
@@ -12337,120 +13069,211 @@ for (let r = dataStartRow; r < dataEndRow; r++) {
     ws['!cols'] = colWidths
     ws['!merges'] = merges
   }
- 
-// new Number
-setWorkSheetDataAndStyle({
-  ws,
-  headerRows,
-  rowOffset,
-  flatData,
-  headers,
-  headerColorMap,
-  cellHighlightMap,
-  keyAndDecimalMap,
-  extraHeader,
-  cellTextColorMap,
-}: {
-  ws: XLSX.WorkSheet;
-  headerRows: string[][];
-  rowOffset: number;
-  flatData: {
-    result: any;
-    pathArray: string[][];
-  }[];
-  headers: string[];
-  headerColorMap: any;
-  cellHighlightMap: any;
-  keyAndDecimalMap?: {
-    [key: string]: {
-      index: number;
-      decimal: number;
-    }[];
-  };
-  extraHeader?: string[][];
-  cellTextColorMap?: any;
-}) {
-  let extraHeaderRowOffset = 0;
 
-  const isBlank = (value: any) => {
-    return (
-      value === '' ||
-      value === undefined ||
-      value === null
-    );
-  };
+  // new Number
+  setWorkSheetDataAndStyle({
+    ws,
+    headerRows,
+    rowOffset,
+    flatData,
+    headers,
+    headerColorMap,
+    cellHighlightMap,
+    keyAndDecimalMap,
+    extraHeader,
+    cellTextColorMap
+  }: {
+    ws: XLSX.WorkSheet
+    headerRows: string[][]
+    rowOffset: number
+    flatData: {
+      result: any
+      pathArray: string[][]
+    }[]
+    headers: string[]
+    headerColorMap: any
+    cellHighlightMap: any
+    keyAndDecimalMap?: {
+      [key: string]: {
+        index: number
+        decimal: number
+      }[]
+    }
+    extraHeader?: string[][]
+    cellTextColorMap?: any
+  }) {
+    let extraHeaderRowOffset = 0
 
-  /**
-   * หา decimal จาก keyAndDecimalMap
-   * โดยอิง key ของ header และ index ของแถวข้อมูล
-   */
-  const getDecimalConfig = (
-    key: string,
-    rowIndex: number
-  ): number | undefined => {
-    const configList = keyAndDecimalMap?.[key];
-
-    if (!Array.isArray(configList)) {
-      return undefined;
+    const isBlank = (value: any) => {
+      return value === '' || value === undefined || value === null
     }
 
-    const matched = configList.find(
-      (item: any) =>
-        Number(item?.index) === Number(rowIndex)
-    );
+    /**
+     * หา decimal จาก keyAndDecimalMap
+     * โดยอิง key ของ header และ index ของแถวข้อมูล
+     */
+    const getDecimalConfig = (key: string, rowIndex: number): number | undefined => {
+      const configList = keyAndDecimalMap?.[key]
 
-    if (
-      matched?.decimal === undefined ||
-      matched?.decimal === null
-    ) {
-      return undefined;
+      if (!Array.isArray(configList)) {
+        return undefined
+      }
+
+      const matched = configList.find((item: any) => Number(item?.index) === Number(rowIndex))
+
+      if (matched?.decimal === undefined || matched?.decimal === null) {
+        return undefined
+      }
+
+      const decimal = Number(matched.decimal)
+
+      if (!Number.isFinite(decimal)) {
+        return undefined
+      }
+
+      return Math.max(0, decimal)
     }
 
-    const decimal = Number(matched.decimal);
+    /**
+     * เพิ่ม Extra Header
+     */
+    if (extraHeader && extraHeader.length > 0) {
+      XLSX.utils.sheet_add_aoa(ws, extraHeader, {
+        origin: rowOffset
+      })
 
-    if (!Number.isFinite(decimal)) {
-      return undefined;
+      const extraHeaderStartRow = rowOffset
+
+      extraHeaderRowOffset = extraHeader.length
+
+      for (let extraRowIndex = 0; extraRowIndex < extraHeader.length; extraRowIndex++) {
+        const extraRow = extraHeader[extraRowIndex] ?? []
+
+        for (let C = 0; C < extraRow.length; C++) {
+          const cellAddress = XLSX.utils.encode_cell({
+            r: extraHeaderStartRow + extraRowIndex,
+            c: C
+          })
+
+          const cell = ws[cellAddress]
+
+          if (!cell) continue
+
+          const headerValue = extraRow[C]
+
+          const fillColor = headerColorMap?.[headerValue] || 'F4F4F4'
+
+          const fontColor = this.getFontColor(fillColor)
+
+          cell.s = {
+            ...cell.s,
+            font: {
+              ...cell.s?.font,
+              bold: true,
+              color: {
+                rgb: fontColor
+              }
+            },
+            alignment: {
+              horizontal: 'center',
+              vertical: 'center',
+              wrapText: true
+            },
+            fill: {
+              patternType: 'solid',
+              fgColor: {
+                rgb: fillColor
+              }
+            },
+            border: {
+              top: {
+                style: 'thin',
+                color: {rgb: '999999'}
+              },
+              bottom: {
+                style: 'thin',
+                color: {rgb: '999999'}
+              },
+              left: {
+                style: 'thin',
+                color: {rgb: '999999'}
+              },
+              right: {
+                style: 'thin',
+                color: {rgb: '999999'}
+              }
+            }
+          }
+        }
+      }
     }
 
-    return Math.max(0, decimal);
-  };
+    /**
+     * เพิ่ม Header หลัก
+     */
+    const headerStartRow = rowOffset + extraHeaderRowOffset
 
-  /**
-   * เพิ่ม Extra Header
-   */
-  if (extraHeader && extraHeader.length > 0) {
-    XLSX.utils.sheet_add_aoa(ws, extraHeader, {
-      origin: rowOffset,
-    });
+    XLSX.utils.sheet_add_aoa(ws, headerRows, {
+      origin: headerStartRow
+    })
 
-    const extraHeaderStartRow = rowOffset;
+    /**
+     * เตรียมข้อมูลต้นฉบับ
+     */
+    const jsonData = flatData.map((item) => item.result)
 
-    extraHeaderRowOffset = extraHeader.length;
+    const originalRows = jsonData.map((row) => headers.map((key) => row?.[key]))
 
-    for (
-      let extraRowIndex = 0;
-      extraRowIndex < extraHeader.length;
-      extraRowIndex++
-    ) {
-      const extraRow = extraHeader[extraRowIndex] ?? [];
+    /**
+     * แปลงค่าที่หน้าตาเป็นตัวเลขให้เป็น JavaScript Number
+     * ก่อนส่งเข้า sheet_add_aoa
+     */
+    const rows = originalRows.map((row) =>
+      row.map((originalValue) => {
+        const numericValue = this.parseExcelNumber(originalValue)
 
-      for (let C = 0; C < extraRow.length; C++) {
+        if (numericValue !== null) {
+          return numericValue
+        }
+
+        return originalValue
+      })
+    )
+
+    /**
+     * เพิ่มข้อมูลลง Worksheet
+     */
+    const dataStartRow = headerStartRow + headerRows.length
+
+    XLSX.utils.sheet_add_aoa(ws, rows, {
+      origin: dataStartRow
+    })
+
+    /**
+     * Style Header
+     */
+    for (let R = 0; R < headerRows.length; R++) {
+      for (let C = 0; C < headers.length; C++) {
         const cellAddress = XLSX.utils.encode_cell({
-          r: extraHeaderStartRow + extraRowIndex,
-          c: C,
-        });
+          r: headerStartRow + R,
+          c: C
+        })
 
-        const cell = ws[cellAddress];
+        const cell = ws[cellAddress]
 
-        if (!cell) continue;
+        if (!cell) continue
 
-        const headerValue = extraRow[C];
+        const headerValue = headerRows?.[R]?.[C]
 
-        const fillColor =
-          headerColorMap?.[headerValue] ||
-          'F4F4F4';
+        const fullPath = headerRows
+          .slice(0, R + 1)
+          .map((row) => row?.[C])
+          .filter((value) => !isBlank(value))
+          .join('.')
 
-        const fontColor = this.getFontColor(fillColor);
+        const fillColor = headerColorMap?.[fullPath] || headerColorMap?.[headerValue] || 'F4F4F4'
+
+        const fontColor = this.getFontColor(fillColor)
 
         cell.s = {
           ...cell.s,
@@ -12458,570 +13281,316 @@ setWorkSheetDataAndStyle({
             ...cell.s?.font,
             bold: true,
             color: {
-              rgb: fontColor,
-            },
+              rgb: fontColor
+            }
           },
           alignment: {
             horizontal: 'center',
             vertical: 'center',
-            wrapText: true,
+            wrapText: true
           },
           fill: {
             patternType: 'solid',
             fgColor: {
-              rgb: fillColor,
-            },
+              rgb: fillColor
+            }
           },
           border: {
             top: {
               style: 'thin',
-              color: { rgb: '999999' },
+              color: {rgb: '999999'}
             },
             bottom: {
               style: 'thin',
-              color: { rgb: '999999' },
+              color: {rgb: '999999'}
             },
             left: {
               style: 'thin',
-              color: { rgb: '999999' },
+              color: {rgb: '999999'}
             },
             right: {
               style: 'thin',
-              color: { rgb: '999999' },
-            },
-          },
-        };
+              color: {rgb: '999999'}
+            }
+          }
+        }
       }
     }
-  }
 
-  /**
-   * เพิ่ม Header หลัก
-   */
-  const headerStartRow =
-    rowOffset + extraHeaderRowOffset;
+    /**
+     * กำหนดประเภท Number, Number Format,
+     * สีพื้นหลัง และสีตัวอักษรของ Data Cell
+     */
+    for (let r = dataStartRow; r < dataStartRow + rows.length; r++) {
+      const rowIndex = r - dataStartRow
 
-  XLSX.utils.sheet_add_aoa(ws, headerRows, {
-    origin: headerStartRow,
-  });
-
-  /**
-   * เตรียมข้อมูลต้นฉบับ
-   */
-  const jsonData = flatData.map(
-    (item) => item.result
-  );
-
-  const originalRows = jsonData.map((row) =>
-    headers.map((key) => row?.[key])
-  );
-
-  /**
-   * แปลงค่าที่หน้าตาเป็นตัวเลขให้เป็น JavaScript Number
-   * ก่อนส่งเข้า sheet_add_aoa
-   */
-  const rows = originalRows.map((row) =>
-    row.map((originalValue) => {
-      const numericValue =
-        this.parseExcelNumber(originalValue);
-
-      if (numericValue !== null) {
-        return numericValue;
-      }
-
-      return originalValue;
-    })
-  );
-
-  /**
-   * เพิ่มข้อมูลลง Worksheet
-   */
-  const dataStartRow =
-    headerStartRow + headerRows.length;
-
-  XLSX.utils.sheet_add_aoa(ws, rows, {
-    origin: dataStartRow,
-  });
-
-  /**
-   * Style Header
-   */
-  for (
-    let R = 0;
-    R < headerRows.length;
-    R++
-  ) {
-    for (
-      let C = 0;
-      C < headers.length;
-      C++
-    ) {
-      const cellAddress = XLSX.utils.encode_cell({
-        r: headerStartRow + R,
-        c: C,
-      });
-
-      const cell = ws[cellAddress];
-
-      if (!cell) continue;
-
-      const headerValue =
-        headerRows?.[R]?.[C];
-
-      const fullPath = headerRows
-        .slice(0, R + 1)
-        .map((row) => row?.[C])
-        .filter((value) => !isBlank(value))
-        .join('.');
-
-      const fillColor =
-        headerColorMap?.[fullPath] ||
-        headerColorMap?.[headerValue] ||
-        'F4F4F4';
-
-      const fontColor =
-        this.getFontColor(fillColor);
-
-      cell.s = {
-        ...cell.s,
-        font: {
-          ...cell.s?.font,
-          bold: true,
-          color: {
-            rgb: fontColor,
-          },
-        },
-        alignment: {
-          horizontal: 'center',
-          vertical: 'center',
-          wrapText: true,
-        },
-        fill: {
-          patternType: 'solid',
-          fgColor: {
-            rgb: fillColor,
-          },
-        },
-        border: {
-          top: {
-            style: 'thin',
-            color: { rgb: '999999' },
-          },
-          bottom: {
-            style: 'thin',
-            color: { rgb: '999999' },
-          },
-          left: {
-            style: 'thin',
-            color: { rgb: '999999' },
-          },
-          right: {
-            style: 'thin',
-            color: { rgb: '999999' },
-          },
-        },
-      };
-    }
-  }
-
-  /**
-   * กำหนดประเภท Number, Number Format,
-   * สีพื้นหลัง และสีตัวอักษรของ Data Cell
-   */
-  for (
-    let r = dataStartRow;
-    r < dataStartRow + rows.length;
-    r++
-  ) {
-    const rowIndex = r - dataStartRow;
-
-    for (
-      let c = 0;
-      c < headers.length;
-      c++
-    ) {
-      const cellAddress =
-        XLSX.utils.encode_cell({
+      for (let c = 0; c < headers.length; c++) {
+        const cellAddress = XLSX.utils.encode_cell({
           r,
-          c,
-        });
+          c
+        })
 
-      const cell = ws[cellAddress];
+        const cell = ws[cellAddress]
 
-      if (!cell) continue;
+        if (!cell) continue
 
-      const key = headers[c];
+        const key = headers[c]
 
-      const originalValue =
-        originalRows?.[rowIndex]?.[c];
+        const originalValue = originalRows && originalRows?.[rowIndex]?.[c] || null
 
-      const numericValue =
-        this.parseExcelNumber(originalValue);
+        const numericValue = this.parseExcelNumber(originalValue)
 
+        /**
+         * ถ้าค่าเป็นตัวเลข
+         */
+        if (numericValue !== null) {
+          const configuredDecimal = getDecimalConfig(key, rowIndex)
+
+          /**
+           * ถ้ามี keyAndDecimalMap ให้ใช้ค่าที่กำหนด
+           * ถ้าไม่มี ให้ตรวจจำนวนทศนิยมจากค่าต้นฉบับ
+           */
+          const decimal = configuredDecimal ?? this.getDecimalPlacesFromValue(originalValue)
+
+          cell.v = numericValue
+          cell.t = 'n'
+          cell.z = this.getExcelNumberFormat(decimal)
+
+          /**
+           * ลบ cached formatted text เดิม
+           * เพื่อไม่ให้ Excel ใช้ค่า format เก่า
+           */
+          if ('w' in cell) {
+            delete cell.w
+          }
+        }
+
+        const bgColor = cellHighlightMap?.[key]?.[rowIndex] ?? null
+
+        const textColorValue = cellTextColorMap?.[key]?.[rowIndex] ?? null
+
+        cell.s = {
+          ...cell.s,
+          alignment: {
+            ...cell.s?.alignment,
+            horizontal: cell.t === 'n' ? 'right' : (cell.s?.alignment?.horizontal ?? 'left'),
+            vertical: cell.s?.alignment?.vertical ?? 'center'
+          },
+
+          ...(bgColor
+            ? {
+                fill: {
+                  patternType: 'solid',
+                  fgColor: {
+                    rgb: bgColor
+                  }
+                }
+              }
+            : {}),
+
+          ...(textColorValue
+            ? {
+                font: {
+                  ...cell.s?.font,
+                  color: {
+                    /*
+                     * ถ้า map ส่งรหัสสีมาให้ใช้รหัสนั้น
+                     * ถ้าเดิมส่ง boolean ให้ใช้สีแดง
+                     */
+                    rgb: typeof textColorValue === 'string' ? textColorValue.replace('#', '') : 'FF0000'
+                  }
+                }
+              }
+            : {})
+        }
+      }
+    }
+
+    /**
+     * Merge Header
+     */
+    const merges: XLSX.Range[] = []
+
+    const lastHeaderRow = headerRows.length - 1
+
+    const isSameRange = (a: XLSX.Range, b: XLSX.Range) => {
+      return a.s.r === b.s.r && a.s.c === b.s.c && a.e.r === b.e.r && a.e.c === b.e.c
+    }
+
+    const isOverlap = (a: XLSX.Range, b: XLSX.Range) => {
+      return !(a.e.r < b.s.r || a.s.r > b.e.r || a.e.c < b.s.c || a.s.c > b.e.c)
+    }
+
+    const addMerge = (range: XLSX.Range) => {
       /**
-       * ถ้าค่าเป็นตัวเลข
+       * ไม่ merge cell เดียว
        */
-      if (numericValue !== null) {
-        const configuredDecimal =
-          getDecimalConfig(key, rowIndex);
+      if (range.s.r === range.e.r && range.s.c === range.e.c) {
+        return
+      }
 
-        /**
-         * ถ้ามี keyAndDecimalMap ให้ใช้ค่าที่กำหนด
-         * ถ้าไม่มี ให้ตรวจจำนวนทศนิยมจากค่าต้นฉบับ
-         */
-        const decimal =
-          configuredDecimal ??
-          this.getDecimalPlacesFromValue(originalValue);
+      const duplicated = merges.some((merge) => isSameRange(merge, range))
 
-        cell.v = numericValue;
-        cell.t = 'n';
-        cell.z = this.getExcelNumberFormat(decimal);
+      if (duplicated) {
+        return
+      }
 
-        /**
-         * ลบ cached formatted text เดิม
-         * เพื่อไม่ให้ Excel ใช้ค่า format เก่า
-         */
-        if ('w' in cell) {
-          delete cell.w;
+      const overlapped = merges.some((merge) => isOverlap(merge, range))
+
+      if (overlapped) {
+        return
+      }
+
+      merges.push(range)
+    }
+
+    const getParentKey = (rowIndex: number, colIndex: number) => {
+      return headerRows
+        .slice(0, rowIndex)
+        .map((row) => row?.[colIndex])
+        .filter((value) => !isBlank(value))
+        .join('||')
+    }
+
+    /**
+     * Merge แนวนอน
+     * เฉพาะค่าหัวตารางที่เหมือนกันและอยู่ Parent เดียวกัน
+     */
+    for (let R = 0; R < headerRows.length; R++) {
+      let startC = 0
+
+      while (startC < headers.length) {
+        const startValue = headerRows && headerRows?.[R]?.[startC]
+
+        if (isBlank(startValue)) {
+          startC++
+          continue
+        }
+
+        const parentKey = getParentKey(R, startC)
+
+        let endC = startC
+
+        while (endC + 1 < headers.length && headerRows?.[R]?.[endC + 1] === startValue && getParentKey(R, endC + 1) === parentKey) {
+          endC++
+        }
+
+        if (endC > startC) {
+          addMerge({
+            s: {
+              r: headerStartRow + R,
+              c: startC
+            },
+            e: {
+              r: headerStartRow + R,
+              c: endC
+            }
+          })
+        }
+
+        startC = endC + 1
+      }
+    }
+
+    /**
+     * Merge แนวตั้ง
+     * สำหรับ Header ที่ไม่มี Header ชั้นล่างต่อ
+     */
+    for (let C = 0; C < headers.length; C++) {
+      let leafRow = -1
+
+      for (let R = 0; R < headerRows.length; R++) {
+        const value = headerRows?.[R]?.[C]
+
+        if (!isBlank(value)) {
+          leafRow = R
         }
       }
 
-      const bgColor =
-        cellHighlightMap?.[key]?.[rowIndex] ??
-        null;
-
-      const textColorValue =
-        cellTextColorMap?.[key]?.[rowIndex] ??
-        null;
-
-      cell.s = {
-        ...cell.s,
-        alignment: {
-          ...cell.s?.alignment,
-          horizontal:
-            cell.t === 'n'
-              ? 'right'
-              : cell.s?.alignment?.horizontal ??
-                'left',
-          vertical:
-            cell.s?.alignment?.vertical ??
-            'center',
-        },
-
-        ...(bgColor
-          ? {
-              fill: {
-                patternType: 'solid',
-                fgColor: {
-                  rgb: bgColor,
-                },
-              },
-            }
-          : {}),
-
-        ...(textColorValue
-          ? {
-              font: {
-                ...cell.s?.font,
-                color: {
-                  /*
-                   * ถ้า map ส่งรหัสสีมาให้ใช้รหัสนั้น
-                   * ถ้าเดิมส่ง boolean ให้ใช้สีแดง
-                   */
-                  rgb:
-                    typeof textColorValue ===
-                    'string'
-                      ? textColorValue.replace(
-                          '#',
-                          ''
-                        )
-                      : 'FF0000',
-                },
-              },
-            }
-          : {}),
-      };
-    }
-  }
-
-  /**
-   * Merge Header
-   */
-  const merges: XLSX.Range[] = [];
-
-  const lastHeaderRow =
-    headerRows.length - 1;
-
-  const isSameRange = (
-    a: XLSX.Range,
-    b: XLSX.Range
-  ) => {
-    return (
-      a.s.r === b.s.r &&
-      a.s.c === b.s.c &&
-      a.e.r === b.e.r &&
-      a.e.c === b.e.c
-    );
-  };
-
-  const isOverlap = (
-    a: XLSX.Range,
-    b: XLSX.Range
-  ) => {
-    return !(
-      a.e.r < b.s.r ||
-      a.s.r > b.e.r ||
-      a.e.c < b.s.c ||
-      a.s.c > b.e.c
-    );
-  };
-
-  const addMerge = (
-    range: XLSX.Range
-  ) => {
-    /**
-     * ไม่ merge cell เดียว
-     */
-    if (
-      range.s.r === range.e.r &&
-      range.s.c === range.e.c
-    ) {
-      return;
-    }
-
-    const duplicated = merges.some(
-      (merge) =>
-        isSameRange(merge, range)
-    );
-
-    if (duplicated) {
-      return;
-    }
-
-    const overlapped = merges.some(
-      (merge) =>
-        isOverlap(merge, range)
-    );
-
-    if (overlapped) {
-      return;
-    }
-
-    merges.push(range);
-  };
-
-  const getParentKey = (
-    rowIndex: number,
-    colIndex: number
-  ) => {
-    return headerRows
-      .slice(0, rowIndex)
-      .map((row) => row?.[colIndex])
-      .filter((value) => !isBlank(value))
-      .join('||');
-  };
-
-  /**
-   * Merge แนวนอน
-   * เฉพาะค่าหัวตารางที่เหมือนกันและอยู่ Parent เดียวกัน
-   */
-  for (
-    let R = 0;
-    R < headerRows.length;
-    R++
-  ) {
-    let startC = 0;
-
-    while (startC < headers.length) {
-      const startValue =
-        headerRows?.[R]?.[startC];
-
-      if (isBlank(startValue)) {
-        startC++;
-        continue;
-      }
-
-      const parentKey =
-        getParentKey(R, startC);
-
-      let endC = startC;
-
-      while (
-        endC + 1 < headers.length &&
-        headerRows?.[R]?.[endC + 1] ===
-          startValue &&
-        getParentKey(R, endC + 1) ===
-          parentKey
-      ) {
-        endC++;
-      }
-
-      if (endC > startC) {
+      if (leafRow >= 0 && leafRow < lastHeaderRow) {
         addMerge({
           s: {
-            r: headerStartRow + R,
-            c: startC,
+            r: headerStartRow + leafRow,
+            c: C
           },
           e: {
-            r: headerStartRow + R,
-            c: endC,
-          },
-        });
-      }
-
-      startC = endC + 1;
-    }
-  }
-
-  /**
-   * Merge แนวตั้ง
-   * สำหรับ Header ที่ไม่มี Header ชั้นล่างต่อ
-   */
-  for (
-    let C = 0;
-    C < headers.length;
-    C++
-  ) {
-    let leafRow = -1;
-
-    for (
-      let R = 0;
-      R < headerRows.length;
-      R++
-    ) {
-      const value =
-        headerRows?.[R]?.[C];
-
-      if (!isBlank(value)) {
-        leafRow = R;
+            r: headerStartRow + lastHeaderRow,
+            c: C
+          }
+        })
       }
     }
 
-    if (
-      leafRow >= 0 &&
-      leafRow < lastHeaderRow
-    ) {
-      addMerge({
-        s: {
-          r: headerStartRow + leafRow,
-          c: C,
-        },
-        e: {
-          r:
-            headerStartRow +
-            lastHeaderRow,
-          c: C,
-        },
-      });
-    }
-  }
+    /**
+     * Row Height
+     */
+    const totalRows = dataStartRow + rows.length
 
-  /**
-   * Row Height
-   */
-  const totalRows =
-    dataStartRow + rows.length;
-
-  ws['!rows'] = Array.from(
-    { length: totalRows },
-    (_, rowIndex) => {
-      const isHeaderRow =
-        rowIndex < dataStartRow;
+    ws['!rows'] = Array.from({length: totalRows}, (_, rowIndex) => {
+      const isHeaderRow = rowIndex < dataStartRow
 
       return {
-        hpx: isHeaderRow ? 40 : 30,
-      };
+        hpx: isHeaderRow ? 40 : 30
+      }
+    })
+
+    /**
+     * ซ่อนแถวแรก
+     */
+    if (ws['!rows']?.[0]) {
+      ws['!rows'][0] = {
+        ...ws['!rows'][0],
+        hidden: true
+      }
     }
-  );
 
-  /**
-   * ซ่อนแถวแรก
-   */
-  if (ws['!rows']?.[0]) {
-    ws['!rows'][0] = {
-      ...ws['!rows'][0],
-      hidden: true,
-    };
-  }
+    /**
+     * Column Width
+     */
+    const colWidths = headers.map((_, colIndex) => {
+      const values = [...headerRows.map((row) => String(row?.[colIndex] ?? '')), ...originalRows.map((row) => String(row?.[colIndex] ?? ''))]
 
-  /**
-   * Column Width
-   */
-  const colWidths = headers.map(
-    (_, colIndex) => {
-      const values = [
-        ...headerRows.map(
-          (row) =>
-            String(row?.[colIndex] ?? '')
-        ),
-        ...originalRows.map(
-          (row) =>
-            String(row?.[colIndex] ?? '')
-        ),
-      ];
-
-      const maxLength = Math.max(
-        0,
-        ...values.map(
-          (value) => value.length
-        )
-      );
+      const maxLength = Math.max(0, ...values.map((value) => value.length))
 
       return {
-        wch: Math.min(
-          Math.max(maxLength + 5, 10),
-          40
-        ),
-      };
-    }
-  );
+        wch: Math.min(Math.max(maxLength + 5, 10), 40)
+      }
+    })
 
-  ws['!cols'] = colWidths;
-  ws['!merges'] = merges;
+    ws['!cols'] = colWidths
+    ws['!merges'] = merges
 
-  /**
-   * ใช้ตรวจสอบระหว่างทดสอบ
-   * สามารถลบออกได้ภายหลัง
-   */
-  const firstNumericCell: {
-    address: string;
-    cell: any;
-  } | null = (() => {
-    for (
-      let r = dataStartRow;
-      r < dataStartRow + rows.length;
-      r++
-    ) {
-      for (
-        let c = 0;
-        c < headers.length;
-        c++
-      ) {
-        const address =
-          XLSX.utils.encode_cell({
+    /**
+     * ใช้ตรวจสอบระหว่างทดสอบ
+     * สามารถลบออกได้ภายหลัง
+     */
+    const firstNumericCell: {
+      address: string
+      cell: any
+    } | null = (() => {
+      for (let r = dataStartRow; r < dataStartRow + rows.length; r++) {
+        for (let c = 0; c < headers.length; c++) {
+          const address = XLSX.utils.encode_cell({
             r,
-            c,
-          });
+            c
+          })
 
-        const cell = ws[address];
+          const cell = ws[address]
 
-        if (cell?.t === 'n') {
-          return {
-            address,
-            cell,
-          };
+          if (cell?.t === 'n') {
+            return {
+              address,
+              cell
+            }
+          }
         }
       }
-    }
 
-    return null;
-  })();
+      return null
+    })()
 
-  console.log(
-    'First numeric Excel cell:',
-    firstNumericCell
-  );
-}
+    console.log('First numeric Excel cell:', firstNumericCell)
+  }
 
   // mul
   genDataToExcelWithMultiLevelHeaderNewMultiSheet(wb: any, data: any[], response: Response, nameFile: string, skipFirstRow: boolean, headerColorMap, cellHighlightMap) {
@@ -13307,8 +13876,10 @@ setWorkSheetDataAndStyle({
 
     for (let i = 0; i < dataArr.length; i++) {
       const {data, response, nameSheet = `Sheet ${i + 1}`, skipFirstRow, headerColorMap, cellHighlightMap} = dataArr[i]
-      const ws = this.genDataToExcelWithMultiLevelHeaderNewMultiSheet(wb, data, response, nameSheet, skipFirstRow, headerColorMap, cellHighlightMap)
-      XLSX.utils.book_append_sheet(wb, ws, nameSheet)
+      if(data.length > 0){
+        const ws = this.genDataToExcelWithMultiLevelHeaderNewMultiSheet(wb, data, response, nameSheet, skipFirstRow, headerColorMap, cellHighlightMap)
+        XLSX.utils.book_append_sheet(wb, ws, nameSheet)
+      }
     }
 
     // //
@@ -13350,14 +13921,12 @@ setWorkSheetDataAndStyle({
       const isExactMatch = allowedPaths.includes(currentPath)
       const hasChildrenMatch = allowedPaths.some((path) => path.startsWith(`${currentPath}.`))
 
-      if (isExactMatch && !hasChildrenMatch) {
-        result[key] = obj[key]
-      } else if (hasChildrenMatch) {
+      if (hasChildrenMatch) {
         const nested = this.filterNestedObjectByPaths(obj[key], allowedPaths, currentPath)
         if (Object.keys(nested).length > 0) {
           result[key] = nested
         }
-      } else if (isExactMatch && typeof obj[key] !== 'object') {
+      } else if (isExactMatch) {
         result[key] = obj[key]
       }
     }
@@ -13370,7 +13939,7 @@ setWorkSheetDataAndStyle({
   }
 
   async balanceIntradayDashboard(response: Response, payload: any, userId: any) {
-    console.log('payload : ', payload);
+    console.log('payload : ', payload)
     const {bodys, filter} = payload
     const resData: any = await this.balancingService.balanceIntradayDashboard(bodys, userId)
     const shipperNameMaster =
@@ -13485,12 +14054,16 @@ setWorkSheetDataAndStyle({
         ['absimb']: actual_?.['absimb']?.['value'] !== null && actual_?.['absimb']?.['value'] !== undefined ? this.formatNumberTwoDecimalNom(actual_?.['absimb']?.['value']) + '%' : '',
         ['system_level_east']: formatText(actual_?.['system_level_east']),
         ['temp_system_level_east']: actual_?.['system_level_east'],
-        ['level_percentage_east']: bodys?.shipper_id ? actual_?.['custom_level_percentage_east']?.['value'] && this.formatNumberTwoDecimal(actual_?.['custom_level_percentage_east']?.['value']) : actual_?.['level_percentage_east']?.['value'] && this.formatNumberTwoDecimal(actual_?.['level_percentage_east']?.['value']),
+        ['level_percentage_east']: bodys?.shipper_id
+          ? actual_?.['custom_level_percentage_east']?.['value'] && this.formatNumberTwoDecimal(actual_?.['custom_level_percentage_east']?.['value'])
+          : actual_?.['level_percentage_east']?.['value'] && this.formatNumberTwoDecimal(actual_?.['level_percentage_east']?.['value']),
         ['energyAdjustIFOFO_east']: actual_?.['energyAdjustIFOFO_east']?.['value'] && this.formatNumberFourDecimal(actual_?.['energyAdjustIFOFO_east']?.['value']),
         ['volumeAdjustIFOFO_east']: actual_?.['volumeAdjustIFOFO_east']?.['value'] && this.formatNumberSixDecimalNom(actual_?.['volumeAdjustIFOFO_east']?.['value']),
         ['system_level_west']: formatText(actual_?.['system_level_west']),
         ['temp_system_level_west']: actual_?.['system_level_west'],
-        ['level_percentage_west']: bodys?.shipper_id ? actual_?.['custom_level_percentage_west']?.['value'] && this.formatNumberTwoDecimal(actual_?.['custom_level_percentage_west']?.['value']) : actual_?.['level_percentage_west']?.['value'] && this.formatNumberTwoDecimal(actual_?.['level_percentage_west']?.['value']),
+        ['level_percentage_west']: bodys?.shipper_id
+          ? actual_?.['custom_level_percentage_west']?.['value'] && this.formatNumberTwoDecimal(actual_?.['custom_level_percentage_west']?.['value'])
+          : actual_?.['level_percentage_west']?.['value'] && this.formatNumberTwoDecimal(actual_?.['level_percentage_west']?.['value']),
         ['energyAdjustIFOFO_west']: actual_?.['energyAdjustIFOFO_west']?.['value'] && this.formatNumberFourDecimal(actual_?.['energyAdjustIFOFO_west']?.['value']),
         ['volumeAdjustIFOFO_west']: actual_?.['volumeAdjustIFOFO_west']?.['value'] && this.formatNumberSixDecimalNom(actual_?.['volumeAdjustIFOFO_west']?.['value']),
         ['condition_east']: actual_?.['condition_east']?.['value'],
@@ -13519,7 +14092,7 @@ setWorkSheetDataAndStyle({
           // return this.formatNumberFDecimal(String(value)?.replace(/,/g, ''))
           return this.formatNumberFourDecimal(String(value)?.replace(/,/g, ''))
         } else {
-          return '' 
+          return ''
         }
       }
       let setData = {
@@ -13574,34 +14147,34 @@ setWorkSheetDataAndStyle({
           ['East']: formateNum(e['dailyImb_east']),
           ['West']: formateNum(e['dailyImb_west'])
         },
-        ['Acc Imbalance (Meter) (MMBTU)']: {
+        ['Acc. Imbalance (Meter) (MMBTU)']: {
           ['East']: formateNum(e['accImb_east']),
           ['West']: formateNum(e['accImb_west'])
         },
-        ['Acc Imbalance (Inventory) (MMBTU)']: {
+        ['Acc. Imbalance (Inventory) (MMBTU)']: {
           ['East']: formateNum(e['accImbInv_east']),
           ['West']: formateNum(e['accImbInv_west'])
         },
         ['Total Imbalance']: formateNum(e['dailyImb_total']),
-        // ['% Total Imbalance']: formateNum(e['absimb']), 
-        ['% Total Imbalance']: e['absimb'], 
+        // ['% Total Imbalance']: formateNum(e['absimb']),
+        ['% Total Imbalance']: e['absimb'] || '',
         ['System Level (East)']: {
-          ['Level']: e['system_level_east'],
+          ['Level']: e['system_level_east'] || '',
           // ['%']: formateNum(e['level_percentage_east'])
-          ['%']: (e['level_percentage_east'])
+          ['%']: e['level_percentage_east'] || ''
         },
         ['Order (East)']: {
           ['MMBTU']: formateNum(e['energyAdjustIFOFO_east']),
-          ['MMSCF']: (e['volumeAdjustIFOFO_east'])
+          ['MMSCF']: e['volumeAdjustIFOFO_east'] || ''
         },
         ['System Level (West)']: {
           ['Level']: e['system_level_west'],
           // ['%']: formateNum(e['level_percentage_west'])
-          ['%']: (e['level_percentage_west'])
+          ['%']: e['level_percentage_west'] || ''
         },
         ['Order (West)']: {
           ['MMBTU']: formateNum(e['energyAdjustIFOFO_west']),
-          ['MMSCF']: (e['volumeAdjustIFOFO_west'])
+          ['MMSCF']: e['volumeAdjustIFOFO_west'] || ''
         },
         ['Condition East']: e['condition_east'] || '',
         ['Condition West']: e['condition_west'] || ''
@@ -13744,13 +14317,13 @@ setWorkSheetDataAndStyle({
       'Imbalance.East': 'DBE4FF',
       'Imbalance.West': 'FECEE2', // #FECEE2
 
-      'Acc Imbalance (Meter) (MMBTU)': '1573A1',
-      'Acc Imbalance (Meter) (MMBTU).East': 'DBE4FF',
-      'Acc Imbalance (Meter) (MMBTU).West': 'FECEE2', // #FECEE2
+      'Acc. Imbalance (Meter) (MMBTU)': '1573A1',
+      'Acc. Imbalance (Meter) (MMBTU).East': 'DBE4FF',
+      'Acc. Imbalance (Meter) (MMBTU).West': 'FECEE2', // #FECEE2
 
-      'Acc Imbalance (Inventory) (MMBTU)': '1573A1',
-      'Acc Imbalance (Inventory) (MMBTU).East': 'DBE4FF',
-      'Acc Imbalance (Inventory) (MMBTU).West': 'FECEE2', // #FECEE2
+      'Acc. Imbalance (Inventory) (MMBTU)': '1573A1',
+      'Acc. Imbalance (Inventory) (MMBTU).East': 'DBE4FF',
+      'Acc. Imbalance (Inventory) (MMBTU).West': 'FECEE2', // #FECEE2
 
       'Total Imbalance': '1573A1',
       '% Total Imbalance': '1573A1',
@@ -13999,8 +14572,8 @@ setWorkSheetDataAndStyle({
             }
             if (key === 'System Level (East).Level' && nresData[i]?.['validation_system_level_east']) {
               const colorValition = getValidationColorClassNomal(nresData[i]?.['validation_system_level_east'])
-              console.log(`nresData[i]?.['validation_system_level_east'] : `, nresData[i]?.['validation_system_level_east']);
-              console.log('colorValition : ', colorValition);
+              console.log(`nresData[i]?.['validation_system_level_east'] : `, nresData[i]?.['validation_system_level_east'])
+              console.log('colorValition : ', colorValition)
               // E9FFD6
               result[key][i] = colorValition
             }
@@ -14225,7 +14798,7 @@ setWorkSheetDataAndStyle({
 
       let setData = {
         ['Gas Day']: dayjs(e['gas_day'], 'YYYY-MM-DD').format('DD/MM/YYYY'),
-        ['Gas Hour']: (e['gas_hour'] && `${e?.gas_hour > 10 ? e?.gas_hour + ':00' : '0' + e?.gas_hour + ':00'}`) || '', //
+        ['Gas Hour']: e !== null && e !== undefined && (e['gas_hour'] && `${e?.gas_hour > 10 ? e?.gas_hour + ':00' : '0' + e?.gas_hour + ':00'}`) || '', //
         ['Timestamp']: dayjs(e['timestamp'], 'DD/MM/YYYY HH:mm:ss').format('DD/MM/YYYY HH:mm:ss') || '', //
         ['Zone']: e['zone'] || '', //
         ['Mode']: e['mode'] || '', //
@@ -14521,52 +15094,28 @@ setWorkSheetDataAndStyle({
             })
           }
           // shipperUse
-          console.log('shipperUse : ', shipperUse);
+          console.log('shipperUse : ', shipperUse)
           yell?.push({
             ['Timestamp']: 'TOTAL', //
             ['Hourly']: e['gas_hour'] && `${e['gas_hour'] > 10 ? e['gas_hour'] + ':00' : '0' + e['gas_hour'] + ':00'}`,
             ['Shipper Name']: 'Total Shipper',
             ['Zone']: e['zone'] || '',
-            ['Acc. Imbalance / Acc. Imbalance Inventory (MMBTU)']: this.formatNumberFourDecimalNomRound(shipperUse?.reduce(
-                                                        (accumulator:any, currentValue:any) => accumulator + Number(parseToNumber(currentValue?.['Acc. Imbalance / Acc. Imbalance Inventory (MMBTU)'])),
-                                                        0,
-                                                        )),
-            ['Acc.Margin (MMBTU)']: this.formatNumberFourDecimalNomRound(shipperUse?.reduce(
-                                                        (accumulator:any, currentValue:any) => accumulator + Number(parseToNumber(currentValue?.['Acc.Margin (MMBTU)'])),
-                                                        0,
-                                                        )),
-            ['Flow Type']: "",
-            ['Energy Adjustment (MMBTU)']: this.formatNumberFourDecimalNomRound(shipperUse?.reduce(
-                                                        (accumulator:any, currentValue:any) => accumulator + Number(parseToNumber(currentValue?.['Energy Adjustment (MMBTU)'])),
-                                                        0,
-                                                        )),
-            ['Energy Flow Rate Adjustment (MMBTU/H)']: this.formatNumberFourDecimalNomRound(shipperUse?.reduce(
-                                                        (accumulator:any, currentValue:any) => accumulator + Number(parseToNumber(currentValue?.['Energy Flow Rate Adjustment (MMBTU/H)'])),
-                                                        0,
-                                                        )),
-            ['Energy Flow Rate Adjustment (MMBTU/D)']: this.formatNumberFourDecimalNomRound(shipperUse?.reduce(
-                                                        (accumulator:any, currentValue:any) => accumulator + Number(parseToNumber(currentValue?.['Energy Flow Rate Adjustment (MMBTU/D)'])),
-                                                        0,
-                                                        )),
-            ['Volume Adjustment (MMSCF)']: this.formatNumberSixDecimalNomRound(shipperUse?.reduce(
-                                                        (accumulator:any, currentValue:any) => accumulator + Number(parseToNumber(currentValue?.['Volume Adjustment (MMSCF)'])),
-                                                        0,
-                                                        )),
-            ['Volume Flow Rate Adjustment (MMSCF/H)']: this.formatNumberSixDecimalNomRound(shipperUse?.reduce(
-                                                        (accumulator:any, currentValue:any) => accumulator + Number(parseToNumber(currentValue?.['Volume Flow Rate Adjustment (MMSCF/H)'])),
-                                                        0,
-                                                        )),
-            ['Volume Flow Rate Adjustment (MMSCFD)']: this.formatNumberSixDecimalNomRound(shipperUse?.reduce(
-                                                        (accumulator:any, currentValue:any) => accumulator + Number(parseToNumber(currentValue?.['Volume Flow Rate Adjustment (MMSCFD)'])),
-                                                        0,
-                                                        )),
+            ['Acc. Imbalance / Acc. Imbalance Inventory (MMBTU)']: this.formatNumberFourDecimalNomRound(shipperUse?.reduce((accumulator: any, currentValue: any) => accumulator + Number(parseToNumber(currentValue?.['Acc. Imbalance / Acc. Imbalance Inventory (MMBTU)'])), 0)),
+            ['Acc.Margin (MMBTU)']: this.formatNumberFourDecimalNomRound(shipperUse?.reduce((accumulator: any, currentValue: any) => accumulator + Number(parseToNumber(currentValue?.['Acc.Margin (MMBTU)'])), 0)),
+            ['Flow Type']: '',
+            ['Energy Adjustment (MMBTU)']: this.formatNumberFourDecimalNomRound(shipperUse?.reduce((accumulator: any, currentValue: any) => accumulator + Number(parseToNumber(currentValue?.['Energy Adjustment (MMBTU)'])), 0)),
+            ['Energy Flow Rate Adjustment (MMBTU/H)']: this.formatNumberFourDecimalNomRound(shipperUse?.reduce((accumulator: any, currentValue: any) => accumulator + Number(parseToNumber(currentValue?.['Energy Flow Rate Adjustment (MMBTU/H)'])), 0)),
+            ['Energy Flow Rate Adjustment (MMBTU/D)']: this.formatNumberFourDecimalNomRound(shipperUse?.reduce((accumulator: any, currentValue: any) => accumulator + Number(parseToNumber(currentValue?.['Energy Flow Rate Adjustment (MMBTU/D)'])), 0)),
+            ['Volume Adjustment (MMSCF)']: this.formatNumberSixDecimalNomRound(shipperUse?.reduce((accumulator: any, currentValue: any) => accumulator + Number(parseToNumber(currentValue?.['Volume Adjustment (MMSCF)'])), 0)),
+            ['Volume Flow Rate Adjustment (MMSCF/H)']: this.formatNumberSixDecimalNomRound(shipperUse?.reduce((accumulator: any, currentValue: any) => accumulator + Number(parseToNumber(currentValue?.['Volume Flow Rate Adjustment (MMSCF/H)'])), 0)),
+            ['Volume Flow Rate Adjustment (MMSCFD)']: this.formatNumberSixDecimalNomRound(shipperUse?.reduce((accumulator: any, currentValue: any) => accumulator + Number(parseToNumber(currentValue?.['Volume Flow Rate Adjustment (MMSCFD)'])), 0)),
             ['ResolvedTime (Hr.)']: e['valuesData']?.['resolveHour'] || '',
             // ['HV (BTU/SCF)']: valueDigitKeyPure3(e['valuesData'], 'heatingValue'),
-            ['HV (BTU/SCF)']: "",
+            ['HV (BTU/SCF)']: '',
             ['File']: '',
             ['Comment']: '',
             ['Publicate']: '-',
-            ['yell']:true
+            ['yell']: true
           })
         }
         return [...green, ...shipperUse, ...yell]
@@ -14574,7 +15123,7 @@ setWorkSheetDataAndStyle({
     // console.log('nresData  ', nresData);
     const formateData = await nresData?.map((e: any) => {
       let setData = {
-        ['Publicate']: !!!e['Shipper Name'] ? '' : e['Publicate'] === "-" ? "" : (e['Publicate'] ? 'Public' : 'Unpublic'),
+        ['Publicate']: !!!e['Shipper Name'] ? '' : e['Publicate'] === '-' ? '' : e['Publicate'] ? 'Public' : 'Unpublic',
         ['Timestamp']: e['Timestamp'] || '',
         ['Hourly']: e['Hourly'] || '',
         ['Shipper Name']: e['Shipper Name'] || '',
@@ -14594,7 +15143,7 @@ setWorkSheetDataAndStyle({
         ['File']: e['File'] || '',
         ['Comment']: e['Comment'] || '',
         ['grees']: e['grees'] ? true : false,
-        ['yell']: e['yell'] ? true : false,
+        ['yell']: e['yell'] ? true : false
       }
       let filteredData = Object.keys(setData).reduce((obj, key) => {
         obj[key] = setData[key]
@@ -15131,7 +15680,7 @@ setWorkSheetDataAndStyle({
               ['Bypass GSP']: e['detail_entry_east_bypassGas'] || '',
               ['LNG']: e['detail_entry_east_lng'] || '',
               // ['Others']: e['custom_detail_entry_east_'] || '',
-              ['Others']: sumDetail(e?.['values_'], 'detail_entry_east_', ['gsp', 'bypassGas', 'lng', 'F2andG']) ?? ''
+              ['Others']: e && sumDetail(e['values_'], 'detail_entry_east_', ['gsp', 'bypassGas', 'lng', 'F2andG']) || ''
               // ['Others']: sumDetailTwo(e?.["values_"], 'detail_entry_east_', ['gsp', 'bypassGas', 'lng', 'F2andG']) ?? '',
             },
             ['West']: {
@@ -15139,7 +15688,7 @@ setWorkSheetDataAndStyle({
               ['YTG']: e['detail_entry_west_yetagun'] || '',
               ['ZTK']: e['detail_entry_west_zawtika'] || '',
               // ['Others']: e['custom_detail_entry_west_'] || '',
-              ['Others']: sumDetail(e?.['values_'], 'detail_entry_west_', ['yadana', 'yetagun', 'zawtika', 'F2andG']) ?? ''
+              ['Others']: e && sumDetail(e['values_'], 'detail_entry_west_', ['yadana', 'yetagun', 'zawtika', 'F2andG']) || ''
               // ['Others']: sumDetailTwo(e?.["values_"], 'detail_entry_west_', ['yadana', 'yetagun', 'zawtika', 'F2andG']) ?? ''
             },
             ['East-West']: {
@@ -15631,7 +16180,7 @@ setWorkSheetDataAndStyle({
     const generateRandomId = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 8)
 
     const groupDataAlloManage = (data: any[]) => {
-      const grouped: any = data.reduce(
+      const grouped: any = (data)?.filter((f_:any) => f_ !== null)?.reduce(
         (acc, item) => {
           const key = `${item.gas_day}-${item.point}`
 
@@ -15639,8 +16188,8 @@ setWorkSheetDataAndStyle({
             acc[key] = {
               id: generateRandomId(),
               gas_day: item.gas_day,
-              point_text: item?.point,
-              entry_exit: item?.entry_exit_obj?.name,
+              point_text: item.point || null,
+              entry_exit: item.entry_exit_obj?.name || null,
 
               nomination_value: 0,
               system_allocation: 0,
@@ -15657,11 +16206,11 @@ setWorkSheetDataAndStyle({
           acc[key].data.push(item)
 
           // Sum
-          acc[key].nomination_value += Number(item?.nominationValue ?? 0)
-          acc[key].system_allocation += Number(item?.systemAllocation ?? 0)
-          acc[key].intraday_system += Number(item?.intradaySystem ?? 0)
-          acc[key].previous_allocation_tpa_for_review += Number(item?.previousAllocationTPAforReview ?? 0)
-          acc[key].metering_value += Number(item?.meteringValue ?? 0)
+          acc[key].nomination_value += item && (Number(item?.nominationValue ?? 0)) || 0
+          acc[key].system_allocation += item && (Number(item?.systemAllocation ?? 0)) || 0
+          acc[key].intraday_system += item && (Number(item?.intradaySystem ?? 0)) || 0
+          acc[key].previous_allocation_tpa_for_review += item && (Number(item?.previousAllocationTPAforReview ?? 0)) || 0
+          acc[key].metering_value += item && (Number(item?.meteringValue ?? 0)) || 0
 
           const shipperReview = item?.allocation_management_shipper_review?.[0]?.shipper_allocation_review ?? item?.shipperAllocationReview ?? 0
           acc[key].shipper_allocation_review += Number(shipperReview)
@@ -15731,7 +16280,7 @@ setWorkSheetDataAndStyle({
           ['System Allocation (MMBTU/D)']: this.dcimal4(rowData?.reduce((accumulator, currentValue) => accumulator + parseToNumber(currentValue['System Allocation (MMBTU/D)'] ?? 0), 0)),
           ['Intraday System Allocation']: this.dcimal4(rowData?.reduce((accumulator, currentValue) => accumulator + parseToNumber(currentValue['Intraday System Allocation'] ?? 0), 0)),
           ['Previous Allocation TPA for Review (MMBTU/D)']: this.dcimal4(rowData?.reduce((accumulator, currentValue) => accumulator + parseToNumber(currentValue['Previous Allocation TPA for Review (MMBTU/D)'] ?? 0), 0)),
-          ['Shipper Allocation Review (MMBTU/D)']: this.dcimal4(rowData?.reduce((accumulator, currentValue) => accumulator + parseToNumber(currentValue['Shipper Review Allocation (MMBTU/D)'] ?? 0), 0)),
+          ['Shipper Allocation Review (MMBTU/D)']: this.dcimal4(rowData?.reduce((accumulator, currentValue) => accumulator + parseToNumber((currentValue['Shipper Review Allocation (MMBTU/D)'] || currentValue['Shipper Allocation Review (MMBTU/D)']) ?? 0), 0)),
           ['Metering Value (MMBTU/D)']: (rowData?.[0]?.['Metering Value (MMBTU/D)_temp'] !== null && this.dcimal4(parseToNumber(rowData?.[0]?.['Metering Value (MMBTU/D)_temp']))) || null,
           ['Review Code']: '', // ""
           ['Comment']: '', // ""
@@ -15843,9 +16392,28 @@ setWorkSheetDataAndStyle({
 
   // --------
 
+  genManoStatus(data: any[]) {
+    // ลำดับเริ่มต้นตอนยังไม่ได้กด Sort
+    const priority = ['Shipper Reviewed', 'Accepted', 'Allocated', 'Rejected', 'Not Review']
+    console.log('data : ', data)
+    return [...(Array.isArray(data) ? data : [])].sort((a: any, b: any) => {
+      const statusA = a?.allocation_status_name ?? a?.allocation_status?.name ?? 'Not Review'
+
+      const statusB = b?.allocation_status_name ?? b?.allocation_status?.name ?? 'Not Review'
+
+      const indexA = priority.indexOf(statusA)
+      const indexB = priority.indexOf(statusB)
+
+      const priorityA = indexA === -1 ? 999 : indexA
+      const priorityB = indexB === -1 ? 999 : indexB
+
+      return priorityA - priorityB
+    })
+  }
+
   // ref epAllocationAllocationManagement
   async epAllocationAllocationManagementSentEmailOnly(response: Response, payload: any, userId?: any, resData?: any, userType?: any, shipperId?: any) {
-    const {bodys, filter} = payload
+    const {bodys, filter} = (payload || {})
 
     // bodys?.idAr
 
@@ -15903,7 +16471,7 @@ setWorkSheetDataAndStyle({
     const generateRandomId = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 8)
 
     const groupDataAlloManage = (data: any[]) => {
-      const grouped: any = data.reduce(
+      const grouped: any = (data)?.filter((f_:any) => f_ !== null)?.reduce(
         (acc, item) => {
           const key = `${item.gas_day}-${item.point}`
 
@@ -15911,15 +16479,15 @@ setWorkSheetDataAndStyle({
             acc[key] = {
               id: generateRandomId(),
               gas_day: item.gas_day,
-              point_text: item?.point,
-              entry_exit: item?.entry_exit_obj?.name,
+              point_text: item.point || null,
+              entry_exit: item.entry_exit_obj?.name || null,
 
               nomination_value: 0,
               system_allocation: 0,
               intraday_system: 0,
               previous_allocation_tpa_for_review: 0,
               shipper_allocation_review: 0,
-              metering_value: 0,
+              metering_value: Number(item?.meteringValue ?? 0),
 
               data: [],
               priorityStatus: item?.allocation_status?.id ?? 999
@@ -15929,11 +16497,10 @@ setWorkSheetDataAndStyle({
           acc[key].data.push(item)
 
           // Sum
-          acc[key].nomination_value += Number(item?.nominationValue ?? 0)
-          acc[key].system_allocation += Number(item?.systemAllocation ?? 0)
-          acc[key].intraday_system += Number(item?.intradaySystem ?? 0)
-          acc[key].previous_allocation_tpa_for_review += Number(item?.previousAllocationTPAforReview ?? 0)
-          acc[key].metering_value += Number(item?.meteringValue ?? 0)
+          acc[key].nomination_value += item && (Number(item?.nominationValue ?? 0)) || 0
+          acc[key].system_allocation += item && (Number(item?.systemAllocation ?? 0)) || 0
+          acc[key].intraday_system += item && (Number(item?.intradaySystem ?? 0)) || 0
+          acc[key].previous_allocation_tpa_for_review += item && (Number(item?.previousAllocationTPAforReview ?? 0)) || 0
 
           const shipperReview = item?.allocation_management_shipper_review?.[0]?.shipper_allocation_review ?? item?.shipperAllocationReview ?? 0
           acc[key].shipper_allocation_review += Number(shipperReview)
@@ -15953,7 +16520,7 @@ setWorkSheetDataAndStyle({
 
       return Object.values(grouped).map(({priorityStatus, ...rest}: any) => rest)
     }
-    const nresData = groupDataAlloManage(resData) 
+    const nresData = groupDataAlloManage(resData)
 
     const diffDataFN = (dData: any, userType: any) => {
       if (userType === 3) {
@@ -15986,9 +16553,10 @@ setWorkSheetDataAndStyle({
           ['Nominated Value (MMBTU/D)']: this.dcimal4(r['nominationValue']), // value ""
           ['System Allocation (MMBTU/D)']: this.dcimal4(r['systemAllocation']),
           ['Intraday System Allocation']: this.dcimal4(r['intradaySystem']),
-          ['Previous Allocation TPA for Review (MMBTU/D)']: this.dcimal4(r['previousAllocationTPAforReview']),
+          ['Previous Allocation TPA for Review (MMBTU/D)']: r['allocation_management_shipper_review']?.length > 0 ? this.dcimal4(r['previousAllocationTPAforReview']) : "",
           ['Shipper Review Allocation (MMBTU/D)']: r['allocation_management_shipper_review']?.length > 0 ? this.dcimal4(r['allocation_management_shipper_review'][0]?.shipper_allocation_review) : '',
-          ['Metering Value (MMBTU/D)']: this.dcimal4(r['meteringValue']),
+          ['Shipper Allocation Review (MMBTU/D)']: r['allocation_management_shipper_review']?.length > 0 ? this.dcimal4(r['allocation_management_shipper_review'][0]?.shipper_allocation_review) : '',
+          ['Metering Value (MMBTU/D)']: '',//this.dcimal4(r['meteringValue']),
           ['Review Code']: r['review_code'] || '', // ""
           ['Comment']: lengthSubmission.length > 32767 ? lengthSubmission.slice(0, 32700) + 'เกินลิมิตแล้วโปรดดูที่เว็บ' : lengthSubmission, // ""
           ['tab']: '',
@@ -16007,19 +16575,41 @@ setWorkSheetDataAndStyle({
         ['Contract Code']: '', // ""
         ['Nomination Point /Concept Point']: e['point_text'] || '',
         ['Entry / Exit']: e['entry_exit'] || '',
-        ['Nominated Value (MMBTU/D)']: e['nominationValue'] || '', // ""
-        ['System Allocation (MMBTU/D)']: this.dcimal4(e['system_allocation']),
-        ['Intraday System Allocation']: this.dcimal4(e['intraday_system']),
-        ['Previous Allocation TPA for Review (MMBTU/D)']: this.dcimal4(e['previous_allocation_tpa_for_review']),
-        ['Shipper Review Allocation (MMBTU/D)']: this.dcimal4(e['shipper_allocation_review']),
-        ['Metering Value (MMBTU/D)']: '',
+        ['Nominated Value (MMBTU/D)']: this.formatNumberFourDecimal(e['nomination_value']), // ""
+        ['System Allocation (MMBTU/D)']: this.formatNumberFourDecimal(e['system_allocation']),
+        ['Intraday System Allocation']: this.formatNumberFourDecimal(e['intraday_system']),
+        ['Previous Allocation TPA for Review (MMBTU/D)']:
+          e && ((e?.data?.length > 0 && this.genManoStatus(e?.data)) || [])?.filter((f: any) => (f['allocation_management_shipper_review']?.length > 0 ? f['allocation_management_shipper_review'][0]?.shipper_allocation_review : null) !== null)?.length === 0
+            ? '' // https://app.clickup.com/t/9018502823/86ev29x2b
+            : e?.previous_allocation_tpa_for_review !== null && e?.previous_allocation_tpa_for_review !== undefined
+              ? e?.shipper_allocation_review !== null && e?.shipper_allocation_review !== undefined
+                ? this.formatNumberFourDecimal(e?.previous_allocation_tpa_for_review)
+                : null
+              : null,
+        ['Shipper Review Allocation (MMBTU/D)']:
+          e && ((e?.data?.length > 0 && this.genManoStatus(e?.data)) || [])?.filter((f: any) => (f['allocation_management_shipper_review']?.length > 0 ? f['allocation_management_shipper_review'][0]?.shipper_allocation_review : null) !== null)?.length === 0
+            ? '' // https://app.clickup.com/t/9018502823/86ev29x2b
+            : e?.previous_allocation_tpa_for_review !== null && e?.previous_allocation_tpa_for_review !== undefined
+              ? e?.shipper_allocation_review !== null && e?.shipper_allocation_review !== undefined
+                ? this.formatNumberFourDecimal(e?.shipper_allocation_review)
+                : null
+              : null,
+        ['Shipper Allocation Review (MMBTU/D)']:
+          e && ((e?.data?.length > 0 && this.genManoStatus(e?.data)) || [])?.filter((f: any) => (f['allocation_management_shipper_review']?.length > 0 ? f['allocation_management_shipper_review'][0]?.shipper_allocation_review : null) !== null)?.length === 0
+            ? '' // https://app.clickup.com/t/9018502823/86ev29x2b
+            : e?.previous_allocation_tpa_for_review !== null && e?.previous_allocation_tpa_for_review !== undefined
+              ? e?.shipper_allocation_review !== null && e?.shipper_allocation_review !== undefined
+                ? this.formatNumberFourDecimal(e?.shipper_allocation_review)
+                : null
+              : null,
+        ['Metering Value (MMBTU/D)']: e?.metering_value !== null && e?.metering_value !== undefined ? this.formatNumberFourDecimal(e?.metering_value) : '',
         ['Review Code']: '', // ""
         ['Comment']: '', // ""
         ['tab']: 'green',
         ['_meterName']: '', //['LMPT1_1', 'LMPT1_2'],
         ['_point']: '' //LMPT1
       }
-
+     
       if (userType === 3) {
         return [...rowData]
       } else {
@@ -16040,6 +16630,7 @@ setWorkSheetDataAndStyle({
         ['Intraday System Allocation']: e['Intraday System Allocation'],
         ['Previous Allocation TPA for Review (MMBTU/D)']: e['Previous Allocation TPA for Review (MMBTU/D)'],
         ['Shipper Review Allocation (MMBTU/D)']: e['Shipper Review Allocation (MMBTU/D)'],
+        ['Shipper Allocation Review (MMBTU/D)']: e['Shipper Allocation Review (MMBTU/D)'],
         ['Metering Value (MMBTU/D)']: e['Metering Value (MMBTU/D)'],
         ['Review Code']: e['Review Code'],
         ['Comment']: e['Comment'],
@@ -16060,25 +16651,6 @@ setWorkSheetDataAndStyle({
 
     // sheet 1
     const filterHeader = filter || []
-    // const filterHeader = [
-    //     "Total",
-    //     "Status",
-    //     "Gas Day",
-    //     "Shipper Name",
-    //     "Contract Code",
-    //     "Nomination Point /Concept Point",
-    //     "Entry / Exit",
-    //     "Nominated Value (MMBTU/D)",
-    //     "System Allocation (MMBTU/D)",
-    //     "Intraday System Allocation",
-    //     "Previous Allocation TPA for Review (MMBTU/D)",
-    //     "Shipper Allocation Review (MMBTU/D)",
-    //     "Metering Value (MMBTU/D)",
-    //     "Review Code",
-    //     "Comment"
-    // ]
-
-    // header color
 
     const headerColorMap = {
       Total: '1573A1', // #1573A1
@@ -16109,7 +16681,7 @@ setWorkSheetDataAndStyle({
           }
         }
       }
-
+      
       return result
     }
 
@@ -16119,16 +16691,30 @@ setWorkSheetDataAndStyle({
 
     let meterData = []
     // meterNameSubValue
+    console.log('Sheet2 formateData : ', formateData);
     for (let i = 0; i < formateData.length; i++) {
-      if (formateData[i]?.['_meterName'].length > 0) {
+      // if (formateData[i]?.['_meterName'].length > 0) {
+      //   for (let iMeter = 0; iMeter < formateData[i]?.['_meterName'].length; iMeter++) {
+      //     meterData.push({
+      //       'Gas Day': formateData[i]?.['Gas Day'],
+      //       'Nomination Point': formateData[i]?.['_point'],
+      //       'Metering Point': formateData[i]?.['_meterName'][iMeter],
+      //       'Metering Value': this.formatNumberFourDecimalNomRound(formateData[i]?.['_meterNameSubValue'][iMeter]) // https://app.clickup.com/t/9018502823/86eve8q63
+      //     })
+      //   }
+      // }
+
+      // Shipper Allocation Review (MMBTU/D)
+      // Metering Value (MMBTU/D)
+      // tab === ""
+
+      if (formateData[i]?.['tab'] === "" && (formateData[i]?.["Shipper Allocation Review (MMBTU/D)"] !== formateData[i]?.["Metering Value (MMBTU/D)"])) {
         for (let iMeter = 0; iMeter < formateData[i]?.['_meterName'].length; iMeter++) {
           meterData.push({
             'Gas Day': formateData[i]?.['Gas Day'],
             'Nomination Point': formateData[i]?.['_point'],
             'Metering Point': formateData[i]?.['_meterName'][iMeter],
-            // 'Metering Value': formateData[i]?.['Metering Value (MMBTU/D)']
             'Metering Value': this.formatNumberFourDecimalNomRound(formateData[i]?.['_meterNameSubValue'][iMeter]) // https://app.clickup.com/t/9018502823/86eve8q63
-            
           })
         }
       }
@@ -16160,14 +16746,8 @@ setWorkSheetDataAndStyle({
     const cellHighlightMapSheet2 = generateCellHighlightMapMultipleSheet2(filterHeaderSheet2, dataSheet2, 'EAF5F8')
     const resultSheet2 = this.filterNestedData(dataSheet2, filterHeaderSheet2)
     const uniqueData = Array.from(new Map((resultSheet2 || []).map((item) => [JSON.stringify(item), item])).values())
-
-
-    // Nomination Point
-    // const test_dataSheet2 = dataSheet2?.filter((f:any) => f?.["Nomination Point"] === "GNS")
-    // console.log('test_dataSheet2 : ', test_dataSheet2);
-    
-    // end
-    // return
+    console.log('sheet2 uniqueData : ', uniqueData);
+ 
     return await this.exportDataToExcelWithMultiLevelHeaderNewMultiSheet(
       [
         {
@@ -16219,7 +16799,7 @@ setWorkSheetDataAndStyle({
     }
 
     // previous_date always have at least 1 data that is gas_day
-    const previousDate = bodys?.previous_date ?? (bodys?.gas_day ? [bodys.gas_day] : [])
+    const previousDate = bodys && bodys?.previous_date || (bodys?.gas_day ? [bodys?.gas_day] : [])
     const onlyPreviousDateData = resData?.data?.filter((f: any) => previousDate.includes(f?.gas_day)) ?? []
     const nresData = []
     for (let i = 0; i < onlyPreviousDateData.length; i++) {
@@ -16796,213 +17376,150 @@ setWorkSheetDataAndStyle({
     response.send(buffer)
   }
 
-  async exportDataToExcelNewMontlyBalancing(
-  dataRes: any,
-  response: any,
-  nameFile: string,
-  userId?: any,
-  notShow?: any
-) {
-  const {
-    typeReportDB,
-    typeReport,
-    setDataUse
-  } = dataRes
+  async exportDataToExcelNewMontlyBalancing(dataRes: any, response: any, nameFile: string, userId?: any, notShow?: any) {
+    const {typeReportDB, typeReport, setDataUse} = dataRes
 
-  const user = userId
-    ? await this.prisma.account.findFirst({
-        where: {
-          id: Number(userId)
-        },
-        select: {
-          first_name: true,
-          last_name: true,
-          signature: true
-        }
+    const user = userId
+      ? await this.prisma.account.findFirst({
+          where: {
+            id: Number(userId)
+          },
+          select: {
+            first_name: true,
+            last_name: true,
+            signature: true
+          }
+        })
+      : null
+
+    const sheetRowLimit = 100
+    const licenseSignature = user?.signature || null
+
+    const licenseFullName = `${user?.first_name || ''} ${user?.last_name || ''}`.trim()
+
+    const thinBlack: Partial<ExcelJS.Border> = {
+      style: 'thin',
+      color: {
+        argb: 'FF000000'
+      }
+    }
+
+    if (!setDataUse || Object.keys(setDataUse).length === 0) {
+      response.status(400).send({
+        message: 'Data is empty. Cannot generate Excel file.'
       })
-    : null
 
-  const sheetRowLimit = 100
-  const licenseSignature =
-    user?.signature || null
-
-  const licenseFullName =
-    `${user?.first_name || ''} ${user?.last_name || ''}`.trim()
-
-  const thinBlack: Partial<ExcelJS.Border> = {
-    style: 'thin',
-    color: {
-      argb: 'FF000000'
+      return
     }
-  }
 
-  if (
-    !setDataUse ||
-    Object.keys(setDataUse).length === 0
-  ) {
-    response.status(400).send({
-      message:
-        'Data is empty. Cannot generate Excel file.'
-    })
+    const workbook = new ExcelJS.Workbook()
 
-    return
-  }
+    const imageResponse = licenseSignature
+      ? await axios.get(licenseSignature, {
+          responseType: 'arraybuffer'
+        })
+      : null
 
-  const workbook =
-    new ExcelJS.Workbook()
+    /*
+     * แปลงค่าเป็น JavaScript Number
+     *
+     * รองรับ:
+     * 1234
+     * "1234"
+     * "1,234.0000"
+     * "-1,234.0000"
+     */
+    const parseExcelNumber = (value: any): number | null => {
+      if (value === null || value === undefined || value === '') {
+        return null
+      }
 
-  const imageResponse =
-    licenseSignature
-      ? await axios.get(
-          licenseSignature,
-          {
-            responseType: 'arraybuffer'
+      if (typeof value === 'number') {
+        return Number.isFinite(value) ? value : null
+      }
+
+      if (typeof value !== 'string') {
+        return null
+      }
+
+      const normalized = value.trim().replace(/,/g, '')
+
+      if (!/^-?(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) {
+        return null
+      }
+
+      const parsed = Number(normalized)
+
+      return Number.isFinite(parsed) ? parsed : null
+    }
+
+    /*
+     * คืน Number จริง ไม่ใช้ this.dcimal4()
+     * เพราะ this.dcimal4() มีโอกาสคืน string
+     */
+    const valueDigitKeyPure = (value: any): number | null => {
+      return parseExcelNumber(value)
+    }
+
+    /*
+     * รูปแบบ Number ใน Excel
+     */
+    const numberFormat = '#,##0.0000'
+
+    /*
+     * กำหนด Number Format ให้ Data Cell
+     *
+     * Column A = Date
+     * Column B–P = Number
+     */
+    const applyNumberFormat = (ws: ExcelJS.Worksheet, startRow = 3) => {
+      const lastRow = ws.lastRow?.number ?? 0
+
+      for (let rowNumber = startRow; rowNumber <= lastRow; rowNumber++) {
+        const row = ws.getRow(rowNumber)
+
+        /*
+         * ข้ามแถว sum เฉพาะ Column A
+         * แต่ Column ตัวเลขยังคงเป็น Number
+         */
+        for (let columnNumber = 2; columnNumber <= 16; columnNumber++) {
+          const cell = row.getCell(columnNumber)
+
+          const numericValue = parseExcelNumber(cell.value)
+
+          if (numericValue === null) {
+            /*
+             * ค่า null ให้เป็นช่องว่าง
+             */
+            if (cell.value === null || cell.value === undefined) {
+              cell.value = ''
+            }
+
+            continue
           }
-        )
-      : null
 
-  /*
-   * แปลงค่าเป็น JavaScript Number
-   *
-   * รองรับ:
-   * 1234
-   * "1234"
-   * "1,234.0000"
-   * "-1,234.0000"
-   */
-  const parseExcelNumber = (
-    value: any
-  ): number | null => {
-    if (
-      value === null ||
-      value === undefined ||
-      value === ''
-    ) {
-      return null
-    }
-
-    if (typeof value === 'number') {
-      return Number.isFinite(value)
-        ? value
-        : null
-    }
-
-    if (typeof value !== 'string') {
-      return null
-    }
-
-    const normalized = value
-      .trim()
-      .replace(/,/g, '')
-
-    if (
-      !/^-?(?:\d+(?:\.\d*)?|\.\d+)$/.test(
-        normalized
-      )
-    ) {
-      return null
-    }
-
-    const parsed = Number(normalized)
-
-    return Number.isFinite(parsed)
-      ? parsed
-      : null
-  }
-
-  /*
-   * คืน Number จริง ไม่ใช้ this.dcimal4()
-   * เพราะ this.dcimal4() มีโอกาสคืน string
-   */
-  const valueDigitKeyPure = (
-    value: any
-  ): number | null => {
-    return parseExcelNumber(value)
-  }
-
-  /*
-   * รูปแบบ Number ใน Excel
-   */
-  const numberFormat =
-    '#,##0.0000'
-
-  /*
-   * กำหนด Number Format ให้ Data Cell
-   *
-   * Column A = Date
-   * Column B–P = Number
-   */
-  const applyNumberFormat = (
-    ws: ExcelJS.Worksheet,
-    startRow = 3
-  ) => {
-    const lastRow =
-      ws.lastRow?.number ?? 0
-
-    for (
-      let rowNumber = startRow;
-      rowNumber <= lastRow;
-      rowNumber++
-    ) {
-      const row =
-        ws.getRow(rowNumber)
-
-      /*
-       * ข้ามแถว sum เฉพาะ Column A
-       * แต่ Column ตัวเลขยังคงเป็น Number
-       */
-      for (
-        let columnNumber = 2;
-        columnNumber <= 16;
-        columnNumber++
-      ) {
-        const cell =
-          row.getCell(columnNumber)
-
-        const numericValue =
-          parseExcelNumber(cell.value)
-
-        if (numericValue === null) {
           /*
-           * ค่า null ให้เป็นช่องว่าง
+           * บังคับ ExcelJS ให้เก็บเป็น Number
            */
-          if (
-            cell.value === null ||
-            cell.value === undefined
-          ) {
-            cell.value = ''
+          cell.value = numericValue
+
+          /*
+           * แสดง 4 ทศนิยม
+           */
+          cell.numFmt = numberFormat
+
+          cell.alignment = {
+            ...cell.alignment,
+            horizontal: 'right',
+            vertical: 'middle',
+            wrapText: false
           }
-
-          continue
-        }
-
-        /*
-         * บังคับ ExcelJS ให้เก็บเป็น Number
-         */
-        cell.value = numericValue
-
-        /*
-         * แสดง 4 ทศนิยม
-         */
-        cell.numFmt =
-          numberFormat
-
-        cell.alignment = {
-          ...cell.alignment,
-          horizontal: 'right',
-          vertical: 'middle',
-          wrapText: false
         }
       }
     }
-  }
 
-  Object.entries(setDataUse).forEach(
-    ([index, valueObj]: any) => {
-      const {
-        key,
-        value
-      } = valueObj
+    Object.entries(setDataUse).forEach(([index, valueObj]: any) => {
+      const {key, value} = valueObj
 
       const sheetData: any[][] = []
 
@@ -17014,7 +17531,7 @@ setWorkSheetDataAndStyle({
         'Fuel Gas (MMBTU)',
         'Balancing Gas (MMBTU)',
         'Change Min Inventory (MMBTU)',
-        'Shrinkagate (MMBTU)',
+        'Shrinkage (MMBTU)',
         'Commissiong (MMBTU)',
         'Gas Vent (MMBTU)',
         'Other Gas (MMBTU)',
@@ -17025,684 +17542,418 @@ setWorkSheetDataAndStyle({
         'Instructed Flow (MMBTU)'
       ]
 
-      const reportTitle =
-        'Monthly Onshore Balancing Data (Billing)'
+      const reportTitle = 'Monthly Onshore Balancing Data (Billing)'
 
-      sheetData.push([
-        reportTitle
-      ])
+      sheetData.push([reportTitle])
 
       sheetData.push(header0)
+      ;(value ?? []).forEach((item: any) => {
+        const row = [
+          item?.gas_day ?? '',
 
-      ;(value ?? []).forEach(
-        (item: any) => {
-          const row = [
-            item?.gas_day ?? '',
+          valueDigitKeyPure(item?.value?.['Entry Point']),
 
-            valueDigitKeyPure(
-              item?.value?.[
-                'Entry Point'
-              ]
-            ),
+          valueDigitKeyPure(item?.value?.['Exit']),
 
-            valueDigitKeyPure(
-              item?.value?.[
-                'Exit'
-              ]
-            ),
+          valueDigitKeyPure(item?.value?.['Entry - Exit']),
 
-            valueDigitKeyPure(
-              item?.value?.[
-                'Entry - Exit'
-              ]
-            ),
+          valueDigitKeyPure(item?.value?.['Fuel Gas']),
 
-            valueDigitKeyPure(
-              item?.value?.[
-                'Fuel Gas'
-              ]
-            ),
+          valueDigitKeyPure(item?.value?.['Balancing Gas']),
 
-            valueDigitKeyPure(
-              item?.value?.[
-                'Balancing Gas'
-              ]
-            ),
+          valueDigitKeyPure(item?.value?.['Change Min Inventory']),
 
-            valueDigitKeyPure(
-              item?.value?.[
-                'Change Min Inventory'
-              ]
-            ),
+          valueDigitKeyPure(item?.value?.['Shrinkagate']),
 
-            valueDigitKeyPure(
-              item?.value?.[
-                'Shrinkagate'
-              ]
-            ),
+          valueDigitKeyPure(item?.value?.['Commissioning']),
 
-            valueDigitKeyPure(
-              item?.value?.[
-                'Commissioning'
-              ]
-            ),
+          valueDigitKeyPure(item?.value?.['Gas Vent']),
 
-            valueDigitKeyPure(
-              item?.value?.[
-                'Gas Vent'
-              ]
-            ),
+          valueDigitKeyPure(item?.value?.['Other Gas']),
 
-            valueDigitKeyPure(
-              item?.value?.[
-                'Other Gas'
-              ]
-            ),
+          valueDigitKeyPure(item?.value?.['Imbalance']),
 
-            valueDigitKeyPure(
-              item?.value?.[
-                'Imbalance'
-              ]
-            ),
+          valueDigitKeyPure(item?.value?.['ImbalancePercen']),
 
-            valueDigitKeyPure(
-              item?.value?.[
-                'ImbalancePercen'
-              ]
-            ),
+          valueDigitKeyPure(item?.value?.['Acc. Imbqalance']),
 
-            valueDigitKeyPure(
-              item?.value?.[
-                'Acc. Imbqalance'
-              ]
-            ),
+          valueDigitKeyPure(item?.value?.['Min Inventory']),
 
-            valueDigitKeyPure(
-              item?.value?.[
-                'Min Inventory'
-              ]
-            ),
+          valueDigitKeyPure(item?.value?.['Instructed Flow'])
+        ]
 
-            valueDigitKeyPure(
-              item?.value?.[
-                'Instructed Flow'
-              ]
-            )
-          ]
+        sheetData.push(row)
+      })
 
-          sheetData.push(row)
+      const chunkedRows = this.chunkArray(sheetData, sheetRowLimit)
+
+      chunkedRows.forEach((rowsChunk, chunkIndex) => {
+        const sheetName = chunkIndex === 0 ? String(key).substring(0, 31) : `${String(key).substring(0, 28)} (${chunkIndex + 1})`
+
+        const ws = workbook.addWorksheet(sheetName)
+
+        /*
+         * Sheet แรกมี Title + Header
+         *
+         * Sheet ต่อไปควรมี Title + Header เช่นกัน
+         * เพื่อให้โครงสร้างเหมือนกันทุก Sheet
+         */
+        let effectiveRows: any[][]
+
+        if (chunkIndex === 0) {
+          effectiveRows = rowsChunk
+        } else {
+          /*
+           * เพิ่ม Title/Header กลับเข้าไป
+           */
+          effectiveRows = [[reportTitle], header0, ...rowsChunk.filter((row: any[]) => row?.[0] !== reportTitle && row?.[0] !== 'Date')]
         }
-      )
 
-      const chunkedRows =
-        this.chunkArray(
-          sheetData,
-          sheetRowLimit
-        )
-
-      chunkedRows.forEach(
-        (
-          rowsChunk,
-          chunkIndex
-        ) => {
-          const sheetName =
-            chunkIndex === 0
-              ? String(key).substring(
-                  0,
-                  31
-                )
-              : `${String(
-                  key
-                ).substring(
-                  0,
-                  28
-                )} (${chunkIndex + 1})`
-
-          const ws =
-            workbook.addWorksheet(
-              sheetName
-            )
+        effectiveRows.forEach((row) => {
+          const newRow = ws.addRow([...row])
 
           /*
-           * Sheet แรกมี Title + Header
-           *
-           * Sheet ต่อไปควรมี Title + Header เช่นกัน
-           * เพื่อให้โครงสร้างเหมือนกันทุก Sheet
+           * Header Row
            */
-          let effectiveRows: any[][]
-
-          if (chunkIndex === 0) {
-            effectiveRows =
-              rowsChunk
-          } else {
-            /*
-             * เพิ่ม Title/Header กลับเข้าไป
-             */
-            effectiveRows = [
-              [reportTitle],
-              header0,
-              ...rowsChunk.filter(
-                (row: any[]) =>
-                  row?.[0] !==
-                    reportTitle &&
-                  row?.[0] !==
-                    'Date'
-              )
-            ]
-          }
-
-          effectiveRows.forEach(
-            (row) => {
-              const newRow =
-                ws.addRow([...row])
-
-              /*
-               * Header Row
-               */
-              if (
-                newRow.number === 2
-              ) {
-                newRow.eachCell(
-                  {
-                    includeEmpty: true
-                  },
-                  (cell) => {
-                    cell.fill = {
-                      type: 'pattern',
-                      pattern:
-                        'solid',
-                      fgColor: {
-                        argb:
-                          'FF002060'
-                      }
-                    }
-
-                    cell.font = {
-                      color: {
-                        argb:
-                          'FFFFFFFF'
-                      },
-                      bold: true
-                    }
-
-                    cell.alignment = {
-                      vertical:
-                        'middle',
-                      horizontal:
-                        'center',
-                      wrapText: true
-                    }
-                  }
-                )
-
-                return
-              }
-
-              if (
-                newRow.number <= 2
-              ) {
-                return
-              }
-
-              const isSumRow =
-                String(
-                  newRow.getCell(1)
-                    .value ?? ''
-                ).toLowerCase() ===
-                'sum'
-
-              newRow.eachCell(
-                {
-                  includeEmpty: true
-                },
-                (
-                  cell,
-                  columnNumber
-                ) => {
-                  if (isSumRow) {
-                    cell.fill = {
-                      type: 'pattern',
-                      pattern:
-                        'solid',
-                      fgColor: {
-                        argb:
-                          'FFE8FFEE'
-                      }
-                    }
-
-                    cell.font = {
-                      color: {
-                        argb:
-                          'FF06522E'
-                      },
-                      bold: true
-                    }
-                  }
-
-                  /*
-                   * Date Column
-                   */
-                  if (
-                    columnNumber === 1
-                  ) {
-                    cell.alignment = {
-                      horizontal:
-                        'center',
-                      vertical:
-                        'middle',
-                      wrapText: true
-                    }
-
-                    return
-                  }
-
-                  /*
-                   * Numeric Columns
-                   */
-                  const numericValue =
-                    parseExcelNumber(
-                      cell.value
-                    )
-
-                  if (
-                    numericValue !== null
-                  ) {
-                    cell.value =
-                      numericValue
-
-                    cell.numFmt =
-                      numberFormat
-
-                    cell.alignment = {
-                      horizontal:
-                        'right',
-                      vertical:
-                        'middle',
-                      wrapText: false
-                    }
-                  } else {
-                    cell.alignment = {
-                      horizontal:
-                        'right',
-                      vertical:
-                        'middle',
-                      wrapText: true
-                    }
+          if (newRow.number === 2) {
+            newRow.eachCell(
+              {
+                includeEmpty: true
+              },
+              (cell) => {
+                cell.fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: {
+                    argb: 'FF002060'
                   }
                 }
-              )
-            }
-          )
 
-          /*
-           * Header Style
-           */
-          const headerRow =
-            ws.getRow(2)
+                cell.font = {
+                  color: {
+                    argb: 'FFFFFFFF'
+                  },
+                  bold: true
+                }
 
-          headerRow.eachCell(
+                cell.alignment = {
+                  vertical: 'middle',
+                  horizontal: 'center',
+                  wrapText: true
+                }
+              }
+            )
+
+            return
+          }
+
+          if (newRow.number <= 2) {
+            return
+          }
+
+          const isSumRow = String(newRow.getCell(1).value ?? '').toLowerCase() === 'sum'
+
+          newRow.eachCell(
             {
               includeEmpty: true
             },
-            (cell) => {
-              cell.fill = {
-                type: 'pattern',
-                pattern: 'solid',
-                fgColor: {
-                  argb:
-                    'FF002060'
-                }
-              }
-
-              cell.font = {
-                color: {
-                  argb:
-                    'FFFFFFFF'
-                },
-                bold: true
-              }
-
-              cell.alignment = {
-                vertical:
-                  'middle',
-                horizontal:
-                  'center',
-                wrapText: true
-              }
-            }
-          )
-
-          /*
-           * Title
-           */
-          const titleLastCol =
-            header0.length
-
-          ws.mergeCells(
-            1,
-            1,
-            1,
-            titleLastCol
-          )
-
-          const titleCell =
-            ws.getCell(1, 1)
-
-          titleCell.value =
-            reportTitle
-
-          titleCell.font = {
-            bold: true,
-            size: 12,
-            color: {
-              argb: 'FF002060'
-            }
-          }
-
-          titleCell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: {
-              argb: 'FFFFE7A9'
-            }
-          }
-
-          titleCell.alignment = {
-            horizontal: 'center',
-            vertical: 'middle',
-            wrapText: true
-          }
-
-          ws.getRow(1).height = 22
-
-          /*
-           * บังคับ Number Format หลังเขียนข้อมูล
-           */
-          applyNumberFormat(ws, 3)
-
-          const dataLastRow =
-            ws.lastRow?.number ?? 2
-
-          this.autoFitColumns(
-            ws,
-            2,
-            dataLastRow,
-            12,
-            30,
-            2
-          )
-
-          const tableLastCol =
-            header0.length
-
-          /*
-           * Border
-           */
-          for (
-            let rowNumber = 1;
-            rowNumber <=
-            dataLastRow;
-            rowNumber++
-          ) {
-            for (
-              let columnNumber = 1;
-              columnNumber <=
-              tableLastCol;
-              columnNumber++
-            ) {
-              const cell =
-                ws.getCell(
-                  rowNumber,
-                  columnNumber
-                )
-              cell.border = {
-                top: thinBlack,
-                left: thinBlack,
-                bottom: thinBlack,
-                right: thinBlack
-              }
-            }
-          }
-
-          /*
-           * Table Data
-           *
-           * ใช้ข้อมูลใน Worksheet โดยตรง
-           * เพื่อให้ค่าที่ส่งเข้า Table เป็น Number
-           */
-          const tableRows: any[][] = []
-
-          for (
-            let rowNumber = 3;
-            rowNumber <=
-            dataLastRow;
-            rowNumber++
-          ) {
-            tableRows.push(
-              Array.from(
-                {
-                  length:
-                    tableLastCol
-                },
-                (
-                  _,
-                  columnIndex
-                ) => {
-                  const cell =
-                    ws.getCell(
-                      rowNumber,
-                      columnIndex +
-                        1
-                    )
-
-                  return (
-                    cell.value ?? ''
-                  )
-                }
-              )
-            )
-          }
-
-          ws.addTable({
-            name: `Table_${
-              chunkIndex + 1
-            }_${index}`.replace(
-              /[^A-Za-z0-9_]/g,
-              '_'
-            ),
-            ref: 'A2',
-            headerRow: true,
-            totalsRow: false,
-            style: {
-              theme:
-                'TableStyleMedium2',
-              showRowStripes: false
-            },
-            columns: header0.map(
-              (header) => ({
-                name: header
-              })
-            ),
-            rows: tableRows
-          })
-
-          /*
-           * กำหนด Number Format หลัง addTable อีกครั้ง
-           * ป้องกัน Table เขียนทับค่า/format
-           */
-          applyNumberFormat(ws, 3)
-
-          /*
-           * Signature
-           */
-          if (!notShow) {
-            const dataLastRow = Math.min(ws.lastRow?.number ?? 1, sheetRowLimit)
-            const signatureRow = dataLastRow + 3
-
-            const lastCol =
-              ws.columnCount
-
-            const sigEndRow =
-              signatureRow + 2
-
-            ws.getRow(sigEndRow)
-
-            ws.mergeCells(
-              signatureRow,
-              1,
-              sigEndRow,
-              lastCol
-            )
-
-            ws.getRow(
-              signatureRow
-            ).height = 50
-
-            ws.getRow(
-              signatureRow + 1
-            ).height = 12
-
-            ws.getRow(
-              signatureRow + 2
-            ).height = 18
-
-            const sigCell =
-              ws.getCell(
-                signatureRow,
-                1
-              )
-
-            const lineText =
-              `( .................................................. )`
-
-            const nameText =
-              licenseFullName ?? ''
-
-            const NBSP =
-              '\u00A0'
-
-            const padCount =
-              Math.max(
-                0,
-                Math.floor(
-                  (
-                    lineText.length -
-                    nameText.length
-                  ) / 2
-                )
-              )
-
-            const tweak = 2
-
-            const paddedName =
-              nameText +
-              NBSP.repeat(
-                Math.max(
-                  0,
-                  padCount +
-                    tweak
-                )
-              )
-
-            sigCell.value =
-              `${lineText}\n\n${paddedName}`
-
-            sigCell.alignment = {
-              horizontal: 'right',
-              vertical: 'bottom',
-              wrapText: true,
-              indent: 1
-            }
-
-            const imgW = 90
-            const imgH = 40
-            const imgOffsetCols =
-              0.001
-
-            const imgCol =
-              Math.max(
-                0,
-                lastCol -
-                  imgOffsetCols
-              )
-
-            const imgRow =
-              signatureRow -
-              1 +
-              0.15
-
-            if (
-              licenseSignature &&
-              imageResponse
-            ) {
-              try {
-                const imageBuffer =
-                  imageResponse.data
-
-                const imageId =
-                  workbook.addImage({
-                    buffer:
-                      imageBuffer,
-                    extension:
-                      'png'
-                  })
-
-                ws.addImage(
-                  imageId,
-                  {
-                    tl: {
-                      col: imgCol,
-                      row: imgRow
-                    },
-                    ext: {
-                      width: imgW,
-                      height: imgH
-                    },
-                    editAs:
-                      'oneCell'
-                  }
-                )
-
-                // ขยาย outside borders คลุมช่องว่าง + ส่วนลายเซ็น
-                for (let r = dataLastRow + 1; r <= sigEndRow; r++) {
-                  for (let c = 1; c <= lastCol; c++) {
-                    const cell = ws.getCell(r, c)
-                    const prevBorder: any = cell.border || {}
-                    cell.border = {
-                      ...prevBorder,
-                      ...(c === 1 ? {left: thinBlack} : {}),
-                      ...(c === lastCol ? {right: thinBlack} : {}),
-                      ...(r === sigEndRow ? {bottom: thinBlack} : {})
-                    }
+            (cell, columnNumber) => {
+              if (isSumRow) {
+                cell.fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: {
+                    argb: 'FFE8FFEE'
                   }
                 }
-              } catch (error) {
-                // Signature image error
+
+                cell.font = {
+                  color: {
+                    argb: 'FF06522E'
+                  },
+                  bold: true
+                }
               }
+
+              /*
+               * Date Column
+               */
+              if (columnNumber === 1) {
+                cell.alignment = {
+                  horizontal: 'center',
+                  vertical: 'middle',
+                  wrapText: true
+                }
+
+                return
+              }
+
+              /*
+               * Numeric Columns
+               */
+              const numericValue = parseExcelNumber(cell.value)
+
+              if (numericValue !== null) {
+                cell.value = numericValue
+
+                cell.numFmt = numberFormat
+
+                cell.alignment = {
+                  horizontal: 'right',
+                  vertical: 'middle',
+                  wrapText: false
+                }
+              } else {
+                cell.alignment = {
+                  horizontal: 'right',
+                  vertical: 'middle',
+                  wrapText: true
+                }
+              }
+            }
+          )
+        })
+
+        /*
+         * Header Style
+         */
+        const headerRow = ws.getRow(2)
+
+        headerRow.eachCell(
+          {
+            includeEmpty: true
+          },
+          (cell) => {
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: {
+                argb: 'FF002060'
+              }
+            }
+
+            cell.font = {
+              color: {
+                argb: 'FFFFFFFF'
+              },
+              bold: true
+            }
+
+            cell.alignment = {
+              vertical: 'middle',
+              horizontal: 'center',
+              wrapText: true
+            }
+          }
+        )
+
+        /*
+         * Title
+         */
+        const titleLastCol = header0.length
+
+        ws.mergeCells(1, 1, 1, titleLastCol)
+
+        const titleCell = ws.getCell(1, 1)
+
+        titleCell.value = reportTitle
+
+        titleCell.font = {
+          bold: true,
+          size: 12,
+          color: {
+            argb: 'FF002060'
+          }
+        }
+
+        titleCell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: {
+            argb: 'FFFFE7A9'
+          }
+        }
+
+        titleCell.alignment = {
+          horizontal: 'center',
+          vertical: 'middle',
+          wrapText: true
+        }
+
+        ws.getRow(1).height = 22
+
+        /*
+         * บังคับ Number Format หลังเขียนข้อมูล
+         */
+        applyNumberFormat(ws, 3)
+
+        const dataLastRow = ws.lastRow?.number ?? 2
+
+        this.autoFitColumns(ws, 2, dataLastRow, 12, 30, 2)
+
+        const tableLastCol = header0.length
+
+        /*
+         * Border
+         */
+        for (let rowNumber = 1; rowNumber <= dataLastRow; rowNumber++) {
+          for (let columnNumber = 1; columnNumber <= tableLastCol; columnNumber++) {
+            const cell = ws.getCell(rowNumber, columnNumber)
+            cell.border = {
+              top: thinBlack,
+              left: thinBlack,
+              bottom: thinBlack,
+              right: thinBlack
             }
           }
         }
-      )
-    }
-  )
 
-  const buffer =
-    await workbook.xlsx.writeBuffer()
+        /*
+         * Table Data
+         *
+         * ใช้ข้อมูลใน Worksheet โดยตรง
+         * เพื่อให้ค่าที่ส่งเข้า Table เป็น Number
+         */
+        const tableRows: any[][] = []
 
-  response.setHeader(
-    'Content-Disposition',
-    `attachment; filename="${getTodayNowAdd7().format(
-      'YYYY-MM-DD_HH-mm'
-    )}_${nameFile}.xlsx"`
-  )
+        for (let rowNumber = 3; rowNumber <= dataLastRow; rowNumber++) {
+          tableRows.push(
+            Array.from(
+              {
+                length: tableLastCol
+              },
+              (_, columnIndex) => {
+                const cell = ws.getCell(rowNumber, columnIndex + 1)
 
-  response.setHeader(
-    'Content-Type',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  )
+                return cell.value ?? ''
+              }
+            )
+          )
+        }
 
-  response.send(buffer)
-}
+        ws.addTable({
+          name: `Table_${chunkIndex + 1}_${index}`.replace(/[^A-Za-z0-9_]/g, '_'),
+          ref: 'A2',
+          headerRow: true,
+          totalsRow: false,
+          style: {
+            theme: 'TableStyleMedium2',
+            showRowStripes: false
+          },
+          columns: header0.map((header) => ({
+            name: header
+          })),
+          rows: tableRows
+        })
+
+        /*
+         * กำหนด Number Format หลัง addTable อีกครั้ง
+         * ป้องกัน Table เขียนทับค่า/format
+         */
+        applyNumberFormat(ws, 3)
+
+        /*
+         * Signature
+         */
+        if (!notShow) {
+          const dataLastRow = Math.min(ws.lastRow?.number ?? 1, sheetRowLimit)
+          const signatureRow = dataLastRow + 3
+
+          const lastCol = ws.columnCount
+
+          const sigEndRow = signatureRow + 2
+
+          ws.getRow(sigEndRow)
+
+          ws.mergeCells(signatureRow, 1, sigEndRow, lastCol)
+
+          ws.getRow(signatureRow).height = 50
+
+          ws.getRow(signatureRow + 1).height = 12
+
+          ws.getRow(signatureRow + 2).height = 18
+
+          const sigCell = ws.getCell(signatureRow, 1)
+
+          const lineText = `( .................................................. )`
+
+          const nameText = licenseFullName ?? ''
+
+          const NBSP = '\u00A0'
+
+          const padCount = Math.max(0, Math.floor((lineText.length - nameText.length) / 2))
+
+          const tweak = 2
+
+          const paddedName = nameText + NBSP.repeat(Math.max(0, padCount + tweak))
+
+          sigCell.value = `${lineText}\n\n${paddedName}`
+
+          sigCell.alignment = {
+            horizontal: 'right',
+            vertical: 'bottom',
+            wrapText: true,
+            indent: 1
+          }
+
+          const imgW = 90
+          const imgH = 40
+          const imgOffsetCols = 0.001
+
+          const imgCol = Math.max(0, lastCol - imgOffsetCols)
+
+          const imgRow = signatureRow - 1 + 0.15
+
+          if (licenseSignature && imageResponse) {
+            try {
+              const imageBuffer = imageResponse.data
+
+              const imageId = workbook.addImage({
+                buffer: imageBuffer,
+                extension: 'png'
+              })
+
+              ws.addImage(imageId, {
+                tl: {
+                  col: imgCol,
+                  row: imgRow
+                },
+                ext: {
+                  width: imgW,
+                  height: imgH
+                },
+                editAs: 'oneCell'
+              })
+
+              // ขยาย outside borders คลุมช่องว่าง + ส่วนลายเซ็น
+              for (let r = dataLastRow + 1; r <= sigEndRow; r++) {
+                for (let c = 1; c <= lastCol; c++) {
+                  const cell = ws.getCell(r, c)
+                  const prevBorder: any = cell.border || {}
+                  cell.border = {
+                    ...prevBorder,
+                    ...(c === 1 ? {left: thinBlack} : {}),
+                    ...(c === lastCol ? {right: thinBlack} : {}),
+                    ...(r === sigEndRow ? {bottom: thinBlack} : {})
+                  }
+                }
+              }
+            } catch (error) {
+              // Signature image error
+            }
+          }
+        }
+      })
+    })
+
+    const buffer = await workbook.xlsx.writeBuffer()
+
+    response.setHeader('Content-Disposition', `attachment; filename="${getTodayNowAdd7().format('YYYY-MM-DD_HH-mm')}_${nameFile}.xlsx"`)
+
+    response.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+    response.send(buffer)
+  }
 
   // ---
 
@@ -17968,8 +18219,8 @@ setWorkSheetDataAndStyle({
       let tsoD3 = null
 
       if (userType?.id === 3) {
-        shipperD2 = (e?.['document2'] && e['document2']?.['event_doc_status_id'] !== 1 && e['document2']?.['event_doc_status_id'] !== 2 && e?.['document2']?.['event_doc_status']?.name) || ''
-        shipperD3 = (e?.['document3'] && e['document3']?.['event_doc_status_id'] === 5 && e?.['document3']?.['event_doc_status']?.name) || ''
+        shipperD2 = (e['document2'] && e['document2']?.['event_doc_status_id'] !== 1 && e['document2']?.['event_doc_status_id'] !== 2 && e['document2']?.['event_doc_status']?.name) || ''
+        shipperD3 = (e['document3'] && e['document3']?.['event_doc_status_id'] === 5 && e['document3']?.['event_doc_status']?.name) || ''
       } else {
         tsoD2 = userType && e?.['document2']?.length === 0 ? '' : `${e?.['document2']?.filter((item) => item?.event_doc_status_id !== 2).length || 0}/${e?.['document2']?.length || 0}` || ''
         tsoD3 = userType && e?.['document3']?.length === 0 ? '' : `${e?.['document3']?.filter((item) => item?.event_doc_status_id === 5).length || 0}/${e?.['document3']?.length - 1 || 0}` || ''
@@ -17977,8 +18228,8 @@ setWorkSheetDataAndStyle({
       let setData =
         userType?.id === 3 || userType?.id === 4
           ? {
-              ['Event Code']: e['Event Code'] || '',
-              ['Event Date']: e['Event Date'] || '',
+              ['Event Code']: e['Event Code'] || null,
+              ['Event Date']: e['Event Date'] || null,
               ['Document 1']: {
                 ['Status']: e['document1']?.['event_doc_status_id'] !== 3 && e['document1']?.['event_doc_status_id'] !== 4 && e['document1']?.['event_doc_status_id'] !== 5 && e['document1']?.['event_doc_status_id'] !== 6 ? '' : e['document1']?.['event_doc_status']?.['name']
               },
@@ -17991,8 +18242,8 @@ setWorkSheetDataAndStyle({
               ['Event Status']: e['event_status']?.['name'] || ''
             }
           : {
-              ['Event Code']: e['Event Code'] || '',
-              ['Event Date']: e['Event Date'] || '',
+              ['Event Code']: e['Event Code'] || null,
+              ['Event Date']: e['Event Date'] || null,
               ['Document 1']: {
                 ['Status']: e['document1']?.['event_doc_status_id'] !== 3 && e['document1']?.['event_doc_status_id'] !== 4 && e['document1']?.['event_doc_status_id'] !== 5 && e['document1']?.['event_doc_status_id'] !== 6 ? '' : e['document1']?.['event_doc_status']?.['name']
               },
@@ -18161,7 +18412,7 @@ setWorkSheetDataAndStyle({
 
       if (userType?.id === 3) {
         shipperstatusD39 = e['document39']?.['event_doc_status_id'] !== 5 && e['document39']?.['event_doc_status_id'] !== 6 ? '' : e['document39']?.['event_doc_status']?.['name']
-        shipperstatusD4 = e?.['document41']?.length > 0 ? (this.getAcknowledgeStatus(e?.['document41'])?.equ ? 'Acknowledge' : '') : ''
+        shipperstatusD4 = (e['document41'] || [])?.length > 0 ? (this.getAcknowledgeStatus(e?.['document41'])?.equ ? 'Acknowledge' : '') : ''
         shipperstatusD5 = e['document5']?.['event_doc_status_id'] !== 5 && e['document5']?.['event_doc_status_id'] !== 6 ? '' : e['document5']?.['event_doc_status']?.['name']
         shipperstatusD6 = e['document6']?.['event_doc_status_id'] !== 5 && e['document6']?.['event_doc_status_id'] !== 6 ? '' : e['document6']?.['event_doc_status']?.['name']
       } else {
@@ -18174,17 +18425,17 @@ setWorkSheetDataAndStyle({
                 'Closed'
               : 'Open'
             : ''
-        tsoD4 = e?.['document41'] && this.getAcknowledgeStatus(e?.['document41'])?.text
-        ;((tsostatusD4 = e?.['document41']?.length > 0 ? (e?.['document41']?.find((f: any) => f?.event_doc_status_id === 6) ? 'Generated' : this.getAcknowledgeStatus(e?.['document41'])?.equ ? 'Closed' : 'Open') : ''),
-          (tsoD5 = userType && e?.['document5']?.length === 0 ? '' : `${e?.['document5']?.filter((item) => item?.event_doc_status_id !== 2).length || 0}/${e?.['document5']?.length - 1 || 0}` || ''))
-        tsostatusD5 = e?.['document5']?.length > 0 ? (e?.['document5']?.filter((item) => item?.event_doc_status_id === 5).length === (e?.['document5']?.length - 1 || 0) ? 'Closed' : 'Open') : ''
-        tsoD6 = userType && e?.['document6']?.length === 0 ? '' : `${e?.['document6']?.filter((item) => item?.event_doc_status_id !== 2).length || 0}/${e?.['document6']?.length - 1 || 0}` || ''
-        tsostatusD6 = e?.['document6']?.length > 0 ? (e?.['document6']?.filter((item) => item?.event_doc_status_id === 5).length === (e?.['document6']?.length - 1 || 0) ? 'Closed' : 'Open') : ''
+        tsoD4 = e['document41'] && this.getAcknowledgeStatus(e?.['document41'])?.text
+        ;((tsostatusD4 = e['document41']?.length > 0 ? (e?.['document41']?.find((f: any) => f?.event_doc_status_id === 6) ? 'Generated' : this.getAcknowledgeStatus(e?.['document41'])?.equ ? 'Closed' : 'Open') : ''),
+          (tsoD5 = userType && e['document5']?.length === 0 ? '' : `${e?.['document5']?.filter((item) => item?.event_doc_status_id !== 2).length || 0}/${e?.['document5']?.length - 1 || 0}` || ''))
+        tsostatusD5 = e['document5']?.length > 0 ? (e?.['document5']?.filter((item) => item?.event_doc_status_id === 5).length === (e?.['document5']?.length - 1 || 0) ? 'Closed' : 'Open') : ''
+        tsoD6 = userType && e['document6']?.length === 0 ? '' : `${e?.['document6']?.filter((item) => item?.event_doc_status_id !== 2).length || 0}/${e?.['document6']?.length - 1 || 0}` || ''
+        tsostatusD6 = e['document6']?.length > 0 ? (e?.['document6']?.filter((item) => item?.event_doc_status_id === 5).length === (e?.['document6']?.length - 1 || 0) ? 'Closed' : 'Open') : ''
       }
       let setData =
         userType?.id === 3 || userType?.id === 4
           ? {
-              ['Event Code']: e['Event Code'] || '',
+              ['Event Code']: e['Event Code'] || null,
               ['Type']: e['Type'] || '',
               ['Event Date']: e['Event Date'] || '',
               ['Zone']: e['Zone'] || '',
@@ -18232,7 +18483,7 @@ setWorkSheetDataAndStyle({
               ['Event Status']: e['event_status']?.['name'] || ''
             }
           : {
-              ['Event Code']: e['Event Code'] || '',
+              ['Event Code']: e['Event Code'] || null,
               ['Type']: e['Type'] || '',
               ['Event Date']: e['Event Date'] || '',
               ['Zone']: e['Zone'] || '',
@@ -18434,7 +18685,7 @@ setWorkSheetDataAndStyle({
       let setData =
         userType?.id === 3 || userType?.id === 4
           ? {
-              ['Event Code']: e['Event Code'] || '',
+              ['Event Code']: e['Event Code'] || null,
               ['Type']: e['Type'] || '',
               ['Event Date']: e['Event Date'] || '',
 
@@ -18462,7 +18713,7 @@ setWorkSheetDataAndStyle({
               ['Event Status']: e['event_status']?.['name'] || ''
             }
           : {
-              ['Event Code']: e['Event Code'] || '',
+              ['Event Code']: e['Event Code'] || null,
               ['Type']: e['Type'] || '',
               ['Event Date']: e['Event Date'] || '',
 
@@ -18919,7 +19170,7 @@ setWorkSheetDataAndStyle({
     }
 
     const cellHighlightMap = generateCellHighlightMapMultiple(filterHeader, formateData, 'EAF5F8')
-    console.log('formateData : ', formateData);
+    console.log('formateData : ', formateData)
     const result = this.filterNestedData(formateData, filterHeader)
 
     const defaultDecimal = 4
@@ -19370,7 +19621,7 @@ setWorkSheetDataAndStyle({
     return Array.from({length: days}, (_, i) => start.add(i, 'day').format('YYYY-MM-DD'))
   }
 
-  // 
+  //
   async tariffChargeReportCapacityOveruseChargeEntryExit(response: Response, id: any, payload: any, userId: any) {
     const {bodys, filter} = payload
     if (bodys?.tariff_type_charge_id !== 5 && bodys?.tariff_type_charge_id !== 6) {
@@ -19483,7 +19734,7 @@ setWorkSheetDataAndStyle({
 
       let COL_LAST = COL_FIRST + dates.length - 1
 
-      if (opts?.title === 'Overuse') {
+      if (opts && opts?.title === 'Overuse') {
         COL_LAST += 1
       }
 
@@ -19881,8 +20132,7 @@ setWorkSheetDataAndStyle({
         }
       ]
     })
-    const footerCalc_ = overuseRows
-      ?.map((c: any, i: any) => {
+    const footerCalc_ = (overuseRows || []).map((c: any, i: any) => {
         const calc = c?.values?.reduce((accumulator, currentValue) => accumulator + ((currentValue && Number(currentValue)) || 0), 0)
         // ปัดเศษ 3 ตำแหน่ง
         // const fCalc = Math.round(calc * 1000) / 1000
@@ -19890,12 +20140,12 @@ setWorkSheetDataAndStyle({
         return fCalc
       })
       ?.reduce((accumulator, currentValue) => accumulator + ((currentValue && Number(currentValue)) || 0), 0)
-      // console.log('footerCalc_ : ', footerCalc_);
-      // 1026276.9219
+    // console.log('footerCalc_ : ', footerCalc_);
+    // 1026276.9219
 
-      // 1026276.9209999999
-      // 1026276.921
-      const footerCalc = Math.round(footerCalc_ * 10000) / 10000;
+    // 1026276.9209999999
+    // 1026276.921
+    const footerCalc = Math.round(footerCalc_ * 10000) / 10000
     const roundfooterCalc = Math.round(footerCalc)
     // console.log('footerCalc : ', footerCalc);
     // 1. sum overuse entry

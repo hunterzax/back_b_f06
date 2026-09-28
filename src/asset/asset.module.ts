@@ -34,6 +34,6 @@ import {AssetConceptPointService} from './concept-point'
   controllers: [
     AssetController
   ],
-  exports: [AssetService]
+  exports: [AssetService, AssetConceptPointService]
 })
 export class AssetModule {}

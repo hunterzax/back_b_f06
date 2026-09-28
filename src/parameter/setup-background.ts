@@ -30,6 +30,9 @@ export class ParameterSetupBackgroundService {
   setupBackground() {
     return this.prisma.setup_background.findMany(
       {
+        where:{
+          del_flag: null,
+        },
         include: {
           create_by_account: {
             select: {
@@ -84,6 +87,7 @@ export class ParameterSetupBackgroundService {
       }
     )
   }
+  
 
   async setupBackgroundCreate(
     payload: any,
@@ -157,6 +161,39 @@ export class ParameterSetupBackgroundService {
         }
       )
     return setupBackgroundEdit
+  }
+
+  async setupBackgroundDelete(
+    payload: any,
+    userId: any,
+    id: any
+  ) {
+
+    const setupBackgroundDelete =
+      await this.prisma.setup_background.update(
+        {
+          where: {
+            id: Number(id)
+          },
+          data: {
+            del_flag: true,
+            // active: true,
+            update_date:
+              getTodayNowAdd7().toDate(),
+            update_by_account:
+              {
+                connect: {
+                  id: Number(
+                    userId
+                  )
+                }
+              },
+            update_date_num:
+              getTodayNowAdd7().unix()
+          }
+        }
+      )
+    return setupBackgroundDelete
   }
 
   async setupBackgroundActive(

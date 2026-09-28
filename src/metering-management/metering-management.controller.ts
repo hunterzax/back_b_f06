@@ -62,15 +62,17 @@ export class MeteringManagementController {
     )
   }
 
+  @UseGuards(AuthGuard)
   @Get(
     'getDataByRetrievingID'
   )
   async getDataByRetrievingID(
-    @Query() query: any
+    @Query() query: any, @Req() req: any
   ) {
     return this.meteringManagementService.getDataByRetrievingID(
       query,
-      true
+      true,
+      req?.user?.sub
     )
   }
 
@@ -142,13 +144,14 @@ export class MeteringManagementController {
     )
   }
 
+  @UseGuards(AuthGuard)
   @Get('metering-checking')
   meteringChecking(
-    @Query() query
+    @Query() query, @Req() req: any
   ) {
     // return this.meteringManagementService.meteringChecking(query);
     return this.meteringManagementService.meteringChecking2(
-      query
+      query, req?.user?.sub
     )
   }
 
@@ -291,13 +294,7 @@ export class MeteringManagementController {
         HttpStatus.BAD_REQUEST
       )
     }
-
-    // const uploadFile =
-    //   await this.meteringManagementService.uploadFile(
-    //     grpcTransform,
-    //     file,
-    //     // req?.user?.sub,
-    //   );
+   
     const uploadFile =
       await this.meteringManagementService.uploadFile2(
         grpcTransform,

@@ -21,7 +21,7 @@ export class AstosGuard
     try {
       const response =
         await axios.get(
-          'http://10.100.101.15:9011/api/jwt/public-key'
+          'https://10.100.101.15:9011/api/jwt/public-key'
         )
       const publicKey =
         Object.values(

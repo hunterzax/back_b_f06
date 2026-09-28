@@ -82,7 +82,7 @@ const group = (id = 14) => ({
 const activeAccount = (overrides: any = {}) => ({
   id: 13,
   email: 'user@pttplc.com',
-  password: 'secret',
+  password: process.env.TEST_ACCOUNT_PASSWORD || '',
   active: true,
   status: true,
   start_date: new Date('2020-01-01T00:00:00.000Z'),

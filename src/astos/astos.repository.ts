@@ -37,6 +37,7 @@ export interface NomFileLite {
 export type AdjEvent = {
   minute: number;
   valueH: number;
+  valueD: number;
 };
 
 @Injectable()

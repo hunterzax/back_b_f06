@@ -1,10 +1,4 @@
-import {
-  forwardRef,
-  HttpException,
-  HttpStatus,
-  Inject,
-  Injectable
-} from '@nestjs/common'
+import {forwardRef, HttpException, HttpStatus, Inject, Injectable} from '@nestjs/common'
 import {PrismaService} from 'prisma/prisma.service'
 import {CACHE_MANAGER} from '@nestjs/cache-manager'
 import {Cache} from 'cache-manager'
@@ -24,7 +18,7 @@ import * as isBetween from 'dayjs/plugin/isBetween' // นำเข้า plugin
 import {getTodayEndAdd7, getTodayNowAdd7, getTodayNowDDMMYYYYDfaultAdd7, getTodayNowYYYYMMDDDfaultAdd7, getTodayStartAdd7} from 'src/common/utils/date.util'
 import {BalancingService} from 'src/balancing/balancing.service'
 import {isMatch} from 'src/common/utils/allocation.util'
-import {parseToNumber3Decimal} from 'src/common/utils/number.util'
+import {parseToNumber4Decimal} from 'src/common/utils/number.util'
 
 dayjs.extend(isBetween) // เปิดใช้งาน plugin isBetween
 dayjs.extend(utc)
@@ -54,7 +48,7 @@ export class ParkingAllocationService {
       gas_day: dayjs(gas_day, 'YYYY-MM-DD').subtract(1, 'day').format('YYYY-MM-DD'),
       userId
     })
-    console.log('getUseParkD1 : ', getUseParkD1);
+    console.log('getUseParkD1 : ', getUseParkD1)
     const ngetUsePark = getUsePark?.ngroupNom?.map((e: any) => {
       const findZone = getUseParkD1?.ngroupNom?.find((f: any) => {
         return f?.zone === e?.zone
@@ -65,15 +59,15 @@ export class ParkingAllocationService {
         const ckNotNull = findZone?.data?.filter((f: any) => f?.EODPark !== null)
         if (ckNotNull.length > 0) {
           // ไม่ใช้ null ทั้งหมด ต้องไม่ส่ง null
-          EODSum = ckNotNull?.reduce((accumulator, currentValue) => accumulator + currentValue?.EODPark, 0)
+          EODSum = (ckNotNull || []).reduce((accumulator, currentValue) => accumulator + currentValue?.EODPark, 0)
         } else {
           EODSum = null
         }
       }
-    
+
       return {
         ...e,
-        ['dataParkD-1']: findZone || null,
+        ['dataParkD-1']: findZone ?? null,
         ['EODValueSumD-1']: findZone?.zone === "EAST" ? getUseParkD1?.EodPark_east : findZone?.zone === "WEST" ? getUseParkD1?.EodPark_west : null // https://app.clickup.com/t/86etzcgt5
         // ['EODValueSumD-1']: EODSum !== null ? EODSum : null
       }
@@ -98,9 +92,9 @@ export class ParkingAllocationService {
 
     const nominationMaster_ = await this.prisma.query_shipper_nomination_file.findMany({
       where: {
-        NOT: {
-          contract_code_id: null
-        }, // revers bal ไม่แสดง effect
+        // NOT: {
+        //   contract_code_id: null
+        // }, // revers bal ไม่แสดง effect
         // nomination_type_id: 1,
 
         AND: [
@@ -116,6 +110,9 @@ export class ParkingAllocationService {
           },
           {
             OR: [
+              {
+                query_shipper_nomination_status_id: 1 // https://app.clickup.com/t/9018502823/86etzcgye
+              },
               {
                 query_shipper_nomination_status_id: 2
               },
@@ -323,7 +320,7 @@ export class ParkingAllocationService {
 
       let parkUse = []
       let unparkUse = []
-      if (e?.nomination_type?.id === 1) {
+      if (e && e?.nomination_type?.id === 1) {
         parkUse = park.map((p: any) => {
           const query_shipper_nomination_file_id = e?.id
           const nomination_code = e?.nomination_code
@@ -334,7 +331,7 @@ export class ParkingAllocationService {
           const version = nNomination_version
           const zone = p['data_temp']['0']
           const value = p['data_temp']['38']
-          const nomination_row_json_id = p?.id
+          const nomination_row_json_id = p && p?.id || -1
 
           return {
             nomination_row_json_id,
@@ -363,7 +360,7 @@ export class ParkingAllocationService {
           const version = nNomination_version
           const zone = p['data_temp']['0']
           const value = p['data_temp']['38']
-          const nomination_row_json_id = p?.id
+          const nomination_row_json_id = p && p?.id || -1
 
           return {
             nomination_row_json_id,
@@ -394,7 +391,7 @@ export class ParkingAllocationService {
             const zone = p['data_temp']['0']
             // let value = p['data_temp']['14'];
             let value = ''
-            const nomination_row_json_id = p?.id
+            const nomination_row_json_id = p && p?.id || -1
             // gas_day Thu May 15 2025 20:35:37 GMT+0700 (Indochina Time) dayjs(gas_day).toDate()
             // gas_day
             // dayjs(f?.gas_day).format("YYYY-MM-DD")
@@ -458,7 +455,7 @@ export class ParkingAllocationService {
             const zone = p['data_temp']['0']
             // const value = p['data_temp']['14'];
             let value = ''
-            const nomination_row_json_id = p?.id
+            const nomination_row_json_id = p && p?.id || -1
 
             if (dayjs(e?.gas_day).add(0, 'day').format('YYYY-MM-DD') === dayjs(gas_day).format('YYYY-MM-DD')) {
               value = p['data_temp']['14']
@@ -565,7 +562,7 @@ export class ParkingAllocationService {
           const key = item.nomination_code
           if (!acc[key]) {
             acc[key] = {
-              query_shipper_nomination_file_id: item?.query_shipper_nomination_file_id,
+              query_shipper_nomination_file_id: item && item?.query_shipper_nomination_file_id || -1,
               nomination_code: key,
               gas_day: item?.gas_day,
               data: []
@@ -579,18 +576,18 @@ export class ParkingAllocationService {
       const parkUseCaleSumAll = groupedByNom
         ?.flatMap((puc: any) => [...puc?.data])
         ?.filter((fPuc: any) => fPuc?.type === 'Park')
-        .reduce((ar: any, mr: any) => ar + Number(Number(mr?.value?.replace(/,/g, '')).toFixed(3)), 0)
+        .reduce((ar: any, mr: any) => ar + Number(Number(mr?.value?.replace(/,/g, '')).toFixed(4)), 0)
 
       const nGroupedByNom = groupedByNom.map((nG: any) => {
         let parkAllocatedMMBTUD = null
-        const parkOnce = nG?.data?.filter((fPuc: any) => fPuc?.type === 'Park').reduce((ar: any, mr: any) => ar + Number(Number(mr?.value?.replace(/,/g, '')).toFixed(3)), 0)
+        const parkOnce = nG?.data?.filter((fPuc: any) => fPuc?.type === 'Park').reduce((ar: any, mr: any) => ar + Number(Number(mr?.value?.replace(/,/g, '')).toFixed(4)), 0)
 
         if (findAllocated) {
           if (parkUseCaleSumAll == 0 || Number.isNaN(parkUseCaleSumAll)) {
-            const totalParkingValue = parseToNumber3Decimal(findAllocated?.total_parking_value)
+            const totalParkingValue = parseToNumber4Decimal(findAllocated?.total_parking_value)
             parkAllocatedMMBTUD = totalParkingValue ? totalParkingValue / groupedByNom.length : parkOnce
           } else {
-            parkAllocatedMMBTUD = parkOnce !== 0 ? Number((parkOnce / parkUseCaleSumAll) * Number(findAllocated?.total_parking_value)).toFixed(3) : 0
+            parkAllocatedMMBTUD = parkOnce !== 0 ? Number((parkOnce / parkUseCaleSumAll) * Number(findAllocated?.total_parking_value)).toFixed(4) : 0
           }
         }
 
@@ -644,7 +641,7 @@ export class ParkingAllocationService {
       null
     )
     const balData = resData?.data || []
-    console.log('balData : ', balData);
+    console.log('balData : ', balData)
 
     // EodPark_west
     // EodPark_east
@@ -664,7 +661,7 @@ export class ParkingAllocationService {
 
       return [...shipper_data]
     })
-    console.log('flatbalData : ', flatbalData);
+    console.log('flatbalData : ', flatbalData)
 
     const ngroupNom = groupNom?.map((e: any) => {
       const {data, contract_code, reserve_balancing_gas_contract, group, ...nE} = e
@@ -697,11 +694,12 @@ export class ParkingAllocationService {
       }
     })
 
+    const balDataValues = balData.length > 0 ? balData[0]?.values : null
     // https://app.clickup.com/t/86etzcgt5
     return {
       ngroupNom: ngroupNom,
-      EodPark_east: (balData || [])?.[0]?.values?.find((f:any) => f?.tag === "EodPark_east")?.value || null,
-      EodPark_west: (balData || [])?.[0]?.values?.find((f:any) => f?.tag === "EodPark_west")?.value || null,
+      EodPark_east: balDataValues?.find((f: any) => f?.tag === 'EodPark_east')?.value ?? null,
+      EodPark_west: balDataValues?.find((f: any) => f?.tag === 'EodPark_west')?.value ?? null,
     }
   }
 

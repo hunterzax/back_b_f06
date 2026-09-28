@@ -20,6 +20,7 @@ import * as utc from 'dayjs/plugin/utc'
 import * as timezone from 'dayjs/plugin/timezone'
 
 import * as isBetween from 'dayjs/plugin/isBetween' // นำเข้า plugin isBetween
+import { isMatch } from 'src/common/utils/allocation.util'
 
 dayjs.extend(isBetween) // เปิดใช้งาน plugin isBetween
 dayjs.extend(utc)
@@ -200,38 +201,46 @@ export class PlanningDashboardService {
   }
 
   async dashboardLong(
+    payload: any,
     userId: any
   ) {
-    const resData =
-      await this.prisma.query_shipper_planning_files_temp_long.findMany(
-        {
-          include: {
-            query_shipper_planning_files:
-              {
-                include: {
-                  group: {
-                    select: {
-                      id: true,
-                      id_name: true,
-                      name: true,
-                      company_name: true
-                    }
-                  },
-                  query_shipper_planning_files_temp_row: true
+    const { sheet = 'normal' } = payload
+    const prismaFindManyArgs = {
+      include: {
+        query_shipper_planning_files:
+          {
+            include: {
+              group: {
+                select: {
+                  id: true,
+                  id_name: true,
+                  name: true,
+                  company_name: true
                 }
-              }
+              },
+              ...(isMatch(sheet, 'low') ? {query_shipper_planning_files_temp_row_low: true}
+                : isMatch(sheet, 'high') ? {query_shipper_planning_files_temp_row_high: true}
+                : {query_shipper_planning_files_temp_row: true}
+              ),
+            }
           }
-        }
+      }
+    }
+    const resData = await (
+      isMatch(sheet, 'low') ? this.prisma.query_shipper_planning_files_temp_long_low.findMany(prismaFindManyArgs)
+      : isMatch(sheet, 'high') ? this.prisma.query_shipper_planning_files_temp_long_high.findMany(prismaFindManyArgs)
+      : this.prisma.query_shipper_planning_files_temp_long.findMany(prismaFindManyArgs)
       )
 
     const convertData =
       resData.map(
         (e: any) => {
-          let byrow = e[
-            'query_shipper_planning_files'
-          ][
-            'query_shipper_planning_files_temp_row'
-          ]?.map(
+          let byrow = (
+            e.query_shipper_planning_files.query_shipper_planning_files_temp_row_low || 
+            e.query_shipper_planning_files.query_shipper_planning_files_temp_row_high ||
+            e.query_shipper_planning_files.query_shipper_planning_files_temp_row ||
+            []
+          ).map(
             (row: any) => {
               row['value'] =
                 JSON.parse(
@@ -263,7 +272,7 @@ export class PlanningDashboardService {
                     'value'
                   ][i].year,
                   value:
-                    !!row[
+                    row['value'] && !!row[
                       'value'
                     ][i]
                       ?.value
@@ -462,12 +471,13 @@ export class PlanningDashboardService {
           select: {
             id: true,
             name: true,
+            entry_exit_id: true,
             color: true
           }
         }
       )
     const newConvertData =
-      convertData.map(
+      (convertData || []).map(
         (e: any) => {
           e['data'] = e[
             'data'
@@ -512,38 +522,46 @@ export class PlanningDashboardService {
   }
 
   async dashboardMedium(
+    payload: any,
     userId: any
   ) {
-    const resData =
-      await this.prisma.query_shipper_planning_files_temp_medium.findMany(
-        {
-          include: {
-            query_shipper_planning_files:
-              {
-                include: {
-                  group: {
-                    select: {
-                      id: true,
-                      id_name: true,
-                      name: true,
-                      company_name: true
-                    }
-                  },
-                  query_shipper_planning_files_temp_row: true
+    const { sheet = 'normal' } = payload
+    const prismaFindManyArgs = {
+      include: {
+        query_shipper_planning_files:
+          {
+            include: {
+              group: {
+                select: {
+                  id: true,
+                  id_name: true,
+                  name: true,
+                  company_name: true
                 }
-              }
+              },
+              ...(isMatch(sheet, 'low') ? {query_shipper_planning_files_temp_row_low: true}
+                : isMatch(sheet, 'high') ? {query_shipper_planning_files_temp_row_high: true}
+                : {query_shipper_planning_files_temp_row: true}
+              ),
+            }
           }
-        }
+      }
+    }
+    const resData = await (
+      isMatch(sheet, 'low') ? this.prisma.query_shipper_planning_files_temp_medium_low.findMany(prismaFindManyArgs)
+      : isMatch(sheet, 'high') ? this.prisma.query_shipper_planning_files_temp_medium_high.findMany(prismaFindManyArgs)
+      : this.prisma.query_shipper_planning_files_temp_medium.findMany(prismaFindManyArgs)
       )
 
     const convertData =
       resData.map(
         (e: any) => {
-          e['byrow'] = e[
-            'query_shipper_planning_files'
-          ][
-            'query_shipper_planning_files_temp_row'
-          ]?.map(
+          let byrow = (
+            e.query_shipper_planning_files.query_shipper_planning_files_temp_row_low || 
+            e.query_shipper_planning_files.query_shipper_planning_files_temp_row_high ||
+            e.query_shipper_planning_files.query_shipper_planning_files_temp_row ||
+            []
+          ).map(
             (row: any) => {
               row['value'] =
                 JSON.parse(
@@ -577,7 +595,7 @@ export class PlanningDashboardService {
                     ][i]
                       .month,
                   value:
-                    !!row[
+                    row['value'] && !!row[
                       'value'
                     ][i]
                       ?.value
@@ -690,6 +708,8 @@ export class PlanningDashboardService {
             }
           )
 
+          e['byrow'] = byrow
+
           e[
             'planning_code_id'
           ] =
@@ -771,7 +791,7 @@ export class PlanningDashboardService {
         }
       )
     const newConvertData =
-      convertData.map(
+      (convertData || []).map(
         (e: any) => {
           e['data'] = e[
             'data'
@@ -816,38 +836,46 @@ export class PlanningDashboardService {
   }
 
   async dashboardShort(
+    payload: any,
     userId: any
   ) {
-    const resData =
-      await this.prisma.query_shipper_planning_files_temp_short.findMany(
-        {
-          include: {
-            query_shipper_planning_files:
-              {
-                include: {
-                  group: {
-                    select: {
-                      id: true,
-                      id_name: true,
-                      name: true,
-                      company_name: true
-                    }
-                  },
-                  query_shipper_planning_files_temp_row: true
+    const { sheet = 'normal' } = payload
+    const prismaFindManyArgs = {
+      include: {
+        query_shipper_planning_files:
+          {
+            include: {
+              group: {
+                select: {
+                  id: true,
+                  id_name: true,
+                  name: true,
+                  company_name: true
                 }
-              }
+              },
+              ...(isMatch(sheet, 'low') ? {query_shipper_planning_files_temp_row_low: true}
+                : isMatch(sheet, 'high') ? {query_shipper_planning_files_temp_row_high: true}
+                : {query_shipper_planning_files_temp_row: true}
+              ),
+            }
           }
-        }
+      }
+    }
+    const resData = await (
+      isMatch(sheet, 'low') ? this.prisma.query_shipper_planning_files_temp_short_low.findMany(prismaFindManyArgs)
+      : isMatch(sheet, 'high') ? this.prisma.query_shipper_planning_files_temp_short_high.findMany(prismaFindManyArgs)
+      : this.prisma.query_shipper_planning_files_temp_short.findMany(prismaFindManyArgs)
       )
 
     const convertData =
       resData.map(
         (e: any) => {
-          e['byrow'] = e[
-            'query_shipper_planning_files'
-          ][
-            'query_shipper_planning_files_temp_row'
-          ]?.map(
+          let byrow = (
+            e.query_shipper_planning_files.query_shipper_planning_files_temp_row_low || 
+            e.query_shipper_planning_files.query_shipper_planning_files_temp_row_high ||
+            e.query_shipper_planning_files.query_shipper_planning_files_temp_row ||
+            []
+          ).map(
             (row: any) => {
               row['value'] =
                 JSON.parse(
@@ -874,26 +902,21 @@ export class PlanningDashboardService {
                 i <= maxKey;
                 i++
               ) {
-                newData[i] = {
-                  day: row[
-                    'value'
-                  ][i].day,
-                  value:
-                    !!row[
-                      'value'
-                    ][i]
-                      ?.value
-                      ? Number(
-                          row[
-                            'value'
-                          ][
-                            i
-                          ]?.value.replace(
-                            /,/g,
-                            ''
-                          )
-                        )
+                const cell = row['value'][i]
+                
+                if (!cell) {
+                  newData[i] = {
+                    day: '',
+                    value: ''
+                  }
+                }
+                else{
+                  newData[i] = {
+                    day: cell.day,
+                    value: cell.value ?
+                      Number( String(cell.value).replace(/,/g, '') )
                       : ''
+                  }
                 }
               }
 
@@ -991,6 +1014,8 @@ export class PlanningDashboardService {
             }
           )
 
+          e['byrow'] = byrow
+
           e[
             'planning_code_id'
           ] =
@@ -1067,12 +1092,13 @@ export class PlanningDashboardService {
           select: {
             id: true,
             name: true,
+            entry_exit_id: true,
             color: true
           }
         }
       )
     const newConvertData =
-      convertData.map(
+      (convertData || []).map(
         (e: any) => {
           e['data'] = e[
             'data'

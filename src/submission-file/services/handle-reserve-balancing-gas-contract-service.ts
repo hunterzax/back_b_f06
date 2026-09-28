@@ -70,18 +70,23 @@ export class HandleReserveBalancingGasContractService {
     renom,
     informationData,
     queryShipperNominationFileService,
-    nonTpa
+    nonTpa,
+    messageError,
+    tabType,
   }: any) {
     // // ===== STEP 27: RESERVE BALANCING GAS CONTRACT DATA PROCESSING =====
     this.logger.log('********* start STEP 27: RESERVE BALANCING GAS CONTRACT DATA PROCESSING *********')
     let checksValue: any = []
+    let checksDate: any = []
     let warningLogHrTemp: any = []
     let warningLogHr: any = []
     let warningLogDay: any = []
     let warningLogDayWeek: any = []
     let warningLogDayWeekTemp: any = []
+    let warningOtherTypePoint: any[] = []
     let sheet1Quality: any = []
     let sheet2Quality: any = []
+
 
     const reserveArr_ = reserveBalancingGasContract?.reserve_balancing_gas_contract_detail || []
 
@@ -126,8 +131,8 @@ export class HandleReserveBalancingGasContractService {
           if (finds) {
             warningLogHrTemp = warningLogHrTemp?.map((ehr: any) => {
               let neHR = ehr
-              if (finds?.hr === neHR?.hr && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
-                neHR.energy = +parseToNumber(currentCapacity)
+              if (neHR && finds.hr === neHR?.hr && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
+                if (neHR) neHR.energy = +parseToNumber(currentCapacity)
               }
               return {
                 ...neHR
@@ -152,10 +157,10 @@ export class HandleReserveBalancingGasContractService {
         return f?.name === e['row'][0] && f?.entry_exit_id === entryExit
       })
       // https://app.clickup.com/t/9018502823/86euzxxt1
-      const v2_sat_heating_value_min = findZone?.zone_master_quality[0]?.v2_sat_heating_value_min;
-      const v2_sat_heating_value_max = findZone?.zone_master_quality[0]?.v2_sat_heating_value_max;
-      const v2_wobbe_index_min = findZone?.zone_master_quality[0]?.v2_wobbe_index_min;
-      const v2_wobbe_index_max = findZone?.zone_master_quality[0]?.v2_wobbe_index_max;
+      const v2_sat_heating_value_min = findZone?.zone_master_quality[0]?.v2_sat_heating_value_min
+      const v2_sat_heating_value_max = findZone?.zone_master_quality[0]?.v2_sat_heating_value_max
+      const v2_wobbe_index_min = findZone?.zone_master_quality[0]?.v2_wobbe_index_min
+      const v2_wobbe_index_max = findZone?.zone_master_quality[0]?.v2_wobbe_index_max
 
       // WI
       if ((parseToNumber(e['row'][11]) < parseToNumber(v2_wobbe_index_min) && v2_wobbe_index_min !== null) || (parseToNumber(e['row'][11]) > parseToNumber(v2_wobbe_index_max) && v2_wobbe_index_max !== null)) {
@@ -242,8 +247,8 @@ export class HandleReserveBalancingGasContractService {
           if (finds) {
             warningLogDayWeekTemp = warningLogDayWeekTemp?.map((ed: any) => {
               let neD = ed
-              if (finds?.headDayUse === neD?.headDayUse && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
-                neD.energy = +Number(currentCapacity)
+              if (finds && neD && finds?.headDayUse === neD?.headDayUse && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
+                if (neD) neD.energy = +Number(currentCapacity)
               }
               return {
                 ...neD
@@ -269,10 +274,10 @@ export class HandleReserveBalancingGasContractService {
       })
 
       // https://app.clickup.com/t/9018502823/86euzxxt1
-      const v2_sat_heating_value_min = findZone?.zone_master_quality[0]?.v2_sat_heating_value_min;
-      const v2_sat_heating_value_max = findZone?.zone_master_quality[0]?.v2_sat_heating_value_max;
-      const v2_wobbe_index_min = findZone?.zone_master_quality[0]?.v2_wobbe_index_min;
-      const v2_wobbe_index_max = findZone?.zone_master_quality[0]?.v2_wobbe_index_max;
+      const v2_sat_heating_value_min = findZone?.zone_master_quality[0]?.v2_sat_heating_value_min
+      const v2_sat_heating_value_max = findZone?.zone_master_quality[0]?.v2_sat_heating_value_max
+      const v2_wobbe_index_min = findZone?.zone_master_quality[0]?.v2_wobbe_index_min
+      const v2_wobbe_index_max = findZone?.zone_master_quality[0]?.v2_wobbe_index_max
 
       // WI
       if ((parseToNumber(e['row'][11]) < parseToNumber(v2_wobbe_index_min) && v2_wobbe_index_min !== null) || (parseToNumber(e['row'][11]) > parseToNumber(v2_wobbe_index_max) && v2_wobbe_index_max !== null)) {
@@ -295,31 +300,30 @@ export class HandleReserveBalancingGasContractService {
       return weekBook
     }
 
-    const checkDate = (e:any, entryExit:any) => {
-        // console.log('reserveArr_ : ', reserveArr_);
-        if(nomination_type_id === 1){
-          let checkNominationPoint = nominationPoint?.find((fnp: any) => {
-            return fnp?.nomination_point === e['row'][3]
-          })
-          const find = reserveArr_.find((f: any) => {
-            const isInRange = f?.end_date
-              ? getTodayNowDDMMYYYYDfault(startDateEx).isBetween(getTodayNow(f?.start_date), getTodayNow(f?.end_date), 'day', '[]') // [] รวมวันต้น-ท้าย
-              : getTodayNowDDMMYYYYDfault(startDateEx).isSameOrAfter(getTodayNow(f?.start_date), 'day')
-            return f?.nomination_point?.nomination_point === checkNominationPoint?.nomination_point && f?.entry_exit_id === entryExit && isInRange
-          })
-          if(!find){
-            throw new HttpException(
-                {
-                  status: HttpStatus.BAD_REQUEST,
-                  error: `Date is not match. [${e?.row?.[3] || e?.row?.[5]}]`,
-                },
-                HttpStatus.BAD_REQUEST,
-              );
-          }
-        }else{
-          let checkNominationPoint = nominationPoint?.find((fnp: any) => {
-        return fnp?.nomination_point === e['row'][3]
-      })
+    const checkDate = (e: any, entryExit: any) => {
+      if (nomination_type_id === 1) {
+        let checkNominationPoint = nominationPoint?.find((fnp: any) => {
+          return fnp?.nomination_point === e['row'][3]
+        })
+        const find = reserveArr_.find((f: any) => {
+          const isInRange = f?.end_date
+            ? getTodayNowDDMMYYYYDfault(startDateEx).isBetween(getTodayNow(f?.start_date), getTodayNow(f?.end_date), 'day', '[]') // [] รวมวันต้น-ท้าย
+            : getTodayNowDDMMYYYYDfault(startDateEx).isSameOrAfter(getTodayNow(f?.start_date), 'day')
+          return f?.nomination_point?.nomination_point === checkNominationPoint?.nomination_point && f?.entry_exit_id === entryExit && isInRange
+        })
+        if (!find) {
+          throw new HttpException(
+            {
+              status: HttpStatus.BAD_REQUEST,
+              error: `Date is not match. [${e?.row?.[3] || e?.row?.[5]}]`
+            },
+            HttpStatus.BAD_REQUEST
+          )
+        }
+      } else {
+        let checkNominationPoint = nominationPoint?.find((fnp: any) => {
+          return fnp?.nomination_point === e['row'][3]
+        })
 
         const nomStartDate = getTodayNowDDMMYYYYDfault(startDateEx)
         const find = reserveArr_.find((f: any) => {
@@ -333,14 +337,14 @@ export class HandleReserveBalancingGasContractService {
           }
           return f?.nomination_point?.nomination_point === checkNominationPoint?.nomination_point && f?.entry_exit_id === entryExit && isInRange
         })
-        if(!find){
+        if (!find) {
           throw new HttpException(
-              {
-                status: HttpStatus.BAD_REQUEST,
-                error: `Date is not match. [${e?.row?.[3] || e?.row?.[5]}]`,
-              },
-              HttpStatus.BAD_REQUEST,
-            );
+            {
+              status: HttpStatus.BAD_REQUEST,
+              error: `Date is not match. [${e?.row?.[3] || e?.row?.[5]}]`
+            },
+            HttpStatus.BAD_REQUEST
+          )
         }
       }
     }
@@ -355,28 +359,32 @@ export class HandleReserveBalancingGasContractService {
         let valueCapaPerDay = 0
 
         if (e['row'][10] === 'Entry' && e['row'][9] === 'MMBTU/D') {
-          checkDate(e, 1)
+          try {
+            checkDate(e, 1)
+          } catch (error) {
+            checksDate.push(error?.response?.error)
+          }
           fnDayValidateNomCapa(e, reserveArr_, nominationPoint, valueCapa, valueCapaPerDay, cI, 1)
         } else if (e['row'][10] === 'Entry' && isMatch(e['row'][9], 'MMscfd')) {
           //  ---- reserve ไม่มี MMSCF
           throw new HttpException(
-              {
-                status: HttpStatus.BAD_REQUEST,
-                error: `Reserve Balancing Gas Contgract is NOT SUPPORT MMSCFD`,
-              },
-              HttpStatus.BAD_REQUEST,
-            );
+            {
+              status: HttpStatus.BAD_REQUEST,
+              error: `Reserve Balancing Gas Contracts only support MMBTU, not MMSCFD` // https://app.clickup.com/t/9018502823/86ev5f6ve
+            },
+            HttpStatus.BAD_REQUEST
+          )
         } else if (e['row'][10] === 'Exit' && isMatch(e['row'][9], 'MMBTU/D')) {
           // fnDayValidateNomCapa(e, reserveArr_, nominationPoint, valueCapa, valueCapaPerDay, cI, 2)
         } else if (e['row'][10] === 'Exit' && isMatch(e['row'][9], 'MMscfd')) {
           //  ---- reserve ไม่มี MMSCF
           throw new HttpException(
-              {
-                status: HttpStatus.BAD_REQUEST,
-                error: `Reserve Balancing Gas Contgract is NOT SUPPORT MMSCFD`,
-              },
-              HttpStatus.BAD_REQUEST,
-            );
+            {
+              status: HttpStatus.BAD_REQUEST,
+              error: `Reserve Balancing Gas Contracts only support MMBTU, not MMSCFD` // https://app.clickup.com/t/9018502823/86ev5f6ve
+            },
+            HttpStatus.BAD_REQUEST
+          )
         }
 
         return {
@@ -398,8 +406,6 @@ export class HandleReserveBalancingGasContractService {
     } else {
       let weekBook = true
       // weekly
-      // if (filePeriodMode === 1 || filePeriodMode === 3) {
-      // day
       const headDay = sheet1?.data[3]
       checksValue = getsValue.map((e: any, cI: any) => {
         let entryQuality = null
@@ -409,28 +415,32 @@ export class HandleReserveBalancingGasContractService {
         let valueCapaArr = []
 
         if (e['row'][10] === 'Entry' && e['row'][9] === 'MMBTU/D') {
-          checkDate(e, 1)
+          try {
+            checkDate(e, 1)
+          } catch (error) {
+            checksDate.push(error?.response?.error)
+          }
           weekBook = fnWeeklyValidateNomCapa(e, reserveArr_, nominationPoint, valueCapa, valueCapaArr, cI, 1, weekBook, headDay)
         } else if (e['row'][10] === 'Entry' && isMatch(e['row'][9], 'MMscfd')) {
           //  ---- reserve ไม่มี MMSCF
           throw new HttpException(
-              {
-                status: HttpStatus.BAD_REQUEST,
-                error: `Reserve Balancing Gas Contgract is NOT SUPPORT MMSCFD`,
-              },
-              HttpStatus.BAD_REQUEST,
-            );
+            {
+              status: HttpStatus.BAD_REQUEST,
+              error: `Reserve Balancing Gas Contracts only support MMBTU, not MMSCFD` // https://app.clickup.com/t/9018502823/86ev5f6ve
+            },
+            HttpStatus.BAD_REQUEST
+          )
         } else if (e['row'][10] === 'Exit' && isMatch(e['row'][9], 'MMBTU/D')) {
           // weekBook = fnWeeklyValidateNomCapa(e, reserveArr_, nominationPoint, valueCapa, valueCapaArr, cI, 2, weekBook, headDay)
         } else if (e['row'][10] === 'Exit' && isMatch(e['row'][9], 'MMscfd')) {
           //  ---- reserve ไม่มี MMSCF
           throw new HttpException(
-              {
-                status: HttpStatus.BAD_REQUEST,
-                error: `Reserve Balancing Gas Contgract is NOT SUPPORT MMSCFD`,
-              },
-              HttpStatus.BAD_REQUEST,
-            );
+            {
+              status: HttpStatus.BAD_REQUEST,
+              error: `Reserve Balancing Gas Contracts only support MMBTU, not MMSCFD` // https://app.clickup.com/t/9018502823/86ev5f6ve
+            },
+            HttpStatus.BAD_REQUEST
+          )
         }
 
         return {
@@ -458,15 +468,23 @@ export class HandleReserveBalancingGasContractService {
       }
     }
 
+    if (checksDate.length > 0) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          error: checksDate.join('<br/>')
+        },
+        HttpStatus.BAD_REQUEST
+      )
+    }
+
     let groupedBywarningLogHrTemp: any = Object.values(
       warningLogHrTemp.reduce((acc, item) => {
-        // const key = `${item?.hr}|${item?.contractPoint}|${item?.value}|${item?.unit}`;
-        const key = `${item?.hr}|${item?.nomination_point}|${item?.value}|${item?.unit}`
+        const key = item && `${item?.hr}|${item?.nomination_point}|${item?.value}|${item?.unit}` || ""
         if (!acc[key]) {
           acc[key] = {
-            hr: item.hr,
-            // contractPoint: item.contractPoint,
-            nomination_point: item.nomination_point,
+            hr: item && item.hr || "",
+            nomination_point: item && item.nomination_point || "",
             value: item.value,
             valueDay: item.valueDay,
             unit: item.unit,
@@ -478,36 +496,12 @@ export class HandleReserveBalancingGasContractService {
       }, {})
     )
 
-    // https://app.clickup.com/t/86eve8pyx
-    // for (let ig = 0; ig < groupedBywarningLogHrTemp.length; ig++) {
-    //   const energyValues = groupedBywarningLogHrTemp[ig]?.data?.reduce(
-    //     (accumulator, currentValue) => accumulator + currentValue?.energy || 0,
-    //     0,
-    //   );
-
-    //   if (parseToNumber3Decimal(energyValues) > parseToNumber3Decimal(groupedBywarningLogHrTemp[ig]?.value)) {
-    //     if (isMatch(groupedBywarningLogHrTemp[ig]?.unit, 'MMscfd')) {
-    //       warningLogHr.push(
-    //         // `Nominated max volume ${this.formatNumberThreeDecimal(parseToNumber3Decimal(energyValues) ?? '')} exceeds contracted value ${this.formatNumberThreeDecimal(parseToNumber3Decimal(groupedBywarningLogHrTemp[ig]?.value)) ?? ''} for contract point ${groupedBywarningLogHrTemp[ig]?.contractPoint || '-'} and hour ${groupedBywarningLogHrTemp[ig]?.hr || '-'}`,
-    //         `Nominated max volume ${this.formatNumberThreeDecimal(parseToNumber3Decimal(energyValues) ?? '')} exceeds contracted value ${this.formatNumberThreeDecimal(parseToNumber3Decimal(groupedBywarningLogHrTemp[ig]?.value)) ?? ''} for nomination point ${groupedBywarningLogHrTemp[ig]?.nomination_point || '-'} and hour ${groupedBywarningLogHrTemp[ig]?.hr || '-'}`,
-    //       );
-    //     }
-    //     else {
-    //       warningLogHr.push(
-    //         // `Nominated max energy ${this.formatNumberThreeDecimal(parseToNumber3Decimal(energyValues) ?? '')} exceeds contracted value ${this.formatNumberThreeDecimal(parseToNumber3Decimal(groupedBywarningLogHrTemp[ig]?.value)) ?? ''} for contract point ${groupedBywarningLogHrTemp[ig]?.contractPoint || '-'} and hour ${groupedBywarningLogHrTemp[ig]?.hr || '-'}`,
-    //         `Nominated max energy ${this.formatNumberThreeDecimal(parseToNumber3Decimal(energyValues) ?? '')} exceeds contracted value ${this.formatNumberThreeDecimal(parseToNumber3Decimal(groupedBywarningLogHrTemp[ig]?.value)) ?? ''} for nomination point ${groupedBywarningLogHrTemp[ig]?.nomination_point || '-'} and hour ${groupedBywarningLogHrTemp[ig]?.hr || '-'}`,
-    //       );
-    //     }
-    //   }
-    // }
-
     let groupedBywarningLogTotalTemp: any = Object.values(
       groupedBywarningLogHrTemp.reduce((acc, item) => {
-        // const key = `${item?.contractPoint}|${item?.value}|${item?.unit}`;
         const key = `${item?.nomination_point}|${item?.value}|${item?.unit}`
         if (!acc[key]) {
           acc[key] = {
-            nomination_point: item.nomination_point,
+            nomination_point: item && item.nomination_point || "",
             value: item.value,
             valueDay: item.valueDay,
             unit: item.unit,
@@ -525,29 +519,23 @@ export class HandleReserveBalancingGasContractService {
       if (parseToNumber3Decimal(energyValues) > parseToNumber3Decimal(groupedBywarningLogTotalTemp[ig]?.valueDay)) {
         if (isMatch(groupedBywarningLogTotalTemp[ig]?.unit, 'MMscfd')) {
           warningLogDay.push(
-            // `Nominated Total volume ${(energyValues && this.formatNumberThreeDecimal(parseToNumber3Decimal(energyValues))) || 0} exceeds contracted value ${this.formatNumberThreeDecimal(parseToNumber3Decimal(groupedBywarningLogTotalTemp[ig]?.valueDay) ?? '')} for contract point ${groupedBywarningLogTotalTemp[ig]?.contractPoint} and gas day ${startDateEx}`,
             `Nominated Total volume ${(energyValues && this.formatNumberThreeDecimal(parseToNumber3Decimal(energyValues))) || 0} exceeds contracted value ${this.formatNumberThreeDecimal(parseToNumber3Decimal(groupedBywarningLogTotalTemp[ig]?.valueDay) ?? '')} for nomination point ${groupedBywarningLogTotalTemp[ig]?.nomination_point} and gas day ${startDateEx}`
           )
         } else {
           warningLogDay.push(
-            // `Nominated Total energy ${(energyValues && this.formatNumberThreeDecimal(parseToNumber3Decimal(energyValues))) || 0} exceeds contracted value ${this.formatNumberThreeDecimal(parseToNumber3Decimal(groupedBywarningLogTotalTemp[ig]?.valueDay) ?? '')} for contract point ${groupedBywarningLogTotalTemp[ig]?.contractPoint} and gas day ${startDateEx}`,
             `Nominated Total energy ${(energyValues && this.formatNumberThreeDecimal(parseToNumber3Decimal(energyValues))) || 0} exceeds contracted value ${this.formatNumberThreeDecimal(parseToNumber3Decimal(groupedBywarningLogTotalTemp[ig]?.valueDay) ?? '')} for nomination point ${groupedBywarningLogTotalTemp[ig]?.nomination_point} and gas day ${startDateEx}`
           )
         }
       }
     }
 
-    // ------
-
     let groupedBywarningLogHrWeeklyTemp: any = Object.values(
       warningLogDayWeekTemp.reduce((acc, item) => {
-        // const key = `${item?.headDayUse}|${item?.contractPoint}|${item?.value}|${item?.unit}`;
         const key = `${item?.headDayUse}|${item?.nomination_point}|${item?.value}|${item?.unit}`
         if (!acc[key]) {
           acc[key] = {
             headDayUse: item.headDayUse,
-            // contractPoint: item.contractPoint,
-            nomination_point: item.nomination_point,
+            nomination_point: item && item.nomination_point || "",
             value: item.value,
             unit: item.unit,
             data: []
@@ -564,14 +552,12 @@ export class HandleReserveBalancingGasContractService {
       if (parseToNumber3Decimal(energyValues) > parseToNumber3Decimal(groupedBywarningLogHrWeeklyTemp[ig]?.value)) {
         if (isMatch(groupedBywarningLogHrWeeklyTemp[ig]?.unit, 'MMscfd')) {
           warningLogDayWeek.push(
-            // `Nominated Total volume ${(this.formatNumberThreeDecimal(parseToNumber3Decimal(energyValues))) ?? ''} exceeds contracted value ${this.formatNumberThreeDecimal(parseToNumber3Decimal(groupedBywarningLogHrWeeklyTemp[ig]?.value) ?? '')} for contract point ${groupedBywarningLogHrWeeklyTemp[ig]?.contractPoint
             `Nominated Total volume ${this.formatNumberThreeDecimal(parseToNumber3Decimal(energyValues)) ?? ''} exceeds contracted value ${this.formatNumberThreeDecimal(parseToNumber3Decimal(groupedBywarningLogHrWeeklyTemp[ig]?.value) ?? '')} for nomination point ${
               groupedBywarningLogHrWeeklyTemp[ig]?.nomination_point
             } and gas day ${groupedBywarningLogHrWeeklyTemp[ig]?.headDayUse}`
           )
         } else {
           warningLogDayWeek.push(
-            // `Nominated Total energy ${(this.formatNumberThreeDecimal(parseToNumber3Decimal(energyValues))) ?? ''} exceeds contracted value ${this.formatNumberThreeDecimal(parseToNumber3Decimal(groupedBywarningLogHrWeeklyTemp[ig]?.value) ?? '')} for contract point ${groupedBywarningLogHrWeeklyTemp[ig]?.contractPoint
             `Nominated Total energy ${this.formatNumberThreeDecimal(parseToNumber3Decimal(energyValues)) ?? ''} exceeds contracted value ${this.formatNumberThreeDecimal(parseToNumber3Decimal(groupedBywarningLogHrWeeklyTemp[ig]?.value) ?? '')} for nomination point ${
               groupedBywarningLogHrWeeklyTemp[ig]?.nomination_point
             } and gas day ${groupedBywarningLogHrWeeklyTemp[ig]?.headDayUse}`
@@ -579,6 +565,18 @@ export class HandleReserveBalancingGasContractService {
         }
       }
     }
+
+    // const otherTypeNameList = Array.from(new Set((caseData?.columnOther || []).map((columnOther: any) => columnOther[3] || columnOther[4] || columnOther[5] || '')))
+    const otherTypeIndexList = (caseData?.columnOther || []).map((columnOther: any) => columnOther.ix+1)
+    if(otherTypeIndexList.length > 0){
+      const otherTypeListText = otherTypeIndexList.length === 1
+        ? (otherTypeIndexList[0] ?? '')
+        : otherTypeIndexList.length === 2
+          ? `${otherTypeIndexList[0]} and ${otherTypeIndexList[1]}`
+          : `${otherTypeIndexList.slice(0, -1).join(', ')}, and ${otherTypeIndexList[otherTypeIndexList.length - 1]}`;
+      warningOtherTypePoint.push(`Row ${otherTypeListText} will not be used due to incomplete details.`)
+    }
+
 
     if (checkEmtry?.filter((f: any) => f === true).length === getsValue.length) {
       throw new HttpException(
@@ -712,6 +710,133 @@ export class HandleReserveBalancingGasContractService {
       valueData: fullShee2Data.map((e: any) => this.transformColumnDF(e))
     }
 
+    // https://app.clickup.com/t/86euzxxq9
+      const checkSheet1Entry = nominationRowJson
+        ?.filter((f: any) => f?.data[10]?.toUpperCase() === 'ENTRY' && f?.type === 1 && (f?.data[9]?.toUpperCase() === 'MMBTU/D'))
+        ?.map((e_: any) => {
+          return {
+            zone: e_?.data[0],
+            point: e_?.data[3]
+          }
+        })
+      const unique_checkSheet1Entry = Array.from(new Map(checkSheet1Entry.map((o) => [`${o.zone}__${o.point}`, o])).values())
+      console.log('unique_checkSheet1Entry : ', unique_checkSheet1Entry);
+      console.log('nominationFullJsonSheet2?.valueData : ', nominationFullJsonSheet2?.valueData);
+      // Validate มากเกินไม่ได้ ขาดไม่ได้
+      if ([...new Set(nominationFullJsonSheet2?.valueData?.map((e_: any) => e_?.[1]))]?.length !== unique_checkSheet1Entry?.length) {
+        const diff = [...new Set(nominationFullJsonSheet2?.valueData?.map((e_: any) => e_?.[1]))].filter((item) => !unique_checkSheet1Entry?.map((e: any) => e?.point).includes(item))
+        if (nominationFullJsonSheet2?.valueData?.length > unique_checkSheet1Entry?.length) {
+          messageError.push(`Gas Quality data is not match ${diff?.join(',')}.`)
+          // throw new HttpException(
+          //   {
+          //     status: HttpStatus.FORBIDDEN,
+          //     error: `Gas Quality data is not match ${diff?.join(',')}.` // https://app.clickup.com/t/9018502823/86euzxxq9
+          //   },
+          //   HttpStatus.FORBIDDEN
+          // )
+        } else {
+          messageError.push(`Gas Quality data have not been received for all nominated entry points.`)
+
+          // throw new HttpException(
+          //   {
+          //     status: HttpStatus.FORBIDDEN,
+          //     error: `Gas Quality data have not been received for all nominated entry points.`
+          //   },
+          //   HttpStatus.FORBIDDEN
+          // )
+        }
+      }
+
+            nominationFullJsonSheet2?.valueData?.map((e_: any) => {
+        const findPoint = unique_checkSheet1Entry?.find((f: any) => {
+          return f?.zone?.toUpperCase() === e_[0]?.toUpperCase() && f?.point?.toUpperCase() === e_[1]?.toUpperCase()
+        })
+
+        const diff2 = nominationFullJsonSheet2?.valueData?.filter((e_: any) => {
+          const findPoint = unique_checkSheet1Entry?.find((f: any) => {
+            return f?.zone?.toUpperCase() === e_?.[0]?.toUpperCase() && f?.point?.toUpperCase() === e_?.[1]?.toUpperCase()
+          })
+
+          return !findPoint
+        })
+        // point ไม่มีตรงใน sheet1
+        if (!findPoint) {
+          messageError.push(`Gas Quality data is not match ${diff2?.map((e: any) => e?.[1])?.join(',')}.`)
+
+          // throw new HttpException(
+          //   {
+          //     status: HttpStatus.FORBIDDEN,
+          //     error: `Gas Quality data is not match ${diff2?.map((e: any) => e?.[1])?.join(',')}`
+          //   },
+          //   HttpStatus.FORBIDDEN
+          // )
+        }
+        for (let i = 2; i <= 17; i++) {
+          if (e_[i]) {
+            const n = Number(e_[i])
+            const isNegative = Number.isFinite(n) && n < 0
+            // ห้ามมีติดลบ
+            if (!!!e_[i]) {
+              messageError.push(`Missing Gas Quality data. All Fields must be filled ${e_ && e_?.[1] || ""}.`)
+
+              // throw new HttpException(
+              //   {
+              //     status: HttpStatus.FORBIDDEN,
+              //     error: `Missing Gas Quality data. All Fields must be filled ${e_ && e_?.[1] || ""}.` // https://app.clickup.com/t/86euzxxq9
+              //   },
+              //   HttpStatus.FORBIDDEN
+              // )
+            }
+
+            if (isNegative) {
+              messageError.push(`Invalid Gas Quality data. Negative values are not allowed ${e_ && e_?.[1] || ""}.`)
+
+              // throw new HttpException(
+              //   {
+              //     status: HttpStatus.FORBIDDEN,
+              //     error: `Invalid Gas Quality data. Negative values are not allowed ${e_ && e_?.[1] || ""}.`
+              //   },
+              //   HttpStatus.FORBIDDEN
+              // )
+            }
+          } else {
+            // ห้ามว่าง
+            messageError.push(`Missing Gas Quality data. All Fields must be filled ${e_ && e_?.[1] || ""}.`)
+
+            // throw new HttpException(
+            //   {
+            //     status: HttpStatus.FORBIDDEN,
+            //     error: `Missing Gas Quality data. All Fields must be filled ${e_ && e_?.[1] || ""}.`
+            //   },
+            //   HttpStatus.FORBIDDEN
+            // )
+          }
+
+          const isNotNumber = (v: any) => {
+            if (v === null || v === undefined) return false // allow empty
+
+            const str = String(v).trim().replace(/,/g, '')
+            if (str === '') return false // allow empty
+
+            const n = Number(str)
+            return Number.isNaN(n)
+          }
+          if (isNotNumber(e_[i])) {
+            messageError.push(`Quality : Invalid input. Only numeric values are allowed in these columns.`)
+
+            // throw new HttpException(
+            //   {
+            //     status: HttpStatus.FORBIDDEN,
+            //     error: `Quality : Invalid input. Only numeric values are allowed in these columns.` // https://app.clickup.com/t/86euzxxgg
+            //   },
+            //   HttpStatus.FORBIDDEN
+            // )
+          }
+        }
+
+        return e_
+      })
+
     const responseUpFile = await uploadFilsTemp(fileOriginal)
     const nominationCount = await this.prisma.query_shipper_nomination_file.count({
       where: {
@@ -720,23 +845,13 @@ export class HandleReserveBalancingGasContractService {
           gte: getTodayStartAdd7().toDate(), // เริ่มต้นวันตามเวลาประเทศไทย
           lte: getTodayEndAdd7().toDate() // สิ้นสุดวันตามเวลาประเทศไทย
         }
-        // contract_code_id: null // revers อย่างเดียว
-        // AND: [
-        //   {
-        //     OR: [
-        //       { del_flag: false },
-        //       { del_flag: null }
-        //     ]
-        //   }
-        // ],
       }
     })
 
     let nomination_code = `${getTodayNow().format('YYYYMMDD')}-${nomination_type_id === 1 ? 'DNM' : 'WNM'}-${String(nominationCount + 1).padStart(4, '0')}`
 
-    let warningAll = [...sheet1Quality, ...sheet2Quality, ...warningLogHr, ...warningLogDayWeek, ...warningLogDay]
-
-    // startDateExConv, checkType, renom, informationData,
+    let warningAll = [...sheet1Quality, ...sheet2Quality, ...warningLogHr, ...warningLogDayWeek, ...warningLogDay, ...warningOtherTypePoint]
+   
     // // ===== STEP 29: WARNING HANDLING =====
     const finalData = {
       startDateExConv,
@@ -761,6 +876,7 @@ export class HandleReserveBalancingGasContractService {
       warningLogHr: warningLogHr,
       warningLogDay: warningLogDay,
       warningLogDayWeek: warningLogDayWeek,
+      warningOtherTypePoint: warningOtherTypePoint,
       warningAll
     }
 
@@ -789,16 +905,6 @@ export class HandleReserveBalancingGasContractService {
         reserve_balancing_gas_contract: true
       }
     })
-
-    // if (checkVersion?.query_shipper_nomination_status_id === 4 && checkVersion?.contract_code?.status_capacity_request_management_id !== 2) {
-    //   throw new HttpException(
-    //     {
-    //       status: HttpStatus.FORBIDDEN,
-    //       error: 'Nomination status Cancelled.',
-    //     },
-    //     HttpStatus.FORBIDDEN,
-    //   );
-    // }
 
     if (nomination_type_id === 1) {
       const nominationData = nominationFullJson?.typeDoc?.columnPointId?.map((e: any) => e?.row)
@@ -921,15 +1027,33 @@ export class HandleReserveBalancingGasContractService {
       }
     }
 
-    // const cut3 = null
+    // https://app.clickup.com/t/9018502823/86ev5f6ve
 
-    // throw new HttpException(
-    //     {
-    //       status: HttpStatus.BAD_REQUEST,
-    //       error: 'test. REV',
-    //     },
-    //     HttpStatus.BAD_REQUEST,
-    //   );
+    // 5.ฝากเพิ่มเงื่อนไข Validate Sheet Quality ค่ะ
+    // - Validate ต้องมีแค่ของ Entry เท่านั้น > Gas Quality data is not valid for exit point {G_SSW}
+
+    if (messageError?.length > 0) {
+        const uniqueMessageError = [...new Set(messageError)]
+        console.log('messageError : ', messageError);
+        console.log('uniqueMessageError : ', uniqueMessageError);
+        throw new HttpException(
+          {
+            status: HttpStatus.BAD_REQUEST,
+            error: uniqueMessageError?.join('<br/>')
+          },
+          HttpStatus.BAD_REQUEST
+        )
+      }
+
+    if(process.env.NODE_ENV === 'development'){
+    throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          error: 'test. REV',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
 
     if (checkVersion) {
       // update
@@ -1049,7 +1173,7 @@ export class HandleReserveBalancingGasContractService {
             entry_exit_id: e?.entry_exit_id,
             query_shipper_nomination_type_id: e?.type,
             data_temp: JSON.stringify(e?.data),
-            old_index: e?.old_index,
+            old_index: e && e?.old_index || null,
             create_date_num: newDate.unix(),
             create_date: newDate.toDate(),
             create_by: Number(userId)
@@ -1274,7 +1398,7 @@ export class HandleReserveBalancingGasContractService {
             entry_exit_id: e?.entry_exit_id,
             query_shipper_nomination_type_id: e?.type,
             data_temp: JSON.stringify(e?.data),
-            old_index: e?.old_index,
+            old_index: e && e?.old_index || null,
             create_date_num: newDate.unix(),
             create_date: newDate.toDate(),
             create_by: Number(userId)

@@ -149,7 +149,7 @@ export async function genPass(
 }
 
 export async function nPassword() {
-  const passw = 'vpkdwxwso001'
+  const passw = process.env.DEFAULT_ACCOUNT_PWD || generatePassword(12)
   const pass =
     generatePassword(10)
   const hashPassword =

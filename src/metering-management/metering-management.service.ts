@@ -24,7 +24,7 @@ import {Prisma} from '@prisma/client'
 import {getTimestampValue} from 'src/common/utils/balancing.util'
 import {parseToNumber} from 'src/common/utils/number.util'
 import {shareShipper} from 'src/common/utils/meter.util'
-import {activeData, meteringPointPopulate, meteringPointWithRelations} from '@type/prisma.type'
+import {activeData, conceptPointPopulate, conceptPointWithRelations, meteringPointPopulate, meteringPointWithRelations} from '@type/prisma.type'
 
 dayjs.extend(isBetween) // เปิดใช้งาน plugin isBetween
 dayjs.extend(utc)
@@ -60,10 +60,10 @@ export class MeteringManagementService {
     return resData
   }
 
-  async meteredMasterAll(start_date?: any, end_date?: any) : Promise<meteringPointWithRelations[]> {
+  async meteredMasterAll(start_date?: any, end_date?: any): Promise<meteringPointWithRelations[]> {
     const todayStart = start_date ? getTodayStartYYYYMMDDDfaultAdd7(start_date).toDate() : getTodayStartAdd7().toDate()
     const todayEnd = end_date ? getTodayEndYYYYMMDDDfaultAdd7(end_date).toDate() : getTodayEndAdd7().toDate()
-    const resData : meteringPointWithRelations[] = await this.prisma.metering_point.findMany({
+    const resData: meteringPointWithRelations[] = await this.prisma.metering_point.findMany({
       where: {
         AND: [
           {
@@ -109,22 +109,32 @@ export class MeteringManagementService {
 
   //   return dataResult
   // }
-  async meteredCompare(master: any, meter: any, gasDay?: string) {
+  async meteredCompare(master: any, meter: any, gasDay?: string, concpetPointList?: any[]) {
     let dataResult = []
     if (Array.isArray(meter)) {
-      const conceptPoint = await this.prisma.concept_point.findMany({
-        where: {
-          type_concept_point_id: 4
-        }
-      })
+      if (!concpetPointList || concpetPointList.length === 0) {
+        const conceptPoint = await this.prisma.concept_point.findMany({
+          where: {
+            type_concept_point_id: 4
+          }
+        })
 
-      let mConcpetPoint = conceptPoint.map((e: any) => {
-        return {
-          metered_point_name: e?.concept_point
-        }
-      })
+        let mConcpetPoint = conceptPoint.map((e: any) => {
+          return {
+            metered_point_name: e?.concept_point
+          }
+        })
 
-      master = [...master, ...mConcpetPoint]
+        master = [...master, ...mConcpetPoint]
+      } else {
+        const mConcpetPoint = concpetPointList.map((e: any) => {
+          return {
+            metered_point_name: e?.concept_point
+          }
+        })
+
+        master = [...master, ...mConcpetPoint]
+      }
 
       for (let i = 0; i < master.length; i++) {
         const findMeter = meter?.filter((f: any) => f?.meteringPointId === master[i]?.metered_point_name && (gasDay ? f?.gasDay === gasDay : true)) || []
@@ -138,8 +148,8 @@ export class MeteringManagementService {
             // const customer_type = !!master[i]?.non_tpa_point
             //   ? master[i]?.non_tpa_point?.nomination_point?.customer_type
             //   : master[i]?.nomination_point?.customer_type;
-            const customer_type = master[i]?.customer_type
-            const nomination_point_customer_type = master[i]?.nomination_point?.customer_type
+            const nomination_point_customer_type = master[i]?.nomination_point?.customer_type || master[i]?.non_tpa_point?.nomination_point?.customer_type
+            const customer_type = master[i]?.customer_type || nomination_point_customer_type
 
             dataResult.push({
               id: i + 1 + iM + 1,
@@ -148,7 +158,7 @@ export class MeteringManagementService {
                 area: area,
                 zone: zone,
                 customer_type: customer_type,
-                nomination_point_customer_type,
+                nomination_point_customer_type
               }
             })
           }
@@ -216,7 +226,7 @@ export class MeteringManagementService {
       if (start.isValid()) {
         andWhere.push({
           timestamp: {
-          // gas_day: {
+            // gas_day: {
             gte: start.toDate()
           }
         })
@@ -224,7 +234,7 @@ export class MeteringManagementService {
       if (end.isValid()) {
         andWhere.push({
           timestamp: {
-          // gas_day: {
+            // gas_day: {
             lte: end.toDate()
           }
         })
@@ -340,7 +350,7 @@ export class MeteringManagementService {
         type: 'mastering data check',
         del_flag: true,
         timestamp: {
-        // gas_day: {
+          // gas_day: {
           gte: start.toDate(),
           lte: end.toDate()
         }
@@ -609,7 +619,7 @@ export class MeteringManagementService {
         // Fill dateArray with all dates between getMeterFrom and getMeterTo (inclusive) in YYYY-MM-DD format
         let current = getMeterFrom.clone()
         while (current.isSameOrBefore(getMeterTo, 'day')) {
-          dateArray.push(current.format('YYYY-MM-DD'))
+          dateArray.push((current && current.format('YYYY-MM-DD')) || dayjs().format('YYYY-MM-DD'))
           current = current.add(1, 'day')
         }
         // Build active data for all dates
@@ -635,11 +645,11 @@ export class MeteringManagementService {
     )
     console.timeEnd('getDataLogicNoCondept')
     const dataConvert = (!!meteredMicroData?.reply && JSON.parse(meteredMicroData?.reply)) || null
-    const meteredPoint : meteringPointWithRelations[] = await this.meteredMasterAll(start_date, end_date)
+    const meteredPoint: meteringPointWithRelations[] = await this.meteredMasterAll(start_date, end_date)
 
     const start = start_date ? getTodayStartYYYYMMDDDfaultAdd7(start_date) : getTodayStartAdd7()
     const end = end_date ? getTodayEndYYYYMMDDDfaultAdd7(end_date) : getTodayEndAdd7()
-    const ckShare = (share === 'on' || share == true) ? await shareShipper(meteredPoint, this.prisma, start, end) : meteredPoint
+    const ckShare = share === 'on' || share == true ? await shareShipper(meteredPoint, this.prisma, start, end) : meteredPoint
 
     return {
       meterNom: ckShare,
@@ -668,7 +678,7 @@ export class MeteringManagementService {
     return reply
   }
 
-  async getDataByRetrievingID(query: any, isReplaceMissingMeterWithNomination?: boolean) {
+  async getDataByRetrievingID(query: any, isReplaceMissingMeterWithNomination?: boolean, userId?: any) {
     const {share, metering_retrieving_id} = query
 
     let activeData: activeData[] | undefined = undefined
@@ -687,19 +697,21 @@ export class MeteringManagementService {
     if (isReplaceMissingMeterWithNomination) {
       try {
         // Build active data for all dates
-        activeData = await buildActiveDataForDates(dateArray, this.prisma)
-        const meteredMicroDataReplaceMissingMeterWithNomination = await this.meteredMicroService.replaceMissingMeterWithNomination(
-          payload,
-          activeData
-            ? {
-                activeData: activeData,
-                prisma: this.prisma
-              }
-            : undefined,
-          meteredMicroData
-        )
+        activeData = await buildActiveDataForDates(dateArray, this.prisma, userId)
+        if (meteredMicroData) {
+          const meteredMicroDataReplaceMissingMeterWithNomination = await this.meteredMicroService.replaceMissingMeterWithNomination(
+            payload,
+            activeData
+              ? {
+                  activeData: activeData,
+                  prisma: this.prisma
+                }
+              : undefined,
+            meteredMicroData
+          )
 
-        dataConvert = (!!meteredMicroDataReplaceMissingMeterWithNomination?.reply && JSON.parse(meteredMicroDataReplaceMissingMeterWithNomination?.reply)) || null
+          dataConvert = (!!meteredMicroDataReplaceMissingMeterWithNomination?.reply && JSON.parse(meteredMicroDataReplaceMissingMeterWithNomination?.reply)) || null
+        }
       } catch (error) {
         activeData = undefined
       }
@@ -712,10 +724,11 @@ export class MeteringManagementService {
         const activeDataForDate = activeData?.find((ad) => ad.date === date)
         if (activeDataForDate) {
           const meteredPoint = activeDataForDate?.activeMeteringPoints || []
-          
+          const conceptPointList = activeDataForDate?.activeConceptPoints || []
+
           const ckShare = share === 'on' ? await shareShipper(meteredPoint, this.prisma, null, null) : meteredPoint
 
-          const compareMeter = await this.meteredCompare(ckShare, dataConvert, date)
+          const compareMeter = await this.meteredCompare(ckShare, dataConvert, date, conceptPointList) // ignoreConcpetPoint ไปก่อนจนกว่าจะทำข้อที่ให้ปรับ concpet point ใหม่
           return compareMeter
         }
       })
@@ -723,7 +736,7 @@ export class MeteringManagementService {
     return compareMeterEachDay.flat()
   }
 
-  async getDataLogic(query: any, isReplaceMissingMeterWithNomination?: boolean, userId?: any) {
+  async getDataLogicOLD(query: any, isReplaceMissingMeterWithNomination?: boolean, userId?: any) {
     const {share, start_date, end_date} = query
 
     const start = start_date ? getTodayStartYYYYMMDDDfaultAdd7(start_date) : getTodayStartAdd7()
@@ -738,11 +751,11 @@ export class MeteringManagementService {
         // Fill dateArray with all dates between getMeterFrom and getMeterTo (inclusive) in YYYY-MM-DD format
         let current = getMeterFrom.clone()
         while (current.isSameOrBefore(getMeterTo, 'day')) {
-          dateArray.push(current.format('YYYY-MM-DD'))
+          dateArray.push((current && current.format('YYYY-MM-DD')) || dayjs().format('YYYY-MM-DD'))
           current = current.add(1, 'day')
         }
         // Build active data for all dates
-        activeData = await buildActiveDataForDates(dateArray, this.prisma)
+        activeData = await buildActiveDataForDates(dateArray, this.prisma, userId)
       } catch (error) {
         activeData = undefined
       }
@@ -775,10 +788,11 @@ export class MeteringManagementService {
         const activeDataForDate = activeData?.find((ad) => ad.date === date)
         if (activeDataForDate) {
           const meteredPoint = activeDataForDate?.activeMeteringPoints || []
+          const conceptPointList = activeDataForDate?.activeConceptPoints || []
           const ckShare = share === 'on' ? await shareShipper(meteredPoint, this.prisma, start, end) : meteredPoint
-          console.log('ckShare : ', ckShare);
-          const compareMeter = await this.meteredCompare(ckShare, dataConvert, date)
-          console.log('compareMeter : ', compareMeter);
+          // console.log('ckShare : ', ckShare);
+          const compareMeter = await this.meteredCompare(ckShare, dataConvert, date, conceptPointList) // ignoreConcpetPoint ไปก่อนจนกว่าจะทำข้อที่ให้ปรับ concpet point ใหม่
+          // console.log('compareMeter : ', compareMeter);
           return compareMeter
         }
       })
@@ -786,8 +800,7 @@ export class MeteringManagementService {
     const result_ = compareMeterEachDay.flat()
 
     if (userId) {
-      
-      const userType = await this.prisma.user_type?.findFirst({
+      const userType = await this.prisma.user_type.findFirst({
         where: {
           account_manage: {
             some: {
@@ -797,324 +810,486 @@ export class MeteringManagementService {
         }
       })
       if (userType?.id === 3) {
-        const group_ = await this.prisma.group?.findFirst({
-        where: {
-          account_manage: {
-            some: {
-              account_id: Number(userId)
+        const group_ = await this.prisma.group.findFirst({
+          where: {
+            account_manage: {
+              some: {
+                account_id: Number(userId)
+              }
+            }
+          },
+          include: {
+            shipper_contract_point: {
+              include: {
+                contract_point: {
+                  include: {
+                    nomination_point_list: {
+                      include: {
+                        metering_point: true
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
-        },
-        include:{
-          shipper_contract_point:{
-            include:{
-              contract_point:{
-                include:{
-                  nomination_point_list:{
-                    include:{
-                      metering_point:true,
-                    },
-                  },
+        })
+        const contractCode = await this.prisma.contract_code.findMany({
+          where: {
+            AND: [
+              {
+                group_id: group_?.id
+              },
+              {
+                contract_start_date: {
+                  lte: end.toDate()
                 }
-              }
-            },
-          },
-        },
-      })
-      const contractCode = await this.prisma.contract_code.findMany({
-        where: {
-          AND: [
-            {
-              group_id: group_?.id,
-            },
-            {
-              contract_start_date: {
-                lte: end.toDate()
-              }
-            }, // Started before or on target date
-            // Not rejected
-            {
-              status_capacity_request_management: {
-                NOT: {
-                  name: {
-                    equals: 'Rejected',
-                    mode: 'insensitive'
-                  }
-                }
-              }
-            },
-            // If terminate_date exists and targetDate >= terminate_date, exclude (inactive)
-            {
-              OR: [
-                {
-                  terminate_date: null
-                }, // No terminate date
-                {
-                  terminate_date: {
-                    gt: start.toDate()
-                  }
-                } // Terminate date is after target date
-              ]
-            },
-            // Use extend_deadline if available, otherwise use contract_end_date
-            {
-              OR: [
-                // If extend_deadline exists, use it as end date
-                {
-                  AND: [
-                    {
-                      extend_deadline: {
-                        not: null
-                      }
-                    },
-                    {
-                      extend_deadline: {
-                        gt: start.toDate()
-                      }
+              }, // Started before or on target date
+              // Not rejected
+              {
+                status_capacity_request_management: {
+                  NOT: {
+                    name: {
+                      equals: 'Rejected',
+                      mode: 'insensitive'
                     }
-                  ]
-                },
-                // If extend_deadline is null, use contract_end_date
-                {
-                  AND: [
-                    {
-                      extend_deadline: null
-                    },
-                    {
-                      OR: [
-                        {
-                          contract_end_date: null
-                        },
-                        {
-                          contract_end_date: {
-                            gt: start.toDate()
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        select:{
-          id: true,
-          contract_start_date: true,
-          contract_end_date: true,
-          terminate_date: true,
-          extend_deadline: true,
-          booking_version:{
-            include:{
-              booking_row_json:{
-                select:{
-                  contract_point:true,
+                  }
                 }
               },
-            },
-            where:{
-              flag_use: true
+              // If terminate_date exists and targetDate >= terminate_date, exclude (inactive)
+              {
+                OR: [
+                  {
+                    terminate_date: null
+                  }, // No terminate date
+                  {
+                    terminate_date: {
+                      gt: start.toDate()
+                    }
+                  } // Terminate date is after target date
+                ]
+              },
+              // Use extend_deadline if available, otherwise use contract_end_date
+              {
+                OR: [
+                  // If extend_deadline exists, use it as end date
+                  {
+                    AND: [
+                      {
+                        extend_deadline: {
+                          not: null
+                        }
+                      },
+                      {
+                        extend_deadline: {
+                          gt: start.toDate()
+                        }
+                      }
+                    ]
+                  },
+                  // If extend_deadline is null, use contract_end_date
+                  {
+                    AND: [
+                      {
+                        extend_deadline: null
+                      },
+                      {
+                        OR: [
+                          {
+                            contract_end_date: null
+                          },
+                          {
+                            contract_end_date: {
+                              gt: start.toDate()
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          select: {
+            id: true,
+            contract_code: true,
+            contract_start_date: true,
+            contract_end_date: true,
+            terminate_date: true,
+            extend_deadline: true,
+            booking_version: {
+              include: {
+                booking_row_json: {
+                  select: {
+                    contract_point: true
+                  }
+                }
+              },
+              where: {
+                flag_use: true
+              }
             }
           }
-        }
-      })
+        })
+        const reserveBalancingGasContract = await this.prisma.reserve_balancing_gas_contract.findMany({
+          where: {
+            group_id: group_?.id,
+            reserve_balancing_gas_contract_detail: {
+              some: {
+                start_date: {
+                  lte: end.toDate()
+                },
+                OR: [
+                  {
+                    end_date: null
+                  },
+                  {
+                    end_date: {
+                      gt: start.toDate()
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          include: {
+            reserve_balancing_gas_contract_detail: {
+              include: {
+                nomination_point: true
+              }
+            }
+          }
+        })
 
-      const orInWhere : Prisma.contract_pointWhereInput[] = []
-      const contract_point_contractSE = contractCode?.flatMap(fm => {
-        return fm?.booking_version?.flatMap((fm_v:any) => {
-          return fm_v?.booking_row_json?.flatMap((fm_r:any) => {
-            orInWhere.push({
+        const orInWhereContractPoint: Prisma.contract_pointWhereInput[] = []
+        console.log('contractCode : ', contractCode)
+        const contract_point_contractSE = contractCode?.flatMap((fm) => {
+          return fm?.booking_version?.flatMap((fm_v: any) => {
+            return fm_v?.booking_row_json?.flatMap((fm_r: any) => {
+              orInWhereContractPoint.push({
+                AND: [
+                  {
+                    contract_point: fm_r?.contract_point
+                  },
+                  {
+                    contract_point_start_date: {lte: fm?.terminate_date || fm?.extend_deadline || fm?.contract_end_date}
+                  },
+                  {
+                    OR: [{contract_point_end_date: null}, {contract_point_end_date: {gt: fm?.contract_start_date}}]
+                  }
+                ]
+              })
+              return {
+                contract_start_date: fm?.contract_start_date,
+                contract_end_date: fm?.terminate_date || fm?.extend_deadline || fm?.contract_end_date,
+                contract_point: fm_r?.contract_point
+              }
+            })
+          })
+        })
+        console.log('orInWhereContractPoint : ', orInWhereContractPoint)
+        const contractPointList = await this.prisma.contract_point.findMany({
+          where: {
+            OR: orInWhereContractPoint
+          },
+          include: {
+            nomination_point_list: {
+              include: {
+                metering_point: true,
+                non_tpa_point: {
+                  include: {
+                    metering_point: true
+                  }
+                }
+              }
+            }
+          }
+        })
+
+        const orInWhereNominationPoint: Prisma.nomination_pointWhereInput[] = []
+        const contractPointReserveBalancingGasContractSE = reserveBalancingGasContract?.flatMap((fm) => {
+          fm.reserve_balancing_gas_contract_detail.map((fm_r) => {
+            orInWhereNominationPoint.push({
               AND: [
                 {
-                  contract_point: fm_r?.contract_point
+                  nomination_point: fm_r?.nomination_point?.nomination_point
                 },
                 {
-                  contract_point_start_date: { lte: fm?.terminate_date || fm?.extend_deadline || fm?.contract_end_date }
+                  start_date: {lte: fm_r?.end_date}
                 },
                 {
-                  OR: [
-                    { contract_point_end_date: null },
-                    { contract_point_end_date: { gt: fm?.contract_start_date } }
-                  ]
+                  OR: [{end_date: null}, {end_date: {gt: fm_r?.start_date}}]
                 }
               ]
             })
             return {
-              contract_start_date: fm?.contract_start_date,
-              contract_end_date: fm?.terminate_date || fm?.extend_deadline || fm?.contract_end_date,
-              contract_point: fm_r?.contract_point
+              start_date: fm_r?.start_date,
+              end_date: fm_r?.end_date,
+              nomination_point: fm_r?.nomination_point
             }
           })
         })
-      })
-      const contractPointList = await this.prisma.contract_point.findMany({
-        where: {
-          OR: orInWhere
-        },
-        include: {
-          nomination_point_list: {
-            include: {
-              metering_point: true,
-              non_tpa_point: {
-                include: {
-                  metering_point: true,
-                }
-              },
-            }
+        // console.log('orInWhereNominationPoint : ', orInWhereNominationPoint);
+        const nominationPointList = await this.prisma.nomination_point.findMany({
+          where: {
+            OR: orInWhereNominationPoint
           },
-        }
-      })
-      // // console.log('group_ : ', group_);
-      // const startDate = getTodayStartAdd7(start_date == 'undefined' ? undefined : start_date)
-      // const endDate = getTodayEndAdd7(end_date == 'undefined' ? undefined : end_date)
-      // const metering_point_name = await this.prisma.metering_point.findMany({
-      //     where: {
-      //       AND: [
-      //         {
-      //           start_date: {
-      //             lte: endDate.toDate() // start_date ต้องก่อนหรือเท่ากับสิ้นสุดวันนี้
-      //           }
-      //         },
-      //         {
-      //           OR: [
-      //             {
-      //               end_date: null
-      //             }, // ถ้า end_date เป็น null
-      //             {
-      //               end_date: {
-      //                 gt: startDate.toDate()
-      //               }
-      //             } // ถ้า end_date ไม่เป็น null ต้องหลังหรือเท่ากับเริ่มต้นวันนี้
-      //           ]
-      //         }
-      //       ]
-      //     },
-      //     include: {
-      //       // point_type: true,
-      //       // entry_exit: true,
-      //       // customer_type: true,
-      //       // zone: true,
-      //       // area: true,
-      //       non_tpa_point: true,
-      //       nomination_point: true,
-      //     },
-      //     orderBy: {
-      //       id: 'desc'
-      //     }
-      //   })
+          include: {
+            metering_point: true,
+            non_tpa_point: {
+              include: {
+                metering_point: true
+              }
+            }
+          }
+        })
+        const nominationPointList_ = await this.prisma.nomination_point.findMany({
+          where: {},
+          include: {
+            contract_point_list: {
+              select: {
+                contract_point: true
+              }
+            },
+            metering_point: true,
+            non_tpa_point: {
+              include: {
+                metering_point: true
+              }
+            }
+          }
+        })
+        const meterPointList_ = await this.prisma.metering_point.findMany({
+          where: {},
+          include: {
+            nomination_point: {
+              select: {
+                nomination_point: true
+              }
+            }
+          }
+        })
 
-      //   // nomination_point?.nomination_point
+        // // console.log('group_ : ', group_);
+        // const startDate = getTodayStartAdd7(start_date == 'undefined' ? undefined : start_date)
+        // const endDate = getTodayEndAdd7(end_date == 'undefined' ? undefined : end_date)
+        // const metering_point_name = await this.prisma.metering_point.findMany({
+        //     where: {
+        //       AND: [
+        //         {
+        //           start_date: {
+        //             lte: endDate.toDate() // start_date ต้องก่อนหรือเท่ากับสิ้นสุดวันนี้
+        //           }
+        //         },
+        //         {
+        //           OR: [
+        //             {
+        //               end_date: null
+        //             }, // ถ้า end_date เป็น null
+        //             {
+        //               end_date: {
+        //                 gt: startDate.toDate()
+        //               }
+        //             } // ถ้า end_date ไม่เป็น null ต้องหลังหรือเท่ากับเริ่มต้นวันนี้
+        //           ]
+        //         }
+        //       ]
+        //     },
+        //     include: {
+        //       // point_type: true,
+        //       // entry_exit: true,
+        //       // customer_type: true,
+        //       // zone: true,
+        //       // area: true,
+        //       non_tpa_point: true,
+        //       nomination_point: true,
+        //     },
+        //     orderBy: {
+        //       id: 'desc'
+        //     }
+        //   })
 
-      //   // metered_point_name
+        //   // nomination_point?.nomination_point
 
-      //   // console.log('metering_point_name : ', metering_point_name);
+        //   // metered_point_name
 
-      // // metering_point
-      // // https://app.clickup.com/t/86euzxxpk
-      // const metered_point_nom_ = group_?.shipper_contract_point?.flatMap((fm:any) => {
-      //   return fm?.contract_point?.nomination_point_list?.flatMap((fm_:any) => {
-      //     const mtName = fm_?.metering_point?.map((e:any) => e?.metered_point_name)
-      //     // mtName
-      //     const fMt = metering_point_name?.filter((f:any) => f?.nomination_point?.nomination_point === fm_?.nomination_point)
-      //     return {
-      //       metering_point: mtName?.length > 0 ? mtName : fMt?.map((e:any) => e?.metered_point_name),
-      //       nomination_point: fm_?.nomination_point,
-      //       contract_point: fm?.contract_point?.contract_point
-      //     }
-      //   })
-      // })?.filter((f:any) => contract_point_contractSE?.map((cp:any) => cp?.contract_point)?.includes(f?.contract_point))
+        //   // console.log('metering_point_name : ', metering_point_name);
 
-      // const metered_point_nom_se = metered_point_nom_?.map((e:any) => {
-      //   const contractCodeSE = contract_point_contractSE?.filter((f:any) => f?.contract_point === e?.contract_point)
-      //   return {
-      //     ...e,
-      //     contractCodeSE: contractCodeSE || []
-      //   }
-      // })
+        // // metering_point
+        // // https://app.clickup.com/t/86euzxxpk
+        // const metered_point_nom_ = group_?.shipper_contract_point?.flatMap((fm:any) => {
+        //   return fm?.contract_point?.nomination_point_list?.flatMap((fm_:any) => {
+        //     const mtName = fm_?.metering_point?.map((e:any) => e?.metered_point_name)
+        //     // mtName
+        //     const fMt = metering_point_name?.filter((f:any) => f?.nomination_point?.nomination_point === fm_?.nomination_point)
+        //     return {
+        //       metering_point: mtName?.length > 0 ? mtName : fMt?.map((e:any) => e?.metered_point_name),
+        //       nomination_point: fm_?.nomination_point,
+        //       contract_point: fm?.contract_point?.contract_point
+        //     }
+        //   })
+        // })?.filter((f:any) => contract_point_contractSE?.map((cp:any) => cp?.contract_point)?.includes(f?.contract_point))
 
-      // const newresult_ = result_?.filter((f:any) => {
-      //   const meteringPointId = metered_point_nom_se?.filter((m_:any) => m_?.metering_point?.includes(f?.meteringPointId) )
-      //   if(meteringPointId?.length > 0){
-      //     const seDate = meteringPointId?.flatMap((fm:any) => {
-      //       return fm?.contractCodeSE?.map((ccSE:any) => {
-      //         return {
-      //           contract_start_date: ccSE?.contract_start_date,
-      //           contract_end_date: ccSE?.contract_end_date,
-      //         }
-      //       })
-      //     })
-      //     const minStartDate: dayjs.Dayjs = seDate?.reduce((min: dayjs.Dayjs, item: any) => {
-      //       return dayjs(item.contract_start_date).isBefore(min)
-      //         ? dayjs(item.contract_start_date)
-      //         : min;
-      //     }, dayjs(seDate?.[0].contract_start_date) as dayjs.Dayjs);
+        // const metered_point_nom_se = metered_point_nom_?.map((e:any) => {
+        //   const contractCodeSE = contract_point_contractSE?.filter((f:any) => f?.contract_point === e?.contract_point)
+        //   return {
+        //     ...e,
+        //     contractCodeSE: contractCodeSE || []
+        //   }
+        // })
 
-      //     const maxEndDate: dayjs.Dayjs = seDate?.reduce((max: dayjs.Dayjs, item: any) => {
-      //       return dayjs(item.contract_end_date).isAfter(max)
-      //         ? dayjs(item.contract_end_date)
-      //         : max;
-      //     }, dayjs(seDate?.[0].contract_end_date) as dayjs.Dayjs);
+        // const newresult_ = result_?.filter((f:any) => {
+        //   const meteringPointId = metered_point_nom_se?.filter((m_:any) => m_?.metering_point?.includes(f?.meteringPointId) )
+        //   if(meteringPointId?.length > 0){
+        //     const seDate = meteringPointId?.flatMap((fm:any) => {
+        //       return fm?.contractCodeSE?.map((ccSE:any) => {
+        //         return {
+        //           contract_start_date: ccSE?.contract_start_date,
+        //           contract_end_date: ccSE?.contract_end_date,
+        //         }
+        //       })
+        //     })
+        //     const minStartDate: dayjs.Dayjs = seDate?.reduce((min: dayjs.Dayjs, item: any) => {
+        //       return dayjs(item.contract_start_date).isBefore(min)
+        //         ? dayjs(item.contract_start_date)
+        //         : min;
+        //     }, dayjs(seDate?.[0].contract_start_date) as dayjs.Dayjs);
 
-      //     const gasDay = dayjs(f?.gasDay)
+        //     const maxEndDate: dayjs.Dayjs = seDate?.reduce((max: dayjs.Dayjs, item: any) => {
+        //       return dayjs(item.contract_end_date).isAfter(max)
+        //         ? dayjs(item.contract_end_date)
+        //         : max;
+        //     }, dayjs(seDate?.[0].contract_end_date) as dayjs.Dayjs);
 
-      //     const inRange = gasDay.isSameOrAfter(minStartDate) && gasDay.isBefore(maxEndDate)
+        //     const gasDay = dayjs(f?.gasDay)
 
-      //     return inRange
+        //     const inRange = gasDay.isSameOrAfter(minStartDate) && gasDay.isBefore(maxEndDate)
 
-      //     // const rangDate = [dayjs(minStartDate).format("YYYY-MM-DD"),dayjs(maxEndDate).format("YYYY-MM-DD")]
-        
-      //     // return  (
-      //     //   rangDate?.includes(f?.gasDay)
-      //     // )
-      //   }else{
-      //     return false
-      //   }
-      // })
+        //     return inRange
 
-      // console.log('metered_point_nom_se : ', metered_point_nom_se);
-      // console.log('metered_point_nom_ : ', metered_point_nom_);
-      // console.log('result_ : ', result_);
-      // console.log('newresult_ : ', newresult_);
-    
+        //     // const rangDate = [dayjs(minStartDate).format("YYYY-MM-DD"),dayjs(maxEndDate).format("YYYY-MM-DD")]
+
+        //     // return  (
+        //     //   rangDate?.includes(f?.gasDay)
+        //     // )
+        //   }else{
+        //     return false
+        //   }
+        // })
+
+        // console.log('metered_point_nom_se : ', metered_point_nom_se);
+        // console.log('metered_point_nom_ : ', metered_point_nom_);
+        // console.log('result_ : ', result_);
+        // console.log('newresult_ : ', newresult_);
+
         // กรอง result_ ให้เหลือเฉพาะแถว meter ที่มี metering point ที่ยัง active ตาม gasDay
         // โดยเช็คเส้นทาง: contract_point → nomination_point → (metering_point โดยตรง หรือผ่าน non_tpa_point)
         // ถ้า gasDay ไม่ valid จะถือว่าอยู่ในช่วง (isInRange = true) เพื่อไม่ตัดข้อมูลทิ้งโดยไม่จำเป็น
-        const newresult_ = result_?.filter((f:any) => {
+        // console.log('result_ : ', result_);
+        // console.log('contractPointList : ', contractPointList);
+        // console.log('nominationPointList : ', nominationPointList);
+        // console.log('nominationPointList_ : ', nominationPointList_);
+        // console.log('[LMPT1] nominationPointList_ : ', nominationPointList_?.filter((f:any) => f?.nomination_point === "LMPT1"));
+        // console.log('meterPointList_ : ', meterPointList_);
+        const currentDate = dayjs()
+        // nomination_point: 'LMPT1'
+        const newresult_ = result_?.filter((f: any) => {
           const meterGasday = dayjs(f?.gasDay)
           // มีอย่างน้อย 1 contract_point ที่ผูก meter นี้ได้ในช่วงวันที่ที่เกี่ยวข้อง
-          const isHaveActiveMeter = contractPointList.some(contractPoint => {
-            const isContractPointHaveMeter = contractPoint.nomination_point_list.some(nomination_point => {
+          const isHaveActiveMeterFromContract = contractPointList.some((contractPoint) => {
+            const isContractPointHaveMeter = contractPoint.nomination_point_list.some((nomination_point_) => {
+              // const nomination_point = nomination_point_ // relate จะไม่เจอติด period id
+              const nomination_pointN = nominationPointList_?.filter((f: any) => f?.contract_point_list?.map((cpl: any) => cpl?.contract_point)?.includes(contractPoint?.contract_point))
+              const nomination_point = nomination_pointN.find((item: any) => {
+                const startDate = dayjs(item.start_date)
+                const endDate = item.end_date ? dayjs(item.end_date) : null
+
+                // ไม่มี start_date ไม่เอา
+                if (!item.start_date) {
+                  return false
+                }
+
+                // ถ้ามี end_date
+                if (endDate) {
+                  return currentDate.isSame(startDate, 'day') || currentDate.isSame(endDate, 'day') || (currentDate.isAfter(startDate) && currentDate.isBefore(endDate))
+                }
+
+                // ถ้าไม่มี end_date เช็คแค่ current >= start_date
+                return currentDate.isSame(startDate, 'day') || currentDate.isAfter(startDate)
+              })
+
+              // if(nomination_point__?.length > 0){
+              //   console.log('nomination_point__ : ', nomination_point__);
+              // }
+              // const nomination_point = nominationPointList_?.find((f:any) => f?.contract_point_list?.map((cpl:any) => cpl?.contract_point)?.includes(contractPoint?.contract_point))
+              //
+              // if(nomination_point_?.nomination_point === "LMPT1"){
+              //   // console.log('@ nomination_point_ : ', nomination_point_);
+              //   console.log('@ nomination_point : ', nomination_point);
+              // }
               // กรณี meter ผูกผ่าน non_tpa_point ของ nomination_point
-              const isNonTpaOfNomHaveMeter = nomination_point.non_tpa_point.some(non_tpa_point => {
+              const isNonTpaOfNomHaveMeter = nomination_point.non_tpa_point.some((non_tpa_point) => {
                 // ชื่อ meter ตรงกัน และอยู่ภายในช่วง start/end ของ metering_point
-                const nonTpaHaveMeter = non_tpa_point.metering_point.some(metering_point => {
+                const nonTpaHaveMeter = non_tpa_point.metering_point.some((metering_point) => {
                   let isInRange = false
-                  if(meterGasday?.isValid()){
+                  if (meterGasday?.isValid()) {
                     isInRange = meterGasday.isSameOrAfter(metering_point.start_date) && (!metering_point.end_date || meterGasday.isBefore(metering_point.end_date))
-                  }
-                  else{
+                  } else {
                     isInRange = true
                   }
                   return (metering_point.metered_point_name === f?.meteringPointId || metering_point.metered_id === f?.meteringPointId) && isInRange
                 })
                 // non_tpa_point เองก็ต้องยังอยู่ในช่วงวันที่ของ gasDay
                 let isInRange = false
-                if(meterGasday?.isValid()){
+                if (meterGasday?.isValid()) {
                   isInRange = meterGasday.isSameOrAfter(non_tpa_point.start_date) && (!non_tpa_point.end_date || meterGasday.isBefore(non_tpa_point.end_date))
-                }
-                else{
+                } else {
                   isInRange = true
                 }
                 return nonTpaHaveMeter && isInRange
               })
 
               // กรณี meter ผูกตรงกับ nomination_point (ไม่ผ่าน non_tpa)
-              const isNomHaveMeter = nomination_point.metering_point.some(metering_point => {
+              // console.log('nomination_point.metering_point : ', nomination_point.metering_point);
+
+              // nomination_point
+              // nomination_point.metering_point
+              // const meteringPointN = nomination_point.metering_point // relate จะไม่เจอติด period id
+              const meteringPointN = meterPointList_?.filter((f: any) => f?.nomination_point?.nomination_point === nomination_point?.nomination_point)
+              // const meteringPointN = meteringPointN_.find((item: any) => {
+              //     const startDate = dayjs(item.start_date);
+              //     const endDate = item.end_date ? dayjs(item.end_date) : null;
+
+              //     // ไม่มี start_date ไม่เอา
+              //     if (!item.start_date) {
+              //         return false;
+              //     }
+
+              //     // ถ้ามี end_date
+              //     if (endDate) {
+              //         return (
+              //             currentDate.isSame(startDate, "day") ||
+              //             currentDate.isSame(endDate, "day") ||
+              //             (currentDate.isAfter(startDate) && currentDate.isBefore(endDate))
+              //         );
+              //     }
+
+              //     // ถ้าไม่มี end_date เช็คแค่ current >= start_date
+              //     return (
+              //         currentDate.isSame(startDate, "day") ||
+              //         currentDate.isAfter(startDate)
+              //     );
+              // });
+
+              // if(nomination_point_?.nomination_point === "LMPT1" && nomination_point.metering_point?.length > 0){
+              //   console.log('@ nomination_point : ', nomination_point);
+              // }
+              const isNomHaveMeter = meteringPointN.some((metering_point) => {
                 let isInRange = false
-                if(meterGasday?.isValid()){
+                if (meterGasday?.isValid()) {
                   isInRange = meterGasday.isSameOrAfter(metering_point.start_date) && (!metering_point.end_date || meterGasday.isBefore(metering_point.end_date))
-                }
-                else{
+                } else {
                   isInRange = true
                 }
                 return (metering_point.metered_point_name === f?.meteringPointId || metering_point.metered_id === f?.meteringPointId) && isInRange
@@ -1134,18 +1309,1458 @@ export class MeteringManagementService {
             })
             return isContractPointHaveMeter
           })
-          return isHaveActiveMeter
+
+          // const isHaveActiveMeterFromReserveBalancingGasContract = nominationPointList.some(nomination_point => {
+          //   // กรณี meter ผูกผ่าน non_tpa_point ของ nomination_point
+          //   const isNonTpaOfNomHaveMeter = nomination_point.non_tpa_point.some(non_tpa_point => {
+          //     // ชื่อ meter ตรงกัน และอยู่ภายในช่วง start/end ของ metering_point
+          //     const nonTpaHaveMeter = non_tpa_point.metering_point.some(metering_point => {
+          //       let isInRange = false
+          //       if(meterGasday?.isValid()){
+          //         isInRange = meterGasday.isSameOrAfter(metering_point.start_date) && (!metering_point.end_date || meterGasday.isBefore(metering_point.end_date))
+          //       }
+          //       else{
+          //         isInRange = true
+          //       }
+          //       return (metering_point.metered_point_name === f?.meteringPointId || metering_point.metered_id === f?.meteringPointId) && isInRange
+          //     })
+          //     // non_tpa_point เองก็ต้องยังอยู่ในช่วงวันที่ของ gasDay
+          //     let isInRange = false
+          //     if(meterGasday?.isValid()){
+          //       isInRange = meterGasday.isSameOrAfter(non_tpa_point.start_date) && (!non_tpa_point.end_date || meterGasday.isBefore(non_tpa_point.end_date))
+          //     }
+          //     else{
+          //       isInRange = true
+          //     }
+          //     return nonTpaHaveMeter && isInRange
+          //   })
+
+          //   // กรณี meter ผูกตรงกับ nomination_point (ไม่ผ่าน non_tpa)
+          //   const isNomHaveMeter = nomination_point.metering_point.some(metering_point => {
+          //     let isInRange = false
+          //     if(meterGasday?.isValid()){
+          //       isInRange = meterGasday.isSameOrAfter(metering_point.start_date) && (!metering_point.end_date || meterGasday.isBefore(metering_point.end_date))
+          //     }
+          //     else{
+          //       isInRange = true
+          //     }
+          //     return (metering_point.metered_point_name === f?.meteringPointId || metering_point.metered_id === f?.meteringPointId) && isInRange
+          //   })
+
+          //   // ผ่านถ้าเจอ meter จากเส้นทางใดเส้นทางหนึ่ง
+          //   return isNomHaveMeter || isNonTpaOfNomHaveMeter
+          // })
+          // return isHaveActiveMeterFromContract || isHaveActiveMeterFromReserveBalancingGasContract
+          return isHaveActiveMeterFromContract
         })
+        // console.log('newresult_ : ', newresult_);
         return newresult_
       } else {
-        console.log('result_ : ', result_);
-        console.log('[H] result_ : ', result_?.filter((f:any) => f?.prop?.area?.name === "H"));
+        console.log('result_ : ', result_)
+        console.log(
+          '[H] result_ : ',
+          result_?.filter((f: any) => f?.prop?.area?.name === 'H')
+        )
         return result_
       }
     } else {
-      console.log('result_ : ', result_);
+      console.log('result_ : ', result_)
       return result_
     }
+  }
+
+  async getDataLogic(query: any, isReplaceMissingMeterWithNomination?: boolean, userId?: any) {
+    const {share, start_date, end_date} = query
+
+    const start = start_date ? getTodayStartYYYYMMDDDfaultAdd7(start_date) : getTodayStartAdd7()
+    const end = end_date ? getTodayEndYYYYMMDDDfaultAdd7(end_date) : getTodayEndAdd7()
+    let activeData: activeData[] | undefined = []
+    const dateArray: string[] = []
+    if (isReplaceMissingMeterWithNomination) {
+      try {
+        // Extract gas days and generate date array
+        const getMeterFrom = getTodayNow(start_date)
+        const getMeterTo = getTodayNow(end_date)
+        // Fill dateArray with all dates between getMeterFrom and getMeterTo (inclusive) in YYYY-MM-DD format
+        let current = getMeterFrom.clone()
+        while (current.isSameOrBefore(getMeterTo, 'day')) {
+          dateArray.push((current && current.format('YYYY-MM-DD')) || dayjs().format('YYYY-MM-DD'))
+          current = current.add(1, 'day')
+        }
+        // Build active data for all dates
+        activeData = await buildActiveDataForDates(dateArray, this.prisma, userId)
+      } catch (error) {
+        activeData = undefined
+      }
+    } else {
+      activeData = undefined
+    }
+
+    const meteredMicroData = await this.meteredMicroService.sendMessage(
+      JSON.stringify({
+        case: 'get-last-have-value',
+        // mode: 'metering',
+        mode: 'metering',
+        start_date: start_date,
+        end_date: end_date
+        // start_date: "2025-03-08",
+        // end_date:"2025-03-10"
+      }),
+      isReplaceMissingMeterWithNomination && activeData
+        ? {
+            activeData: activeData,
+            prisma: this.prisma
+          }
+        : undefined
+    )
+
+    const dataConvert = (!!meteredMicroData?.reply && JSON.parse(meteredMicroData?.reply)) || null
+
+    const compareMeterEachDay = await Promise.all(
+      dateArray.map(async (date) => {
+        const activeDataForDate = activeData?.find((ad) => ad.date === date)
+
+        if (!activeDataForDate) {
+          return []
+        }
+
+        const meteredPoint = activeDataForDate?.activeMeteringPoints || []
+        const conceptPointList = activeDataForDate?.activeConceptPoints || []
+
+        // สำคัญ: share ต้องเช็คตาม gas day แต่ละวัน
+        const gasDayStart = getTodayStartYYYYMMDDDfaultAdd7(date)
+        const gasDayEnd = getTodayEndYYYYMMDDDfaultAdd7(date)
+
+        const ckShare = share === 'on' ? await shareShipper(meteredPoint, this.prisma, gasDayStart, gasDayEnd) : meteredPoint
+
+        const compareMeter = await this.meteredCompare(ckShare, dataConvert, date, conceptPointList)
+
+        return compareMeter
+      })
+    )
+
+    const result_ = compareMeterEachDay.flat()
+
+    if (userId) {
+      const userType = await this.prisma.user_type.findFirst({
+        where: {
+          account_manage: {
+            some: {
+              account_id: Number(userId)
+            }
+          }
+        }
+      })
+
+      if (userType?.id === 3) {
+        // =========================================================
+        // 1. GET GROUP ของ USER
+        // =========================================================
+        const group_ = await this.prisma.group.findFirst({
+          where: {
+            account_manage: {
+              some: {
+                account_id: Number(userId)
+              }
+            }
+          },
+          include: {
+            shipper_contract_point: {
+              include: {
+                contract_point: {
+                  include: {
+                    nomination_point_list: {
+                      include: {
+                        metering_point: true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        })
+
+        // =========================================================
+        // 2. GET CONTRACT CODE
+        //
+        // ตรงนี้ยังคง logic เดิม:
+        // หา Contract ที่ overlap กับช่วง Search ทั้งหมด
+        //
+        // เช่น Search:
+        // 25/02/2026 - 02/03/2026
+        //
+        // อาจได้ทั้ง Contract เดือน Feb และ Contract เดือน Mar
+        //
+        // ซึ่ง "ถูกต้อง"
+        //
+        // แต่เราจะไปแยก Contract ที่ active ตาม gasDay
+        // ตอน filter result_ ด้านล่างอีกที
+        // =========================================================
+        const contractCode = await this.prisma.contract_code.findMany({
+          where: {
+            AND: [
+              {
+                group_id: group_?.id
+              },
+              {
+                contract_start_date: {
+                  lte: end.toDate()
+                }
+              },
+
+              // ไม่เอา Rejected
+              {
+                status_capacity_request_management: {
+                  NOT: {
+                    name: {
+                      equals: 'Rejected',
+                      mode: 'insensitive'
+                    }
+                  }
+                }
+              },
+
+              // terminate_date
+              {
+                OR: [
+                  {
+                    terminate_date: null
+                  },
+                  {
+                    terminate_date: {
+                      gt: start.toDate()
+                    }
+                  }
+                ]
+              },
+
+              // ถ้ามี extend_deadline ให้ใช้ extend_deadline
+              // ถ้าไม่มีให้ใช้ contract_end_date
+              {
+                OR: [
+                  {
+                    AND: [
+                      {
+                        extend_deadline: {
+                          not: null
+                        }
+                      },
+                      {
+                        extend_deadline: {
+                          gt: start.toDate()
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    AND: [
+                      {
+                        extend_deadline: null
+                      },
+                      {
+                        OR: [
+                          {
+                            contract_end_date: null
+                          },
+                          {
+                            contract_end_date: {
+                              gt: start.toDate()
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          select: {
+            id: true,
+            contract_code: true,
+            contract_start_date: true,
+            contract_end_date: true,
+            terminate_date: true,
+            extend_deadline: true,
+
+            booking_version: {
+              include: {
+                booking_row_json: {
+                  select: {
+                    contract_point: true
+                  }
+                }
+              },
+              where: {
+                flag_use: true
+              }
+            }
+          }
+        })
+
+        // =========================================================
+        // 3. RESERVE BALANCING GAS CONTRACT
+        // =========================================================
+        const reserveBalancingGasContract = await this.prisma.reserve_balancing_gas_contract.findMany({
+          where: {
+            group_id: group_?.id,
+
+            reserve_balancing_gas_contract_detail: {
+              some: {
+                start_date: {
+                  lte: end.toDate()
+                },
+
+                OR: [
+                  {
+                    end_date: null
+                  },
+                  {
+                    end_date: {
+                      gt: start.toDate()
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          include: {
+            reserve_balancing_gas_contract_detail: {
+              include: {
+                nomination_point: true
+              }
+            }
+          }
+        })
+
+        // =========================================================
+        // 4. เตรียม Contract Point
+        // =========================================================
+        const orInWhereContractPoint: Prisma.contract_pointWhereInput[] = []
+
+        // =========================================================
+        // สำคัญ
+        //
+        // Array นี้จะเก็บว่า:
+        //
+        // Contract ไหน
+        // start วันไหน
+        // end วันไหน
+        // และมี contract_point อะไร
+        //
+        // เพื่อเอาไปตรวจต่อ ROW ตาม gasDay
+        // =========================================================
+        const contract_point_contractSE: any[] =
+          contractCode?.flatMap((fm: any) => {
+            return (
+              fm?.booking_version?.flatMap((fm_v: any) => {
+                return (
+                  fm_v?.booking_row_json?.flatMap((fm_r: any) => {
+                    if (!fm_r?.contract_point) {
+                      return []
+                    }
+
+                    // =============================================
+                    // effective end date
+                    //
+                    // คง precedence เดิมของระบบ:
+                    //
+                    // terminate_date
+                    // -> extend_deadline
+                    // -> contract_end_date
+                    // =============================================
+                    const effectiveContractEnd = fm?.terminate_date || fm?.extend_deadline || fm?.contract_end_date || null
+
+                    // =============================================
+                    // Query Contract Point
+                    // =============================================
+                    orInWhereContractPoint.push({
+                      AND: [
+                        {
+                          contract_point: fm_r?.contract_point
+                        },
+
+                        // ถ้าไม่มี contract end
+                        // ใช้ search end เพื่อหา record ที่เกี่ยวข้องมาก่อน
+                        {
+                          contract_point_start_date: {
+                            lte: effectiveContractEnd || end.toDate()
+                            // lte: fm?.contract_start_date
+                          }
+                        },
+
+                        {
+                          OR: [
+                            {
+                              contract_point_end_date: null
+                            },
+                            {
+                              contract_point_end_date: {
+                                gt: fm?.contract_start_date
+                                // gt: effectiveContractEnd || end.toDate()
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    })
+
+                    return [
+                      {
+                        contract_id: fm?.id,
+                        contract_code: fm?.contract_code,
+
+                        contract_start_date: fm?.contract_start_date,
+
+                        contract_end_date: effectiveContractEnd,
+
+                        contract_point: fm_r?.contract_point
+                      }
+                    ]
+                  }) ?? []
+                )
+              }) ?? []
+            )
+          }) ?? []
+
+        console.log('contractCode : ', contractCode)
+        console.log('contract_point_contractSE : ', contract_point_contractSE)
+        console.log('orInWhereContractPoint : ', orInWhereContractPoint)
+
+        // =========================================================
+        // 5. GET CONTRACT POINT
+        // =========================================================
+        const contractPointList =
+          orInWhereContractPoint.length > 0
+            ? await this.prisma.contract_point.findMany({
+                where: {
+                  OR: orInWhereContractPoint
+                },
+
+                include: {
+                  nomination_point_list: {
+                    include: {
+                      metering_point: true,
+
+                      non_tpa_point: {
+                        include: {
+                          metering_point: true
+                        }
+                      }
+                    }
+                  }
+                }
+              })
+            : []
+
+        console.log('contractPointList : ', contractPointList);
+
+        // =========================================================
+        // 6. RESERVE BALANCING -> NOMINATION POINT
+        // =========================================================
+        const orInWhereNominationPoint: Prisma.nomination_pointWhereInput[] = []
+
+        reserveBalancingGasContract?.forEach((fm: any) => {
+          fm?.reserve_balancing_gas_contract_detail?.forEach((fm_r: any) => {
+            if (!fm_r?.nomination_point?.nomination_point) {
+              return
+            }
+
+            const conditions: Prisma.nomination_pointWhereInput[] = [
+              {
+                nomination_point: fm_r?.nomination_point?.nomination_point
+              }
+            ]
+
+            // เดิมมี:
+            //
+            // start_date: { lte: fm_r?.end_date }
+            //
+            // แต่กรณี end_date = null Prisma อาจมีปัญหา
+            //
+            // ดังนั้นใส่เฉพาะเมื่อมี end_date
+            if (fm_r?.end_date) {
+              conditions.push({
+                start_date: {
+                  lte: fm_r.end_date
+                }
+              })
+            }
+
+            conditions.push({
+              OR: [
+                {
+                  end_date: null
+                },
+                {
+                  end_date: {
+                    gt: fm_r?.start_date
+                  }
+                }
+              ]
+            })
+
+            orInWhereNominationPoint.push({
+              AND: conditions
+            })
+          })
+        })
+
+        // =========================================================
+        // 7. GET RESERVE NOMINATION POINT
+        // =========================================================
+        const nominationPointList =
+          orInWhereNominationPoint.length > 0
+            ? await this.prisma.nomination_point.findMany({
+                where: {
+                  OR: orInWhereNominationPoint
+                },
+
+                include: {
+                  metering_point: true,
+
+                  non_tpa_point: {
+                    include: {
+                      metering_point: true
+                    }
+                  }
+                }
+              })
+            : []
+
+        // =========================================================
+        // 8. GET NOMINATION POINT ทุก Period
+        //
+        // คง logic เดิมของคุณ
+        //
+        // เพราะ nomination_point relation โดยตรง
+        // อาจไม่เจอจาก period id
+        // =========================================================
+        const nominationPointList_ = await this.prisma.nomination_point.findMany({
+          where: {},
+
+          include: {
+            contract_point_list: {
+              select: {
+                contract_point: true
+              }
+            },
+
+            metering_point: true,
+
+            non_tpa_point: {
+              include: {
+                metering_point: true
+              }
+            }
+          }
+        })
+
+        // =========================================================
+        // 9. GET METER POINT ทุก Period
+        //
+        // คง logic เดิมของคุณ
+        // =========================================================
+        const meterPointList_ = await this.prisma.metering_point.findMany({
+          where: {},
+
+          include: {
+            nomination_point: {
+              select: {
+                nomination_point: true
+              }
+            }
+          }
+        })
+
+        // =========================================================
+        // 10. CURRENT DATE
+        //
+        // *** สำคัญ ***
+        //
+        // ตรงนี้ยังใช้ currentDate เหมือนโค้ดเดิม
+        //
+        // ห้ามเปลี่ยนเป็น meterGasday
+        //
+        // เพราะจากการทดสอบรอบก่อน
+        // จะทำให้ Nomination Point เก่า เช่น
+        //
+        // BPK_CC1
+        // GPD1
+        // GPD2
+        // GPD3
+        // GSRC...
+        //
+        // กลับมาแสดงทั้งหมด
+        // =========================================================
+        // const currentDate = dayjs()
+
+        // =========================================================
+        // 11. FILTER RESULT
+        // =========================================================
+        // console.log('result_ : ', result_);
+        // console.log('[BPK_CC1] result_ : ', result_?.filter((f:any) => f?.meteringPointId === "BPK_CC1"));
+
+        const newresult_ = result_?.filter((f: any) => {
+          const meterGasday = dayjs(f?.gasDay)
+
+          // =======================================================
+          // FIX หลัก
+          //
+          // หา Contract Point ที่ Active
+          // เฉพาะ gasDay ของ row ปัจจุบัน
+          //
+          // เช่น Search:
+          //
+          // 25/02 - 02/03
+          //
+          // ถึง contractCode จะมีทั้ง Contract Feb + Mar
+          //
+          // แต่:
+          //
+          // row 25/02
+          // -> ใช้เฉพาะ Contract ที่ active 25/02
+          //
+          // row 01/03
+          // -> ใช้เฉพาะ Contract ที่ active 01/03
+          //
+          // =======================================================
+          const activeContractPointSet = new Set<string>()
+
+          for (const contractItem of contract_point_contractSE ?? []) {
+            if (!contractItem?.contract_point) {
+              continue
+            }
+
+            // gasDay invalid:
+            // คง behavior เดิม ไม่ตัดด้วยวันที่
+            if (!meterGasday?.isValid()) {
+              activeContractPointSet.add(contractItem.contract_point)
+
+              continue
+            }
+
+            if (!contractItem?.contract_start_date) {
+              continue
+            }
+
+            const contractStartDate = dayjs((contractItem && contractItem.contract_start_date) || undefined)
+
+            const contractEndDate = contractItem && contractItem?.contract_end_date ? dayjs(contractItem.contract_end_date) : null
+
+            if (!contractStartDate.isValid()) {
+              continue
+            }
+
+            // =============================================
+            // START = inclusive
+            //
+            // gasDay >= contract_start_date
+            // =============================================
+            const isAfterStart = meterGasday.isSame(contractStartDate, 'day') || meterGasday.isAfter(contractStartDate, 'day')
+
+            // =============================================
+            // END = exclusive
+            //
+            // gasDay < contract_end_date
+            //
+            // ถ้า end null = ยัง active
+            //
+            // ใช้แบบเดียวกับ logic เดิม:
+            //
+            // gasDay.isBefore(maxEndDate)
+            // =============================================
+            const isBeforeEnd = !contractEndDate || !contractEndDate.isValid() || meterGasday.isBefore(contractEndDate, 'day')
+
+            if (isAfterStart && isBeforeEnd) {
+              activeContractPointSet.add(contractItem.contract_point)
+            }
+          }
+
+          // =======================================================
+          // มีอย่างน้อย 1 Contract Point ที่ผูกกับ Meter นี้
+          // =======================================================
+          const isHaveActiveMeterFromContract = contractPointList.some((contractPoint: any) => {
+            // =================================================
+            // FIX 1
+            //
+            // Contract Point ตัวนี้ต้องมาจาก Contract
+            // ที่ active ใน gasDay ก่อน
+            // =================================================
+            if (meterGasday?.isValid()) {
+              const isContractActive = activeContractPointSet.has(contractPoint?.contract_point)
+
+              if (!isContractActive) {
+                return false
+              }
+            }
+
+            // =================================================
+            // FIX 2
+            //
+            // Contract Point record เอง
+            // ก็ต้อง Active ตาม gasDay
+            //
+            // สำคัญกรณี contract_point ชื่อเดียวกัน
+            // แต่มีหลาย period
+            // =================================================
+            if (meterGasday?.isValid()) {
+              const contractPointStartDate = contractPoint?.contract_point_start_date ? dayjs(contractPoint.contract_point_start_date) : null
+
+              const contractPointEndDate = contractPoint?.contract_point_end_date ? dayjs(contractPoint.contract_point_end_date) : null
+
+              // -----------------------------------------------
+              // start inclusive
+              // -----------------------------------------------
+              if (contractPointStartDate?.isValid() && meterGasday.isBefore(contractPointStartDate, 'day')) {
+                return false
+              }
+
+              // -----------------------------------------------
+              // end exclusive
+              // -----------------------------------------------
+              if (contractPointEndDate?.isValid() && !meterGasday.isBefore(contractPointEndDate, 'day')) {
+                return false
+              }
+            }
+
+            
+            const isContractPointHaveMeter = (contractPoint?.nomination_point_list ?? []).some((nomination_point_: any) => {
+              
+              const nomination_pointN = nominationPointList_?.filter((np: any) => np?.nomination_point === nomination_point_?.nomination_point && np?.contract_point_list?.map((cpl: any) => cpl?.contract_point)?.includes(contractPoint?.contract_point)) ?? []
+
+
+
+
+              const nomination_point = nomination_pointN.find((item: any) => {
+                if (!item?.start_date) {
+                  return false
+                }
+
+                // ช่วงที่เลือก
+                const rangeStart = dayjs(start).startOf('day')
+                const rangeEnd = dayjs(end).endOf('day')
+
+                // ช่วงของ nomination point
+                const itemStart = dayjs(item.start_date).startOf('day')
+                const itemEnd = item?.end_date
+                  ? dayjs(item.end_date).endOf('day')
+                  : null
+
+                if (
+                  !rangeStart.isValid() ||
+                  !rangeEnd.isValid() ||
+                  !itemStart.isValid()
+                ) {
+                  return false
+                }
+
+                // ---------------------------------------
+                // ถ้ามี end_date
+                // เช็คว่าช่วงวันที่ทับซ้อนกันหรือไม่
+                //
+                // rangeStart <= itemEnd
+                // AND
+                // rangeEnd >= itemStart
+                // ---------------------------------------
+                if (itemEnd?.isValid()) {
+                  return (
+                    (rangeStart.isBefore(itemEnd) || rangeStart.isSame(itemEnd, 'day')) &&
+                    (rangeEnd.isAfter(itemStart) || rangeEnd.isSame(itemStart, 'day'))
+                  )
+                }
+
+                // ---------------------------------------
+                // ถ้าไม่มี end_date
+                // หมายถึงใช้ได้ตั้งแต่ itemStart เป็นต้นไป
+                //
+                // rangeEnd >= itemStart
+                // ---------------------------------------
+                return (
+                  rangeEnd.isAfter(itemStart) ||
+                  rangeEnd.isSame(itemStart, 'day')
+                )
+              })
+
+              // if(f?.meteringPointId === "BPK_CC1" && nomination_point_?.nomination_point === "BPK_CC1"){
+              //   console.log('- - - -'); 
+              //   console.log('start : ', start);
+              //   console.log('end : ', end);
+              //   console.log('currentDate : ', currentDate);
+              //   console.log('nomination_point_ : ', nomination_point_);
+              //   console.log('nomination_point : ', nomination_point);
+              //   console.log('meterPointList_ : ', meterPointList_);
+              //   console.log('nomination_pointN : ', nomination_pointN);
+              //   console.log('[BPK_CC1] nominationPointList_ : ', nominationPointList_?.filter((f:any) => f?.nomination_point === "BPK_CC1"));
+              //   console.log('- - - -');
+              // }
+
+              // =============================================
+              // ไม่พบ nomination point active
+              // =============================================
+              if (!nomination_point) {
+                return false
+              }
+
+              // =============================================
+              // 12. NON TPA
+              // =============================================
+              const isNonTpaOfNomHaveMeter = (nomination_point?.non_tpa_point ?? []).some((non_tpa_point: any) => {
+                // -----------------------------------------
+                // Meter ภายใน Non TPA
+                // -----------------------------------------
+                const nonTpaHaveMeter = (non_tpa_point?.metering_point ?? []).some((metering_point: any) => {
+                  let isInRange = false
+
+                  if (meterGasday?.isValid()) {
+                    // ---------------------------------
+                    // Meter start
+                    // ---------------------------------
+                    let startValid = true
+
+                    if (metering_point?.start_date) {
+                      const meterStart = dayjs(metering_point.start_date)
+
+                      if (meterStart.isValid()) {
+                        startValid = meterGasday.isSame(meterStart, 'day') || meterGasday.isAfter(meterStart, 'day')
+                      }
+                    }
+
+                    // ---------------------------------
+                    // Meter end
+                    // ---------------------------------
+                    let endValid = true
+
+                    if (metering_point?.end_date) {
+                      const meterEnd = dayjs(metering_point.end_date)
+
+                      if (meterEnd.isValid()) {
+                        endValid = meterGasday.isBefore(meterEnd, 'day')
+                      }
+                    }
+
+                    isInRange = startValid && endValid
+                  } else {
+                    isInRange = true
+                  }
+
+                  const isMeterMatch = metering_point?.metered_point_name === f?.meteringPointId || metering_point?.metered_id === f?.meteringPointId
+
+                  return isMeterMatch && isInRange
+                })
+
+                // -----------------------------------------
+                // Non TPA เองต้องอยู่ในช่วง gasDay
+                // -----------------------------------------
+                let isNonTpaInRange = false
+
+                if (meterGasday?.isValid()) {
+                  let startValid = true
+
+                  if (non_tpa_point?.start_date) {
+                    const nonTpaStart = dayjs(non_tpa_point.start_date)
+
+                    if (nonTpaStart.isValid()) {
+                      startValid = meterGasday.isSame(nonTpaStart, 'day') || meterGasday.isAfter(nonTpaStart, 'day')
+                    }
+                  }
+
+                  let endValid = true
+
+                  if (non_tpa_point?.end_date) {
+                    const nonTpaEnd = dayjs(non_tpa_point.end_date)
+
+                    if (nonTpaEnd.isValid()) {
+                      endValid = meterGasday.isBefore(nonTpaEnd, 'day')
+                    }
+                  }
+
+                  isNonTpaInRange = startValid && endValid
+                } else {
+                  isNonTpaInRange = true
+                }
+
+                return nonTpaHaveMeter && isNonTpaInRange
+              })
+
+              // =============================================
+              // 13. METER ผูกตรงกับ NOMINATION POINT
+              //
+              // ใช้ meterPointList_ เหมือนเดิม
+              //
+              // เพราะ relation:
+              // nomination_point.metering_point
+              //
+              // อาจไม่เจอเนื่องจาก period id
+              // =============================================
+              const meteringPointN = meterPointList_?.filter((mp: any) => mp?.nomination_point?.nomination_point === nomination_point?.nomination_point) ?? []
+
+              const isNomHaveMeter = meteringPointN.some((metering_point: any) => {
+                let isInRange = false
+
+                if (meterGasday?.isValid()) {
+                  // -------------------------------------
+                  // START
+                  // -------------------------------------
+                  let startValid = true
+
+                  if (metering_point?.start_date) {
+                    const meterStart = dayjs(metering_point.start_date)
+
+                    if (meterStart.isValid()) {
+                      startValid = meterGasday.isSame(meterStart, 'day') || meterGasday.isAfter(meterStart, 'day')
+                    }
+                  }
+
+                  // -------------------------------------
+                  // END
+                  // -------------------------------------
+                  let endValid = true
+
+                  if (metering_point?.end_date) {
+                    const meterEnd = dayjs(metering_point.end_date)
+
+                    if (meterEnd.isValid()) {
+                      endValid = meterGasday.isBefore(meterEnd, 'day')
+                    }
+                  }
+
+                  isInRange = startValid && endValid
+                } else {
+                  isInRange = true
+                }
+
+                const isMeterMatch = metering_point?.metered_point_name === f?.meteringPointId || metering_point?.metered_id === f?.meteringPointId
+
+                return isMeterMatch && isInRange
+              })
+
+              // if(f?.meteringPointId === "BPK_CC1" && nomination_point_?.nomination_point === "BPK_CC1"){
+              //   console.log('- - - -');
+              //   console.log('isNomHaveMeter : ', isNomHaveMeter);
+              //   console.log('nomination_point_ : ', nomination_point_);
+              //   console.log('meterPointList_ : ', meterPointList_);
+              //   console.log('nomination_point : ', nomination_point);
+              //   console.log('meteringPointN : ', meteringPointN);
+              //   console.log('[BPK_CC1] nominationPointList_ : ', nominationPointList_?.filter((f:any) => f?.nomination_point === "BPK_CC1"));
+              //   console.log('- - - -');
+              // }
+             
+              return isNomHaveMeter || isNonTpaOfNomHaveMeter
+            })
+
+            // if(f?.meteringPointId === "BPK_CC1"){
+            //   console.log('isContractPointHaveMeter : ', isContractPointHaveMeter);
+            //   console.log('(contractPoint?.nomination_point_list ?? []) : ', (contractPoint?.nomination_point_list ?? []));
+            // }
+
+            return isContractPointHaveMeter
+          })
+
+          // if(f?.meteringPointId === "BPK_CC1"){
+          //   console.log('f : ', f);
+          //   console.log('contractPointList : ', contractPointList);
+          //   console.log('isHaveActiveMeterFromContract : ', isHaveActiveMeterFromContract);
+          // }
+
+          let isHaveActiveConceptPoint = false
+          const activeDataForDate = activeData?.find((ad) => ad.date === meterGasday.format('YYYY-MM-DD'))
+
+          if (activeDataForDate) {
+            const conceptPointList = activeDataForDate.activeConceptPoints || []
+            isHaveActiveConceptPoint = conceptPointList.some((cp) => {
+              return cp.concept_point === f.meteringPointId
+            })
+          }
+
+          return isHaveActiveMeterFromContract || isHaveActiveConceptPoint
+        })
+
+        return newresult_
+      } else {
+        // =========================================================
+        // User ไม่ใช่ Shipper
+        // =========================================================
+        return result_
+      }
+    } else {
+      return result_
+    }
+
+    // if (userId) {
+
+    //   const userType = await this.prisma.user_type?.findFirst({
+    //     where: {
+    //       account_manage: {
+    //         some: {
+    //           account_id: Number(userId)
+    //         }
+    //       }
+    //     }
+    //   })
+    //   if (userType?.id === 3) {
+    //     const group_ = await this.prisma.group?.findFirst({
+    //     where: {
+    //       account_manage: {
+    //         some: {
+    //           account_id: Number(userId)
+    //         }
+    //       }
+    //     },
+    //     include:{
+    //       shipper_contract_point:{
+    //         include:{
+    //           contract_point:{
+    //             include:{
+    //               nomination_point_list:{
+    //                 include:{
+    //                   metering_point:true,
+    //                 },
+    //               },
+    //             }
+    //           }
+    //         },
+    //       },
+    //     },
+    //   })
+    //   const contractCode = await this.prisma.contract_code.findMany({
+    //     where: {
+    //       AND: [
+    //         {
+    //           group_id: group_?.id,
+    //         },
+    //         {
+    //           contract_start_date: {
+    //             lte: end.toDate()
+    //           }
+    //         }, // Started before or on target date
+    //         // Not rejected
+    //         {
+    //           status_capacity_request_management: {
+    //             NOT: {
+    //               name: {
+    //                 equals: 'Rejected',
+    //                 mode: 'insensitive'
+    //               }
+    //             }
+    //           }
+    //         },
+    //         // If terminate_date exists and targetDate >= terminate_date, exclude (inactive)
+    //         {
+    //           OR: [
+    //             {
+    //               terminate_date: null
+    //             }, // No terminate date
+    //             {
+    //               terminate_date: {
+    //                 gt: start.toDate()
+    //               }
+    //             } // Terminate date is after target date
+    //           ]
+    //         },
+    //         // Use extend_deadline if available, otherwise use contract_end_date
+    //         {
+    //           OR: [
+    //             // If extend_deadline exists, use it as end date
+    //             {
+    //               AND: [
+    //                 {
+    //                   extend_deadline: {
+    //                     not: null
+    //                   }
+    //                 },
+    //                 {
+    //                   extend_deadline: {
+    //                     gt: start.toDate()
+    //                   }
+    //                 }
+    //               ]
+    //             },
+    //             // If extend_deadline is null, use contract_end_date
+    //             {
+    //               AND: [
+    //                 {
+    //                   extend_deadline: null
+    //                 },
+    //                 {
+    //                   OR: [
+    //                     {
+    //                       contract_end_date: null
+    //                     },
+    //                     {
+    //                       contract_end_date: {
+    //                         gt: start.toDate()
+    //                       }
+    //                     }
+    //                   ]
+    //                 }
+    //               ]
+    //             }
+    //           ]
+    //         }
+    //       ]
+    //     },
+    //     select:{
+    //       id: true,
+    //       contract_start_date: true,
+    //       contract_end_date: true,
+    //       terminate_date: true,
+    //       extend_deadline: true,
+    //       booking_version:{
+    //         include:{
+    //           booking_row_json:{
+    //             select:{
+    //               contract_point:true,
+    //             }
+    //           },
+    //         },
+    //         where:{
+    //           flag_use: true
+    //         }
+    //       }
+    //     }
+    //   })
+    //   const reserveBalancingGasContract = await this.prisma.reserve_balancing_gas_contract.findMany({
+    //     where: {
+    //       group_id: group_?.id,
+    //       reserve_balancing_gas_contract_detail: {
+    //         some: {
+    //           start_date: {
+    //             lte: end.toDate()
+    //           },
+    //           OR: [
+    //             {
+    //               end_date: null
+    //             },
+    //             {
+    //               end_date: {
+    //                 gt: start.toDate()
+    //               }
+    //             }
+    //           ]
+    //         }
+    //       }
+    //     },
+    //     include: {
+    //       reserve_balancing_gas_contract_detail: {
+    //         include: {
+    //           nomination_point: true
+    //         }
+    //       }
+    //     }
+    //   })
+
+    //   const orInWhereContractPoint : Prisma.contract_pointWhereInput[] = []
+    //   const contract_point_contractSE = contractCode?.flatMap(fm => {
+    //     return fm?.booking_version?.flatMap((fm_v:any) => {
+    //       return fm_v?.booking_row_json?.flatMap((fm_r:any) => {
+    //         orInWhereContractPoint.push({
+    //           AND: [
+    //             {
+    //               contract_point: fm_r?.contract_point
+    //             },
+    //             {
+    //               contract_point_start_date: { lte: fm?.terminate_date || fm?.extend_deadline || fm?.contract_end_date }
+    //             },
+    //             {
+    //               OR: [
+    //                 { contract_point_end_date: null },
+    //                 { contract_point_end_date: { gt: fm?.contract_start_date } }
+    //               ]
+    //             }
+    //           ]
+    //         })
+    //         return {
+    //           contract_start_date: fm?.contract_start_date,
+    //           contract_end_date: fm?.terminate_date || fm?.extend_deadline || fm?.contract_end_date,
+    //           contract_point: fm_r?.contract_point
+    //         }
+    //       })
+    //     })
+    //   })
+    //   const contractPointList = await this.prisma.contract_point.findMany({
+    //     where: {
+    //       OR: orInWhereContractPoint
+    //     },
+    //     include: {
+    //       nomination_point_list: {
+    //         include: {
+    //           metering_point: true,
+    //           non_tpa_point: {
+    //             include: {
+    //               metering_point: true,
+    //             }
+    //           },
+    //         }
+    //       },
+    //     }
+    //   })
+
+    //   const orInWhereNominationPoint : Prisma.nomination_pointWhereInput[] = []
+    //   const contractPointReserveBalancingGasContractSE = reserveBalancingGasContract?.flatMap(fm => {
+    //     fm.reserve_balancing_gas_contract_detail.map(fm_r => {
+    //       orInWhereNominationPoint.push({
+    //         AND: [
+    //           {
+    //             nomination_point: fm_r?.nomination_point?.nomination_point
+    //           },
+    //           {
+    //             start_date: { lte: fm_r?.end_date }
+    //           },
+    //           {
+    //             OR: [
+    //               { end_date: null },
+    //               { end_date: { gt: fm_r?.start_date } }
+    //             ]
+    //           }
+    //         ]
+    //       })
+    //       return {
+    //         start_date: fm_r?.start_date,
+    //         end_date: fm_r?.end_date,
+    //         nomination_point: fm_r?.nomination_point
+    //       }
+    //     })
+    //   })
+
+    //   const nominationPointList = await this.prisma.nomination_point.findMany({
+    //     where: {
+    //       OR: orInWhereNominationPoint
+    //     },
+    //     include: {
+    //       metering_point: true,
+    //       non_tpa_point: {
+    //         include: {
+    //           metering_point: true
+    //         }
+    //       }
+    //     }
+    //   })
+
+    //   // // console.log('group_ : ', group_);
+    //   // const startDate = getTodayStartAdd7(start_date == 'undefined' ? undefined : start_date)
+    //   // const endDate = getTodayEndAdd7(end_date == 'undefined' ? undefined : end_date)
+    //   // const metering_point_name = await this.prisma.metering_point.findMany({
+    //   //     where: {
+    //   //       AND: [
+    //   //         {
+    //   //           start_date: {
+    //   //             lte: endDate.toDate() // start_date ต้องก่อนหรือเท่ากับสิ้นสุดวันนี้
+    //   //           }
+    //   //         },
+    //   //         {
+    //   //           OR: [
+    //   //             {
+    //   //               end_date: null
+    //   //             }, // ถ้า end_date เป็น null
+    //   //             {
+    //   //               end_date: {
+    //   //                 gt: startDate.toDate()
+    //   //               }
+    //   //             } // ถ้า end_date ไม่เป็น null ต้องหลังหรือเท่ากับเริ่มต้นวันนี้
+    //   //           ]
+    //   //         }
+    //   //       ]
+    //   //     },
+    //   //     include: {
+    //   //       // point_type: true,
+    //   //       // entry_exit: true,
+    //   //       // customer_type: true,
+    //   //       // zone: true,
+    //   //       // area: true,
+    //   //       non_tpa_point: true,
+    //   //       nomination_point: true,
+    //   //     },
+    //   //     orderBy: {
+    //   //       id: 'desc'
+    //   //     }
+    //   //   })
+
+    //   //   // nomination_point?.nomination_point
+
+    //   //   // metered_point_name
+
+    //   //   // console.log('metering_point_name : ', metering_point_name);
+
+    //   // // metering_point
+    //   // // https://app.clickup.com/t/86euzxxpk
+    //   // const metered_point_nom_ = group_?.shipper_contract_point?.flatMap((fm:any) => {
+    //   //   return fm?.contract_point?.nomination_point_list?.flatMap((fm_:any) => {
+    //   //     const mtName = fm_?.metering_point?.map((e:any) => e?.metered_point_name)
+    //   //     // mtName
+    //   //     const fMt = metering_point_name?.filter((f:any) => f?.nomination_point?.nomination_point === fm_?.nomination_point)
+    //   //     return {
+    //   //       metering_point: mtName?.length > 0 ? mtName : fMt?.map((e:any) => e?.metered_point_name),
+    //   //       nomination_point: fm_?.nomination_point,
+    //   //       contract_point: fm?.contract_point?.contract_point
+    //   //     }
+    //   //   })
+    //   // })?.filter((f:any) => contract_point_contractSE?.map((cp:any) => cp?.contract_point)?.includes(f?.contract_point))
+
+    //   // const metered_point_nom_se = metered_point_nom_?.map((e:any) => {
+    //   //   const contractCodeSE = contract_point_contractSE?.filter((f:any) => f?.contract_point === e?.contract_point)
+    //   //   return {
+    //   //     ...e,
+    //   //     contractCodeSE: contractCodeSE || []
+    //   //   }
+    //   // })
+
+    //   // const newresult_ = result_?.filter((f:any) => {
+    //   //   const meteringPointId = metered_point_nom_se?.filter((m_:any) => m_?.metering_point?.includes(f?.meteringPointId) )
+    //   //   if(meteringPointId?.length > 0){
+    //   //     const seDate = meteringPointId?.flatMap((fm:any) => {
+    //   //       return fm?.contractCodeSE?.map((ccSE:any) => {
+    //   //         return {
+    //   //           contract_start_date: ccSE?.contract_start_date,
+    //   //           contract_end_date: ccSE?.contract_end_date,
+    //   //         }
+    //   //       })
+    //   //     })
+    //   //     const minStartDate: dayjs.Dayjs = seDate?.reduce((min: dayjs.Dayjs, item: any) => {
+    //   //       return dayjs(item.contract_start_date).isBefore(min)
+    //   //         ? dayjs(item.contract_start_date)
+    //   //         : min;
+    //   //     }, dayjs(seDate?.[0].contract_start_date) as dayjs.Dayjs);
+
+    //   //     const maxEndDate: dayjs.Dayjs = seDate?.reduce((max: dayjs.Dayjs, item: any) => {
+    //   //       return dayjs(item.contract_end_date).isAfter(max)
+    //   //         ? dayjs(item.contract_end_date)
+    //   //         : max;
+    //   //     }, dayjs(seDate?.[0].contract_end_date) as dayjs.Dayjs);
+
+    //   //     const gasDay = dayjs(f?.gasDay)
+
+    //   //     const inRange = gasDay.isSameOrAfter(minStartDate) && gasDay.isBefore(maxEndDate)
+
+    //   //     return inRange
+
+    //   //     // const rangDate = [dayjs(minStartDate).format("YYYY-MM-DD"),dayjs(maxEndDate).format("YYYY-MM-DD")]
+
+    //   //     // return  (
+    //   //     //   rangDate?.includes(f?.gasDay)
+    //   //     // )
+    //   //   }else{
+    //   //     return false
+    //   //   }
+    //   // })
+
+    //   // console.log('metered_point_nom_se : ', metered_point_nom_se);
+    //   // console.log('metered_point_nom_ : ', metered_point_nom_);
+    //   // console.log('result_ : ', result_);
+    //   // console.log('newresult_ : ', newresult_);
+
+    //     // กรอง result_ ให้เหลือเฉพาะแถว meter ที่มี metering point ที่ยัง active ตาม gasDay
+    //     // โดยเช็คเส้นทาง: contract_point → nomination_point → (metering_point โดยตรง หรือผ่าน non_tpa_point)
+    //     // ถ้า gasDay ไม่ valid จะถือว่าอยู่ในช่วง (isInRange = true) เพื่อไม่ตัดข้อมูลทิ้งโดยไม่จำเป็น
+    //     const newresult_ = result_?.filter((f:any) => {
+    //       const meterGasday = dayjs(f?.gasDay)
+    //       // มีอย่างน้อย 1 contract_point ที่ผูก meter นี้ได้ในช่วงวันที่ที่เกี่ยวข้อง
+    //       const isHaveActiveMeterFromContract = contractPointList.some(contractPoint => {
+    //         const isContractPointHaveMeter = contractPoint.nomination_point_list.some(nomination_point => {
+    //           // กรณี meter ผูกผ่าน non_tpa_point ของ nomination_point
+    //           const isNonTpaOfNomHaveMeter = nomination_point.non_tpa_point.some(non_tpa_point => {
+    //             // ชื่อ meter ตรงกัน และอยู่ภายในช่วง start/end ของ metering_point
+    //             const nonTpaHaveMeter = non_tpa_point.metering_point.some(metering_point => {
+    //               let isInRange = false
+    //               if(meterGasday?.isValid()){
+    //                 isInRange = meterGasday.isSameOrAfter(metering_point.start_date) && (!metering_point.end_date || meterGasday.isBefore(metering_point.end_date))
+    //               }
+    //               else{
+    //                 isInRange = true
+    //               }
+    //               return (metering_point.metered_point_name === f?.meteringPointId || metering_point.metered_id === f?.meteringPointId) && isInRange
+    //             })
+    //             // non_tpa_point เองก็ต้องยังอยู่ในช่วงวันที่ของ gasDay
+    //             let isInRange = false
+    //             if(meterGasday?.isValid()){
+    //               isInRange = meterGasday.isSameOrAfter(non_tpa_point.start_date) && (!non_tpa_point.end_date || meterGasday.isBefore(non_tpa_point.end_date))
+    //             }
+    //             else{
+    //               isInRange = true
+    //             }
+    //             return nonTpaHaveMeter && isInRange
+    //           })
+
+    //           // กรณี meter ผูกตรงกับ nomination_point (ไม่ผ่าน non_tpa)
+    //           const isNomHaveMeter = nomination_point.metering_point.some(metering_point => {
+    //             let isInRange = false
+    //             if(meterGasday?.isValid()){
+    //               isInRange = meterGasday.isSameOrAfter(metering_point.start_date) && (!metering_point.end_date || meterGasday.isBefore(metering_point.end_date))
+    //             }
+    //             else{
+    //               isInRange = true
+    //             }
+    //             return (metering_point.metered_point_name === f?.meteringPointId || metering_point.metered_id === f?.meteringPointId) && isInRange
+    //           })
+
+    //           // nom มัน new period ได้ทำให้ meter ไม่ได้ผูกอยู่กับ nom ที่กำลัง active อยู่ ทำให้ต้องกรองด้วย isInRange เหมือนอันอื่นไม่ได้
+    //           // let isInRange = false
+    //           // if(meterGasday?.isValid()){
+    //           //   isInRange = meterGasday.isSameOrAfter(nomination_point.start_date) && (!nomination_point.end_date || meterGasday.isBefore(nomination_point.end_date))
+    //           // }
+    //           // else{
+    //           //   isInRange = true
+    //           // }
+
+    //           // ผ่านถ้าเจอ meter จากเส้นทางใดเส้นทางหนึ่ง
+    //           return isNomHaveMeter || isNonTpaOfNomHaveMeter
+    //         })
+    //         return isContractPointHaveMeter
+    //       })
+
+    //       const isHaveActiveMeterFromReserveBalancingGasContract = nominationPointList.some(nomination_point => {
+    //         // กรณี meter ผูกผ่าน non_tpa_point ของ nomination_point
+    //         const isNonTpaOfNomHaveMeter = nomination_point.non_tpa_point.some(non_tpa_point => {
+    //           // ชื่อ meter ตรงกัน และอยู่ภายในช่วง start/end ของ metering_point
+    //           const nonTpaHaveMeter = non_tpa_point.metering_point.some(metering_point => {
+    //             let isInRange = false
+    //             if(meterGasday?.isValid()){
+    //               isInRange = meterGasday.isSameOrAfter(metering_point.start_date) && (!metering_point.end_date || meterGasday.isBefore(metering_point.end_date))
+    //             }
+    //             else{
+    //               isInRange = true
+    //             }
+    //             return (metering_point.metered_point_name === f?.meteringPointId || metering_point.metered_id === f?.meteringPointId) && isInRange
+    //           })
+    //           // non_tpa_point เองก็ต้องยังอยู่ในช่วงวันที่ของ gasDay
+    //           let isInRange = false
+    //           if(meterGasday?.isValid()){
+    //             isInRange = meterGasday.isSameOrAfter(non_tpa_point.start_date) && (!non_tpa_point.end_date || meterGasday.isBefore(non_tpa_point.end_date))
+    //           }
+    //           else{
+    //             isInRange = true
+    //           }
+    //           return nonTpaHaveMeter && isInRange
+    //         })
+
+    //         // กรณี meter ผูกตรงกับ nomination_point (ไม่ผ่าน non_tpa)
+    //         const isNomHaveMeter = nomination_point.metering_point.some(metering_point => {
+    //           let isInRange = false
+    //           if(meterGasday?.isValid()){
+    //             isInRange = meterGasday.isSameOrAfter(metering_point.start_date) && (!metering_point.end_date || meterGasday.isBefore(metering_point.end_date))
+    //           }
+    //           else{
+    //             isInRange = true
+    //           }
+    //           return (metering_point.metered_point_name === f?.meteringPointId || metering_point.metered_id === f?.meteringPointId) && isInRange
+    //         })
+
+    //         // ผ่านถ้าเจอ meter จากเส้นทางใดเส้นทางหนึ่ง
+    //         return isNomHaveMeter || isNonTpaOfNomHaveMeter
+    //       })
+    //       return isHaveActiveMeterFromContract || isHaveActiveMeterFromReserveBalancingGasContract
+    //     })
+    //     return newresult_
+    //   } else {
+    //     console.log('result_ : ', result_);
+    //     console.log('[H] result_ : ', result_?.filter((f:any) => f?.prop?.area?.name === "H"));
+    //     return result_
+    //   }
+    // } else {
+    //   console.log('result_ : ', result_);
+    //   return result_
+    // }
   }
 
   async getDataLogicBeforeTimestamp(query: any, isReplaceMissingMeterWithNomination?: boolean, userId?: any) {
@@ -1161,11 +2776,11 @@ export class MeteringManagementService {
         // Fill dateArray with all dates between getMeterFrom and getMeterTo (inclusive) in YYYY-MM-DD format
         let current = getMeterFrom.clone()
         while (current.isSameOrBefore(getMeterTo, 'day')) {
-          dateArray.push(current.format('YYYY-MM-DD'))
+          dateArray.push((current && current.format('YYYY-MM-DD')) || dayjs().format('YYYY-MM-DD'))
           current = current.add(1, 'day')
         }
         // Build active data for all dates
-        activeData = await buildActiveDataForDates(dateArray, this.prisma)
+        activeData = await buildActiveDataForDates(dateArray, this.prisma, userId)
       } catch (error) {
         activeData = undefined
       }
@@ -1196,10 +2811,11 @@ export class MeteringManagementService {
         const activeDataForDate = activeData?.find((ad) => ad.date === date)
         if (activeDataForDate) {
           const meteredPoint = activeDataForDate?.activeMeteringPoints || []
+          const conceptPointList = activeDataForDate?.activeConceptPoints || []
           const ckShare = share === 'on' ? await shareShipper(meteredPoint, this.prisma, null, null) : meteredPoint
-          console.log('ckShare : ', ckShare);
-          const compareMeter = await this.meteredCompare(ckShare, dataConvert, date)
-          console.log('compareMeter : ', compareMeter);
+          // console.log('ckShare : ', ckShare);
+          const compareMeter = await this.meteredCompare(ckShare, dataConvert, date, conceptPointList) // ignoreConcpetPoint ไปก่อนจนกว่าจะทำข้อที่ให้ปรับ concpet point ใหม่
+          // console.log('compareMeter : ', compareMeter);
           return compareMeter
         }
       })
@@ -1207,8 +2823,7 @@ export class MeteringManagementService {
     const result_ = compareMeterEachDay.flat()
 
     if (userId) {
-      
-      const userType = await this.prisma.user_type?.findFirst({
+      const userType = await this.prisma.user_type.findFirst({
         where: {
           account_manage: {
             some: {
@@ -1218,79 +2833,78 @@ export class MeteringManagementService {
         }
       })
       if (userType?.id === 3) {
-        const group_ = await this.prisma.group?.findFirst({
-        where: {
-          account_manage: {
-            some: {
-              account_id: Number(userId)
+        const group_ = await this.prisma.group.findFirst({
+          where: {
+            account_manage: {
+              some: {
+                account_id: Number(userId)
+              }
             }
-          }
-        },
-        include:{
-          shipper_contract_point:{
-            include:{
-              contract_point:{
-                include:{
-                  nomination_point_list:{
-                    include:{
-                      metering_point:true,
-                    },
-                  },
+          },
+          include: {
+            shipper_contract_point: {
+              include: {
+                contract_point: {
+                  include: {
+                    nomination_point_list: {
+                      include: {
+                        metering_point: true
+                      }
+                    }
+                  }
                 }
               }
-            },
-          },
-        },
-      })
-      const contractCode = await this.prisma.contract_code.findMany({
+            }
+          }
+        })
+        const contractCode = await this.prisma.contract_code.findMany({
           where: {
             group_id: group_?.id,
             contract_start_date: {
-              lte: dayjs(
-                end_date || start_date,
-                'YYYY-MM-DD'
-              ).endOf('day').toDate(),
+              lte: dayjs(end_date || start_date, 'YYYY-MM-DD')
+                .endOf('day')
+                .toDate()
             },
             ...(end_date && {
               contract_end_date: {
-                gte: dayjs(start_date, 'YYYY-MM-DD').startOf('day').toDate(),
-              },
-            }),
+                gte: dayjs(start_date, 'YYYY-MM-DD').startOf('day').toDate()
+              }
+            })
           },
-        select:{
-          id: true,
-          contract_start_date: true,
-          contract_end_date: true,
-          booking_version:{
-            include:{
-              booking_row_json:{
-                select:{
-                  contract_point:true,
+          select: {
+            id: true,
+            contract_start_date: true,
+            contract_end_date: true,
+            booking_version: {
+              include: {
+                booking_row_json: {
+                  select: {
+                    contract_point: true
+                  }
                 }
               },
-            },
-            where:{
-              flag_use: true
+              where: {
+                flag_use: true
+              }
             }
           }
-        }
-      })
+        })
 
-      const contract_point_contractSE = contractCode?.flatMap((fm:any) => {
-        return fm?.booking_version?.flatMap((fm_v:any) => {
-          return fm_v?.booking_row_json?.flatMap((fm_r:any) => {
-            return {
-              contract_start_date: fm?.contract_start_date,
-              contract_end_date: fm?.contract_end_date,
-              contract_point: fm_r?.contract_point
-            }
+        const contract_point_contractSE = contractCode?.flatMap((fm: any) => {
+          return fm?.booking_version?.flatMap((fm_v: any) => {
+            return fm_v?.booking_row_json?.flatMap((fm_r: any) => {
+              return {
+                contract_start_date: fm?.contract_start_date,
+                contract_end_date: fm?.contract_end_date,
+                contract_point: fm_r?.contract_point
+              }
+            })
           })
         })
-      })
-      // console.log('group_ : ', group_);
-      const startDate = getTodayStartAdd7(start_date == 'undefined' ? undefined : start_date)
-      const endDate = getTodayEndAdd7(end_date == 'undefined' ? undefined : end_date)
-      const metering_point_name = await this.prisma.metering_point.findMany({
+        // console.log('group_ : ', group_);
+        const startDate = getTodayStartAdd7(start_date == 'undefined' ? undefined : start_date)
+        const endDate = getTodayEndAdd7(end_date == 'undefined' ? undefined : end_date)
+        const metering_point_name = await this.prisma.metering_point.findMany({
           where: {
             AND: [
               {
@@ -1319,7 +2933,7 @@ export class MeteringManagementService {
             // zone: true,
             // area: true,
             non_tpa_point: true,
-            nomination_point: true,
+            nomination_point: true
           },
           orderBy: {
             id: 'desc'
@@ -1332,81 +2946,99 @@ export class MeteringManagementService {
 
         // console.log('metering_point_name : ', metering_point_name);
 
-      // metering_point
-      // https://app.clickup.com/t/86euzxxpk
-      const metered_point_nom_ = group_?.shipper_contract_point?.flatMap((fm:any) => {
-        return fm?.contract_point?.nomination_point_list?.flatMap((fm_:any) => {
-          const mtName = fm_?.metering_point?.map((e:any) => e?.metered_point_name)
-          // mtName
-          const fMt = metering_point_name?.filter((f:any) => f?.nomination_point?.nomination_point === fm_?.nomination_point)
-          return {
-            metering_point: mtName?.length > 0 ? mtName : fMt?.map((e:any) => e?.metered_point_name),
-            nomination_point: fm_?.nomination_point,
-            contract_point: fm?.contract_point?.contract_point
-          }
-        })
-      })?.filter((f:any) => contract_point_contractSE?.map((cp:any) => cp?.contract_point)?.includes(f?.contract_point))
-
-      const metered_point_nom_se = metered_point_nom_?.map((e:any) => {
-        const contractCodeSE = contract_point_contractSE?.filter((f:any) => f?.contract_point === e?.contract_point)
-        return {
-          ...e,
-          contractCodeSE: contractCodeSE || []
-        }
-      })
-
-      const newresult_ = result_?.filter((f:any) => {
-        const meteringPointId = metered_point_nom_se?.filter((m_:any) => m_?.metering_point?.includes(f?.meteringPointId) )
-        if(meteringPointId?.length > 0){
-          const seDate = meteringPointId?.flatMap((fm:any) => {
-            return fm?.contractCodeSE?.map((ccSE:any) => {
+        // metering_point
+        // https://app.clickup.com/t/86euzxxpk
+        const metered_point_nom_ = group_?.shipper_contract_point
+          ?.flatMap((fm: any) => {
+            return fm?.contract_point?.nomination_point_list?.flatMap((fm_: any) => {
+              const mtName = fm_?.metering_point?.map((e: any) => e?.metered_point_name)
+              // mtName
+              const fMt = metering_point_name?.filter((f: any) => f?.nomination_point?.nomination_point === fm_?.nomination_point)
               return {
-                contract_start_date: ccSE?.contract_start_date,
-                contract_end_date: ccSE?.contract_end_date,
+                metering_point: mtName?.length > 0 ? mtName : fMt?.map((e: any) => e?.metered_point_name),
+                nomination_point: fm_?.nomination_point,
+                contract_point: fm?.contract_point?.contract_point
               }
             })
           })
-          const minStartDate: dayjs.Dayjs = seDate?.reduce((min: dayjs.Dayjs, item: any) => {
-            return dayjs(item.contract_start_date).isBefore(min)
-              ? dayjs(item.contract_start_date)
-              : min;
-          }, dayjs(seDate?.[0].contract_start_date) as dayjs.Dayjs);
+          ?.filter((f: any) => contract_point_contractSE?.map((cp: any) => cp?.contract_point)?.includes(f?.contract_point))
 
-          const maxEndDate: dayjs.Dayjs = seDate?.reduce((max: dayjs.Dayjs, item: any) => {
-            return dayjs(item.contract_end_date).isAfter(max)
-              ? dayjs(item.contract_end_date)
-              : max;
-          }, dayjs(seDate?.[0].contract_end_date) as dayjs.Dayjs);
+        const metered_point_nom_se = metered_point_nom_?.map((e: any) => {
+          const contractCodeSE = contract_point_contractSE?.filter((f: any) => f?.contract_point === e?.contract_point)
+          return {
+            ...e,
+            contractCodeSE: contractCodeSE || []
+          }
+        })
 
-          const gasDay = dayjs(f?.gasDay)
+        const newresult_ = result_?.filter((f: any) => {
+          const meterGasday = dayjs(f?.gasDay)
+          let isHaveActiveConceptPoint = false
+          const activeDataForDate = activeData?.find((ad) => ad.date === meterGasday.format('YYYY-MM-DD'))
 
-          const inRange = gasDay.isSameOrAfter(minStartDate) && gasDay.isBefore(maxEndDate)
+          if (activeDataForDate) {
+            const conceptPointList = activeDataForDate.activeConceptPoints || []
+            isHaveActiveConceptPoint = conceptPointList.some((cp) => {
+              return cp.concept_point === f.meteringPointId
+            })
+          }
 
-          return inRange
+          const meteringPointId = metered_point_nom_se?.filter((m_: any) => m_?.metering_point?.includes(f?.meteringPointId))
+          if (meteringPointId?.length > 0) {
+            const seDate = meteringPointId?.flatMap((fm: any) => {
+              return fm?.contractCodeSE?.map((ccSE: any) => {
+                return {
+                  contract_start_date: ccSE?.contract_start_date,
+                  contract_end_date: ccSE?.contract_end_date
+                }
+              })
+            })
+            const minStartDate: dayjs.Dayjs = seDate?.reduce(
+              (min: dayjs.Dayjs, item: any) => {
+                return dayjs(item.contract_start_date).isBefore(min) ? dayjs(item.contract_start_date) : min
+              },
+              dayjs(seDate?.[0].contract_start_date) as dayjs.Dayjs
+            )
 
-          // const rangDate = [dayjs(minStartDate).format("YYYY-MM-DD"),dayjs(maxEndDate).format("YYYY-MM-DD")]
-        
-          // return  (
-          //   rangDate?.includes(f?.gasDay)
-          // )
-        }else{
-          return false
-        }
-      })
+            const maxEndDate: dayjs.Dayjs = seDate?.reduce(
+              (max: dayjs.Dayjs, item: any) => {
+                return dayjs(item.contract_end_date).isAfter(max) ? dayjs(item.contract_end_date) : max
+              },
+              dayjs(seDate?.[0].contract_end_date) as dayjs.Dayjs
+            )
 
-      // console.log('metered_point_nom_se : ', metered_point_nom_se);
-      // console.log('metered_point_nom_ : ', metered_point_nom_);
-      // console.log('result_ : ', result_);
-      // console.log('newresult_ : ', newresult_);
-    
+            const gasDay = dayjs(f?.gasDay)
+
+            const inRange = gasDay.isSameOrAfter(minStartDate) && gasDay.isBefore(maxEndDate)
+
+            return inRange || isHaveActiveConceptPoint
+
+            // const rangDate = [dayjs(minStartDate).format("YYYY-MM-DD"),dayjs(maxEndDate).format("YYYY-MM-DD")]
+
+            // return  (
+            //   rangDate?.includes(f?.gasDay)
+            // )
+          } else {
+            return isHaveActiveConceptPoint
+          }
+        })
+
+        // console.log('metered_point_nom_se : ', metered_point_nom_se);
+        // console.log('metered_point_nom_ : ', metered_point_nom_);
+        // console.log('result_ : ', result_);
+        // console.log('newresult_ : ', newresult_);
+
         return newresult_
       } else {
-        console.log('result_ : ', result_);
-        console.log('[H] result_ : ', result_?.filter((f:any) => f?.prop?.area?.name === "H"));
+        console.log('result_ : ', result_)
+        console.log(
+          '[H] result_ : ',
+          result_?.filter((f: any) => f?.prop?.area?.name === 'H')
+        )
         return result_
       }
     } else {
-      console.log('result_ : ', result_);
+      console.log('result_ : ', result_)
       return result_
     }
   }
@@ -1421,19 +3053,22 @@ export class MeteringManagementService {
     XLSX.utils.book_append_sheet(workbook, worksheet1, name) // เพิ่ม sheet ลงใน workbook
     // XLSX.utils.book_append_sheet(workbook, worksheet2, 'Quality'); // เพิ่ม sheet ลงใน workbook
     // XLSX.utils.book_append_sheet(workbook, worksheet3, 'Lists'); // เพิ่ม sheet ลงใน workbook
-    const defaultColumnWidth = 20 // กำหนดค่าความกว้างมาตรฐานที่ต้องการ
     const startRow = 2
-    const endRow = 5
+    // const endRow = 5
+    const endRow = 6
     const startCol = 0 // A = index 0
-    const endCol = 26 // AA = index 26
+    // const endCol = 26 // AA = index 26
+    const endCol = 27 // AA = index 26
     const targetRow = 4
-    const specialCols = ['A', 'B', 'D']
+    // const specialCols = ['A', 'B', 'D']
+    const specialCols = ['A', 'B', 'E']
     const specialColor = 'B8CCE4'
     const defaultColor = '92D050'
     const boldRows = [2, 4]
 
     boldRows.forEach((row) => {
-      for (let col = 0; col <= 26; col++) {
+      // for (let col = 0; col <= 26; col++) {
+      for (let col = 0; col <= 27; col++) {
         // A (0) → AA (26)
         const colLetter = XLSX.utils.encode_col(col) // เช่น 0 -> 'A'
         const cellAddress = `${colLetter}${row}`
@@ -1454,7 +3089,8 @@ export class MeteringManagementService {
     })
 
     // ใส่สีให้ row 4
-    for (let col = 0; col <= 26; col++) {
+    // for (let col = 0; col <= 26; col++) {
+    for (let col = 0; col <= 27; col++) {
       // A (0) → AA (26)
       const colLetter = XLSX.utils.encode_col(col) // เช่น 0 -> 'A'
       const cellAddress = `${colLetter}${targetRow}`
@@ -1552,12 +3188,23 @@ export class MeteringManagementService {
 
   async genExcelTemplateFinalMeter(payload: any) {
     const {gasDay} = payload
+    // const data = [
+    //   [], // Row 0
+    //   ['Gas Day', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''], // Row 1
+    //   [`${gasDay}`, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+    //   ['POINT_ID', 'REGISTER_TIMSTAMP', 'VOLUME', 'ENERGY', 'HV', 'WI', 'CO2', 'C1', 'C2', 'C3', 'iC4', 'nC4', 'iC5', 'nC5', 'C6', 'C7', 'C2+', 'N2', 'O2', 'H2S', 'S', 'Hg', 'Pressure', 'Moisture', 'DewPoint', 'SG', 'Datasource'],
+    //   ['LMPT1', `${dayjs(gasDay).format("DD/MM/YYYY")} 00:00:00`, '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', 'Manual']
+    //   // https://app.clickup.com/t/9018502823/86eub6d16
+    //   // ['LMPT1', `${gasDay}T00:00:00.000+00:00`, '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', 'Manual']
+    // ]
     const data = [
       [], // Row 0
-      ['Gas Day', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''], // Row 1
-      [`${gasDay}`, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
-      ['POINT_ID', 'REGISTER_TIMSTAMP', 'VOLUME', 'ENERGY', 'HV', 'WI', 'CO2', 'C1', 'C2', 'C3', 'iC4', 'nC4', 'iC5', 'nC5', 'C6', 'C7', 'C2+', 'N2', 'O2', 'H2S', 'S', 'Hg', 'Pressure', 'Moisture', 'DewPoint', 'SG', 'Datasource'],
-      ['LMPT1', `${gasDay}T00:00:00.000+00:00`, '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', 'Manual']
+      ['Gas Day', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''], // Row 1
+      [`${dayjs(gasDay).format('DD/MM/YYYY')}`, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+      ['POINT_ID', 'REGISTER_TIMSTAMP', 'Gas Hour', 'VOLUME', 'ENERGY', 'HV', 'WI', 'CO2', 'C1', 'C2', 'C3', 'iC4', 'nC4', 'iC5', 'nC5', 'C6', 'C7', 'C2+', 'N2', 'O2', 'H2S', 'S', 'Hg', 'Pressure', 'Moisture', 'DewPoint', 'SG', 'Datasource'],
+      ['LMPT1', `${dayjs(gasDay).format('DD/MM/YYYY')} 00:00:00`, '1', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', 'Manual']
+      // https://app.clickup.com/t/9018502823/86eub6d16
+      // ['LMPT1', `${gasDay}T00:00:00.000+00:00`, '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', '0.000', 'Manual']
     ]
     const data2 = []
     const data3 = []
@@ -1568,453 +3215,6 @@ export class MeteringManagementService {
     return {
       excelBuffer,
       nameFile: `${nameFile}`
-    }
-  }
-
-  async uploadFile(
-    file: any,
-    fileOriginal: any
-    // userId: any,
-  ) {
-    const newDate = getTodayNow()
-    try {
-      const newDate7 = getTodayNowAdd7()
-      const todayStart = getTodayStartAdd7().toDate()
-      const todayEnd = getTodayEndAdd7().toDate()
-      const findData = JSON.parse(file?.jsonDataMultiSheet)
-
-      const meteredCount = await this.prisma.metered_run_number.count({
-        where: {
-          create_date: {
-            gte: todayStart, // มากกว่าหรือเท่ากับเวลาเริ่มต้นของวันนี้
-            lte: todayEnd // น้อยกว่าหรือเท่ากับเวลาสิ้นสุดของวันนี้
-          }
-        }
-      })
-      const meteringRetrievingId = `${newDate7.format('YYYYMMDD')}-MET-${(meteredCount > 0 ? meteredCount + 1 : 1).toString().padStart(4, '0')}`
-      const insertTimestamp = newDate.format('YYYY-MM-DD HH:mm:ss')
-      let meterArr = []
-
-      const sheetArr = findData.filter((f: any) => {
-        return /^Daily Metering Data(\s\(\d+\))?$/.test(f?.sheet || '')
-      })
-
-      if (sheetArr.length <= 0) {
-        throw new HttpException(
-          {
-            status: HttpStatus.BAD_REQUEST,
-            error: 'Sheet name is invalid.'
-          },
-          HttpStatus.BAD_REQUEST
-        )
-      }
-
-      for (let i = 0; i < sheetArr.length; i++) {
-        const sheet1 = sheetArr[i]
-
-        const gasDay = sheet1.data[1]
-        const headerCol = sheet1.data[2]
-        let valueCol = sheet1.data.slice(3)
-        function isValidGasDay(value) {
-          // ต้องเป็น string ก่อน
-          if (typeof value?.[0] !== 'string') return false
-
-          // ตรวจว่าเป็นรูปแบบ YYYY-MM-DD และเป็นวันจริง
-          return dayjs(value?.[0], 'YYYY-MM-DD', true).isValid()
-        }
-
-        if (!isValidGasDay(gasDay)) {
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              error: 'Gas Day is required.'
-            },
-            HttpStatus.BAD_REQUEST
-          )
-        }
-
-        if (valueCol.length === 0) {
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              // error: 'Required field is missing: Point_ID / Register Timestamp / Energy.',
-              error: 'Required field is missing: Point_ID.'
-            },
-            HttpStatus.BAD_REQUEST
-          )
-        }
-        // 2025-07-09T11:30:00.569+01:00
-
-        function isValidStrictIsoDatetime(value) {
-          if (typeof value !== 'string') return false
-
-          const regex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{2}:\d{2}$/
-
-          return regex.test(value)
-        }
-
-        const correctHeaders = ['POINT_ID', 'REGISTER_TIMSTAMP', 'VOLUME', 'ENERGY', 'HV', 'WI', 'CO2', 'C1', 'C2', 'C3', 'iC4', 'nC4', 'iC5', 'nC5', 'C6', 'C7', 'C2+', 'N2', 'O2', 'H2S', 'S', 'Hg', 'Pressure', 'Moisture', 'DewPoint', 'SG', 'Datasource']
-
-        function validateHeaderCol(headerCol, correctHeaders) {
-          // แปลง object → array
-          const values = Object.values(headerCol)
-
-          // ตรวจว่าความยาวต้องเท่ากัน
-          if (values.length !== correctHeaders.length) {
-            return false
-          }
-
-          // เช็คค่าทีละตัว
-          for (let i = 0; i < values.length; i++) {
-            if (values[i] !== correctHeaders[i]) {
-              return false
-            }
-          }
-
-          return true
-        }
-
-        if (!validateHeaderCol(headerCol, correctHeaders)) {
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              error: 'Template format is invalid.'
-            },
-            HttpStatus.BAD_REQUEST
-          )
-        }
-
-        // Required field is missing: Point_ID / Register Timestamp / Energy.
-        const newValue = valueCol.map((e: any) => {
-          const headerRow = Object.keys(headerCol).map((obj: any) => {
-            if (Number(obj) >= 2) {
-              const value = e[obj]
-              if (value !== undefined && value !== null) {
-                if (Number(value) < 0) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.BAD_REQUEST,
-                      error: 'Negative values are not allowed in Volume, Energy, HV, or WI.'
-                    },
-                    HttpStatus.BAD_REQUEST
-                  )
-                }
-              }
-            }
-            if (Number(obj) === 1) {
-              if (!!!e[obj]) {
-                // https://app.clickup.com/t/86eub6d6p
-                throw new HttpException(
-                  {
-                    status: HttpStatus.BAD_REQUEST,
-                    error: 'Required field is missing: Point_ID / Register Timestamp / Energy.'
-                  },
-                  HttpStatus.BAD_REQUEST
-                )
-              }
-              const ckRegis = isValidStrictIsoDatetime(e[obj])
-              if (!ckRegis) {
-                console.log('0')
-                throw new HttpException(
-                  {
-                    status: HttpStatus.BAD_REQUEST,
-                    error: 'Register Timestamp must be earlier or equal to Current date.'
-                  },
-                  HttpStatus.BAD_REQUEST
-                )
-              }
-            }
-            return {
-              [headerCol[obj]]: {
-                key: obj,
-                value: e[obj] || null
-              }
-            }
-          })
-
-          const merged = Object.assign({}, ...headerRow)
-          return merged
-        })
-
-        let newData = {
-          gasDay: gasDay['0'],
-          data: newValue,
-          tempExcel: findData
-        }
-
-        if (!!!newData?.gasDay) {
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              error: 'Date is NOT match'
-            },
-            HttpStatus.BAD_REQUEST
-          )
-        }
-        const newDataGasDayjs = dayjs(newData?.gasDay, 'YYYY-MM-DD')
-        const ckDay = newDate7.isBefore(newDataGasDayjs)
-        if (ckDay) {
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              error: 'Date is NOT match'
-            },
-            HttpStatus.BAD_REQUEST
-          )
-        }
-
-        for (let i = 0; i < newData.data.length; i++) {
-          // ห้ามว่าง
-          // newData.data[i]?.POINT_ID?.value
-          // newData.data[i]?.REGISTER_TIMSTAMP?.value
-          // newData.data[i]?.ENERGY?.value
-          if (!!!newData.data[i]?.POINT_ID?.value) {
-            throw new HttpException(
-              {
-                status: HttpStatus.BAD_REQUEST,
-                error: 'Required field is missing: Point_ID'
-              },
-              HttpStatus.BAD_REQUEST
-            )
-          } else if (!!!newData.data[i]?.REGISTER_TIMSTAMP?.value) {
-            throw new HttpException(
-              {
-                status: HttpStatus.BAD_REQUEST,
-                error: 'Required field is missing: Register Timestamp'
-              },
-              HttpStatus.BAD_REQUEST
-            )
-          } else if (!!!newData.data[i]?.ENERGY?.value) {
-            throw new HttpException(
-              {
-                status: HttpStatus.BAD_REQUEST,
-                error: 'Required field is missing: Energy.'
-              },
-              HttpStatus.BAD_REQUEST
-            )
-          }
-
-          // ห้ามติดลบ
-          // newData.data[i]?.VOLUME?.value
-          // newData.data[i]?.ENERGY?.value
-          // newData.data[i]?.HV?.value
-          // newData.data[i]?.WI?.value
-          if (!!newData.data[i]?.VOLUME?.value && Number(newData.data[i]?.VOLUME?.value) < 0) {
-            throw new HttpException(
-              {
-                status: HttpStatus.BAD_REQUEST,
-                error: 'Date is NOT match'
-              },
-              HttpStatus.BAD_REQUEST
-            )
-          } else if (!!newData.data[i]?.ENERGY?.value && Number(newData.data[i]?.ENERGY?.value) < 0) {
-            throw new HttpException(
-              {
-                status: HttpStatus.BAD_REQUEST,
-                error: 'Date is NOT match'
-              },
-              HttpStatus.BAD_REQUEST
-            )
-          } else if (!!newData.data[i]?.HV?.value && Number(newData.data[i]?.HV?.value) < 0) {
-            throw new HttpException(
-              {
-                status: HttpStatus.BAD_REQUEST,
-                error: 'Date is NOT match'
-              },
-              HttpStatus.BAD_REQUEST
-            )
-          } else if (!!newData.data[i]?.WI?.value && Number(newData.data[i]?.WI?.value) < 0) {
-            throw new HttpException(
-              {
-                status: HttpStatus.BAD_REQUEST,
-                error: 'Date is NOT match'
-              },
-              HttpStatus.BAD_REQUEST
-            )
-          }
-
-          // newData.data[i]?.REGISTER_TIMSTAMP?.value -> 2024-03-15T11:30:00.569+01:00
-          const registerTime = dayjs(newData.data[i]?.REGISTER_TIMSTAMP?.value)
-          const ckRg = dayjs.utc(newDate7).isBefore(registerTime)
-          if (ckRg) {
-            // Point ${validateList['earlierTimestamp'].join(', ')};
-            console.log('1')
-            throw new HttpException(
-              {
-                status: HttpStatus.BAD_REQUEST,
-                error: 'Register Timestamp must be earlier or equal to Current date.'
-              },
-              HttpStatus.BAD_REQUEST
-            )
-          }
-        }
-
-        meterArr = [...meterArr, newData]
-      }
-
-      let countMeter = 0
-      for (let i = 0; i < meterArr.length; i++) {
-        const meteredMicroData = await this.meteredMicroService.sendMessage(
-          JSON.stringify({
-            case: 'upload-json',
-            mode: 'metering',
-            metering_retrieving_id: meteringRetrievingId,
-            insert_timestamp: insertTimestamp,
-            json_data: meterArr[i]
-          })
-        )
-
-        const reply = (!!meteredMicroData?.reply && JSON.parse(meteredMicroData?.reply)) || null
-
-        if (reply?.status) {
-          const metered_run_number = await this.prisma.metered_run_number.create({
-            data: {
-              metering_retrieving_id: meteringRetrievingId,
-              create_date: dayjs().toDate(),
-              create_date_num: dayjs().unix()
-            }
-          })
-
-          const resData = await this.prisma.metering_point.findMany({
-            where: {
-              AND: [
-                {
-                  start_date: {
-                    lte: todayEnd // start_date ต้องก่อนหรือเท่ากับสิ้นสุดวันนี้
-                  }
-                },
-                {
-                  OR: [
-                    {
-                      end_date: null
-                    }, // ถ้า end_date เป็น null
-                    {
-                      end_date: {
-                        gte: todayStart
-                      }
-                    } // ถ้า end_date ไม่เป็น null ต้องหลังหรือเท่ากับเริ่มต้นวันนี้
-                  ]
-                }
-              ]
-            },
-            include: {
-              non_tpa_point: {
-                include: {
-                  nomination_point: {
-                    include: {
-                      contract_point: {
-                        include: {
-                          area: true,
-                          zone: true,
-                          shipper_contract_point: {
-                            include: {
-                              group: true
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              },
-              nomination_point: {
-                include: {
-                  contract_point: {
-                    include: {
-                      area: true,
-                      zone: true,
-                      shipper_contract_point: {
-                        include: {
-                          group: true
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            },
-            orderBy: {
-              id: 'desc'
-            }
-          })
-          let logsData = []
-
-          for (let i = 0; i < (reply?.data?.length || 0); i++) {
-            const findMeterDam = resData?.find((f: any) => {
-              return f?.metered_point_name === reply?.data[i]?.meteringPointId
-            })
-            if (!!findMeterDam) {
-              if (Number(reply?.data[i]?.energy) <= 0) {
-                // มี แต่ energy 0
-                logsData.push({
-                  metered_run_number_id: metered_run_number?.id,
-                  temp: JSON.stringify(reply?.data[i]),
-                  type: 'retrieving',
-                  description: 'The mandatory field energy must be informed',
-                  timestamp: newDate7.toDate(),
-                  metering_point_sys: reply?.data[i]?.meteringPointId,
-                  gas_day: dayjs(reply?.data[i]?.gasDay ?? reply?.data[i]?.data?.gasDay, 'YYYY-MM-DD').toDate()
-                })
-              }
-            } else {
-              // ไม่มี
-              logsData.push({
-                metered_run_number_id: metered_run_number?.id,
-                temp: JSON.stringify(reply?.data[i]),
-                type: 'retrieving',
-                description: `The point ${reply?.data[i]?.meteringPointId} does not exist in TPA system or is not valid`,
-                timestamp: newDate7.toDate(),
-                metering_point_sys: reply?.data[i]?.meteringPointId,
-                gas_day: dayjs(reply?.data[i]?.gasDay ?? reply?.data[i]?.data?.gasDay, 'YYYY-MM-DD').toDate()
-              })
-
-              logsData.push({
-                metered_run_number_id: metered_run_number?.id,
-                temp: JSON.stringify(reply?.data[i]),
-                type: 'mastering data check',
-                description: `The point ${reply?.data[i]?.meteringPointId} does not exist in TPA system or is not valid`,
-                timestamp: newDate7.toDate(),
-                metering_point_sys: reply?.data[i]?.meteringPointId,
-                gas_day: dayjs(reply?.data[i]?.gasDay ?? reply?.data[i]?.data?.gasDay, 'YYYY-MM-DD').toDate()
-              })
-            }
-          }
-          if (logsData.length > 0) {
-            await this.prisma.metered_retrieving.createMany({
-              data: logsData
-            })
-          }
-        }
-        countMeter = +1
-      }
-      try {
-        await middleNotiInapp(
-          this.prisma,
-          'Metering', // 'Metering Management',
-          `Metering Interface: Data retrieving from file ${(fileOriginal.originalname && String(fileOriginal.originalname)) || ''}.xlsx executed on ${insertTimestamp}[finished OK}   (Metering Input Code ${meteringRetrievingId})}. {${countMeter}/${meterArr.length} registers inserted. Allocation and Balancing process should be executed.`,
-          77, // Metering Management menus_id
-          1
-        )
-      } catch (error) {}
-
-      return 'success'
-    } catch (error) {
-      try {
-        await middleNotiInapp(
-          this.prisma,
-          'Metering', // 'Metering Management',
-          `Metering Interface: Data retrieving from file ${(fileOriginal.originalname && String(fileOriginal.originalname)) || ''}.xlsx executed on ${newDate.format('YYYY-MM-DD HH:mm:ss')} {Error}.`,
-          77, // Metering Management menus_id
-          1
-        )
-      } catch (error) {}
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          error: error.response.error
-        },
-        HttpStatus.BAD_REQUEST
-      )
     }
   }
 
@@ -2050,7 +3250,7 @@ export class MeteringManagementService {
     }
 
     for (let i = 0; i < meter.length; i++) {
-      const findMaster = master?.find((f: any) => f?.metered_point_name === meter[i]?.meteringPointId)
+      const findMaster = (master || []).find((f: any) => f?.metered_point_name === meter[i]?.meteringPointId)
 
       if (findMaster) {
         //   เพิ่มข้อมูลเข้า array
@@ -2093,7 +3293,7 @@ export class MeteringManagementService {
       })
     )
     const dataConvert = (!!meteredMicroData?.reply && JSON.parse(meteredMicroData?.reply)) || null
-    const meteredPoint : meteringPointWithRelations[] = await this.meteredMasterAll(gDay, gDay)
+    const meteredPoint: meteringPointWithRelations[] = await this.meteredMasterAll(gDay, gDay)
     const todayStart = getTodayStartYYYYMMDDDfaultAdd7(gDay).toDate()
     const todayEnd = getTodayEndYYYYMMDDDfaultAdd7(gDay).toDate()
 
@@ -2546,7 +3746,7 @@ export class MeteringManagementService {
     return newData
   }
 
-  async meteringChecking2(payload: any) {
+  async meteringChecking2(payload: any, userId?: any) {
     const {gasDay} = payload
 
     const gasDayjs = !!gasDay ? getTodayNowYYYYMMDDDfaultAdd7(gasDay) : getTodayNow()
@@ -2573,34 +3773,87 @@ export class MeteringManagementService {
     )
     const yeterdayDataConvert = (!!yeterdayMeteredMicroData?.reply && JSON.parse(yeterdayMeteredMicroData?.reply)) || null
 
-    const meteredPoint : meteringPointWithRelations[] = await this.meteredMasterAll(gDay, gDay)
+    const meteredPoint: meteringPointWithRelations[] = await this.meteredMasterAll(gDay, gDay)
     const todayStart = getTodayStartYYYYMMDDDfaultAdd7(gDay).toDate()
     const todayEnd = getTodayEndYYYYMMDDDfaultAdd7(gDay).toDate()
 
-    const conceptPoint = await this.prisma.concept_point.findMany({
-      where: {
-        AND: [
+    const conceptPointAndInWhere: Prisma.concept_pointWhereInput[] = [
+      {
+        type_concept_point_id: 4 //Metering Physical gas concept
+      },
+      {
+        start_date: {
+          lte: todayEnd // start_date ต้องก่อนหรือเท่ากับสิ้นสุดวันนี้
+        }
+      },
+      {
+        OR: [
           {
-            type_concept_point_id: 4 //Metering Physical gas concept
-          },
+            end_date: null
+          }, // ถ้า end_date เป็น null
           {
-            start_date: {
-              lte: todayEnd // start_date ต้องก่อนหรือเท่ากับสิ้นสุดวันนี้
+            end_date: {
+              gt: todayStart
+            }
+          } // ถ้า end_date ไม่เป็น null ต้องหลังหรือเท่ากับเริ่มต้นวันนี้
+        ]
+      }
+    ]
+
+    if (userId) {
+      const userType = await this.prisma.user_type.findFirst({
+        where: {
+          account_manage: {
+            some: {
+              account_id: Number(userId)
+            }
+          }
+        }
+      })
+
+      if (userType?.id === 3) {
+        const group_ = await this.prisma.group.findFirst({
+          where: {
+            account_manage: {
+              some: {
+                account_id: Number(userId)
+              }
             }
           },
-          {
-            OR: [
-              {
-                end_date: null
-              }, // ถ้า end_date เป็น null
-              {
-                end_date: {
-                  gt: todayStart
+          include: {
+            shipper_contract_point: {
+              include: {
+                contract_point: {
+                  include: {
+                    nomination_point_list: {
+                      include: {
+                        metering_point: true
+                      }
+                    }
+                  }
                 }
-              } // ถ้า end_date ไม่เป็น null ต้องหลังหรือเท่ากับเริ่มต้นวันนี้
-            ]
+              }
+            }
           }
-        ]
+        })
+
+        if (group_) {
+          conceptPointAndInWhere.push({
+            limit_concept_point_history: {
+              some: {
+                group_id: group_.id,
+                create_date: {lte: todayEnd},
+                OR: [{deleted_date: null}, {deleted_date: {gte: todayStart}}]
+              }
+            }
+          })
+        }
+      }
+    }
+
+    const conceptPoint = await this.prisma.concept_point.findMany({
+      where: {
+        AND: conceptPointAndInWhere
       }
     })
 
@@ -2788,7 +4041,7 @@ export class MeteringManagementService {
 
         for (let i = 1; i <= 24; i++) {
           if (eachHourData[i] == undefined) {
-            const thisHourData = (filMeter)?.filter((meterData: any) => (meterData?.hour ?? meterData?.gasHour) === i && meterData?.gasDay === gDay && parseToNumber(meterData?.energy) != null)
+            const thisHourData = filMeter?.filter((meterData: any) => (meterData?.hour ?? meterData?.gasHour) === i && meterData?.gasDay === gDay && parseToNumber(meterData?.energy) != null)
             if ((thisHourData || [])?.length > 0) {
               const lastestInsertTimestamp = thisHourData.reduce((latest: any, current: any) => {
                 return getTimestampValue(current?.insert_timestamp) > getTimestampValue(latest?.insert_timestamp) ? current : latest
@@ -2872,7 +4125,7 @@ export class MeteringManagementService {
             if (calcCondition1 === Infinity) {
               timeHr[timeHrKey] = 'Div/0'
               timeHr[`type_${timeHrKey}`] = 'Div/0'
-            } else if (calcCondition1 < ((checkCondition?.thershold_float === null ? checkCondition?.thershold : checkCondition?.thershold_float))) {
+            } else if (calcCondition1 < (checkCondition?.thershold_float === null ? checkCondition?.thershold : checkCondition?.thershold_float)) {
               timeHr[timeHrKey] = checkCondition?.green_url || null
               timeHr[`type_${timeHrKey}`] = 'green_url'
             } else {
@@ -2886,23 +4139,23 @@ export class MeteringManagementService {
                 timeHr[timeHrKey] = checkCondition?.purple_url || null
                 timeHr[`type_${timeHrKey}`] = 'purple_url'
               } else if (calcCondition2 > checkCondition?.orange_value) {
-                if (checkCondition.orange_mode == 2 && checkCondition?.orange_url) {
+                if (checkCondition && checkCondition.orange_mode == 2 && checkCondition?.orange_url) {
                   timeHr[timeHrKey] = checkCondition?.orange_url || null
                 } else {
                   timeHr[timeHrKey] = '>%high'
                 }
                 timeHr[`type_${timeHrKey}`] = '>%high'
               } else if (calcCondition2 < checkCondition?.yellow_value) {
-                if (checkCondition.yellow_mode == 2 && checkCondition?.yellow_url) {
-                  timeHr[timeHrKey] = checkCondition?.yellow_url || null
+                if (checkCondition && checkCondition.yellow_mode == 2 && checkCondition.yellow_url) {
+                  timeHr[timeHrKey] = checkCondition.yellow_url
                 } else {
                   timeHr[timeHrKey] = '<%low'
                 }
                 timeHr[`type_${timeHrKey}`] = '<%low'
               } else {
-                if(String(calcCondition1) === "NaN" || String(calcCondition2) === "NaN"){
+                if (String(calcCondition1) === 'NaN' || String(calcCondition2) === 'NaN') {
                   // N/A ไม่ต้องเซ็ต
-                }else{
+                } else {
                   timeHr[timeHrKey] = checkCondition?.green_url || null
                   timeHr[`type_${timeHrKey}`] = 'green_url'
                 }
@@ -2937,7 +4190,7 @@ export class MeteringManagementService {
       } catch (error) {}
     } else {
       try {
-        const message = `Metering Interface: Data retrieving for the period ${payload.start_date} - ${payload.end_date} and executed on ${payload.insert_timestamp} ${payload.message}.`
+        const message = `Metering Interface: Data retrieving for the period ${(payload && payload.start_date) || ''} - ${(payload && payload.end_date) || ''} and executed on ${(payload && payload.insert_timestamp) || ''} ${(payload && payload.message) || ''}.`
         await middleNotiInapp(
           this.prisma,
           'Metering',
@@ -2969,7 +4222,7 @@ export class MeteringManagementService {
     return dataConvert
   }
 
-  async getDataLogic2(query: any, isReplaceMissingMeterWithNomination?: boolean, meterMaster?: any[]) {
+  async getDataLogic2(query: any, isReplaceMissingMeterWithNomination?: boolean, meterMaster?: any[], userId?: any) {
     const {share, start_date, end_date} = query
 
     let activeData: activeData[] | undefined = []
@@ -3001,13 +4254,78 @@ export class MeteringManagementService {
               ...meteringPointPopulate
             })
 
+        const conceptPointAndInWhere: Prisma.concept_pointWhereInput[] = [
+          {
+            OR: [{end_date: null}, {end_date: {gt: getMeterFrom.toDate()}}]
+          },
+          {start_date: {lte: getMeterTo.toDate()}}
+        ]
+
+        if (userId) {
+          const userType = await this.prisma.user_type.findFirst({
+            where: {
+              account_manage: {
+                some: {
+                  account_id: Number(userId)
+                }
+              }
+            }
+          })
+
+          if (userType?.id === 3) {
+            const group_ = await this.prisma.group.findFirst({
+              where: {
+                account_manage: {
+                  some: {
+                    account_id: Number(userId)
+                  }
+                }
+              },
+              include: {
+                shipper_contract_point: {
+                  include: {
+                    contract_point: {
+                      include: {
+                        nomination_point_list: {
+                          include: {
+                            metering_point: true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            })
+
+            if (group_) {
+              conceptPointAndInWhere.push({
+                limit_concept_point_history: {
+                  some: {
+                    group_id: group_.id,
+                    create_date: {lte: getMeterTo.toDate()},
+                    OR: [{deleted_date: null}, {deleted_date: {gte: getMeterFrom.toDate()}}]
+                  }
+                }
+              })
+            }
+          }
+        }
+        const conceptPointMaster: conceptPointWithRelations[] = await this.prisma.concept_point.findMany({
+          where: {
+            AND: conceptPointAndInWhere
+          },
+          ...conceptPointPopulate
+        })
+
         // Fill dateArray with all dates between getMeterFrom and getMeterTo (inclusive) in YYYY-MM-DD format
         let current = getMeterFrom.clone()
         while (current.isSameOrBefore(getMeterTo, 'day')) {
-          dateArray.push(current.format('YYYY-MM-DD'))
+          dateArray.push((current && current.format('YYYY-MM-DD')) || dayjs().format('YYYY-MM-DD'))
           activeData.push({
             date: current.format('YYYY-MM-DD'),
-            activeMeteringPoints: meteringPointMaster.filter((meteringPoint) => meteringPoint.start_date <= current.toDate() && (meteringPoint.end_date === null || meteringPoint.end_date >= current.toDate()))
+            activeMeteringPoints: meteringPointMaster.filter((meteringPoint) => meteringPoint.start_date <= current.toDate() && (meteringPoint.end_date === null || meteringPoint.end_date >= current.toDate())),
+            activeConceptPoints: conceptPointMaster.filter((conceptPoint) => conceptPoint.start_date <= current.toDate() && (conceptPoint.end_date === null || conceptPoint.end_date >= current.toDate()))
           })
           current = current.add(1, 'day')
         }
@@ -3042,10 +4360,11 @@ export class MeteringManagementService {
         const activeDataForDate = activeData?.find((ad) => ad.date === date)
         if (activeDataForDate) {
           const meteredPoint = activeDataForDate?.activeMeteringPoints || []
-          
+          const conceptPointList = activeDataForDate?.activeConceptPoints || []
+
           const ckShare = share === 'on' ? await shareShipper(meteredPoint, this.prisma, null, null) : meteredPoint
 
-          const compareMeter = await this.meteredCompare(ckShare, dataConvert, date)
+          const compareMeter = await this.meteredCompare(ckShare, dataConvert, date, conceptPointList) // ignoreConcpetPoint ไปก่อนจนกว่าจะทำข้อที่ให้ปรับ concpet point ใหม่
 
           return compareMeter
         }
@@ -3058,7 +4377,7 @@ export class MeteringManagementService {
     console.time('getDataLogicNoCondept2')
     const {share, start_date, end_date} = query
 
-    let activeData: any[] | undefined = undefined
+    let activeData: any[] | undefined = []
     let meteringPointMaster: any[] = []
     const dateArray: string[] = []
     if (isReplaceMissingMeterWithNomination) {
@@ -3094,7 +4413,7 @@ export class MeteringManagementService {
         console.timeEnd('getDataLogicNoCondept2 -1')
         console.time('getDataLogicNoCondept2 -2')
         while (current.isSameOrBefore(getMeterTo, 'day')) {
-          dateArray.push(current.format('YYYY-MM-DD'))
+          dateArray.push((current && current.format('YYYY-MM-DD')) || dayjs().format('YYYY-MM-DD'))
           activeData.push({
             date: current.format('YYYY-MM-DD'),
             activeMeteringPoints: meteringPointMaster.filter((meteringPoint) => meteringPoint.start_date <= current.toDate() && (meteringPoint.end_date === null || meteringPoint.end_date >= current.toDate()))
@@ -3105,6 +4424,8 @@ export class MeteringManagementService {
       } catch (error) {
         activeData = undefined
       }
+    } else {
+      activeData = undefined
     }
     console.time('getDataLogicNoCondept2 -3')
     const meteredMicroData = await this.meteredMicroService.sendMessage(
@@ -3125,7 +4446,7 @@ export class MeteringManagementService {
     console.timeEnd('getDataLogicNoCondept2')
     const dataConvert = (!!meteredMicroData?.reply && JSON.parse(meteredMicroData?.reply)) || null
     // const meteredPoint = await this.meteredMasterAll(start_date, end_date);
-    const ckShare = (share === 'on' || share == true) ? await shareShipper(meteringPointMaster, this.prisma, null, null) : meteringPointMaster
+    const ckShare = share === 'on' || share == true ? await shareShipper(meteringPointMaster, this.prisma, null, null) : meteringPointMaster
 
     return {
       meterNom: ckShare,
@@ -3410,7 +4731,7 @@ export class MeteringManagementService {
     fileOriginal: any
     // userId: any,
   ) {
-    //
+    // dayjs(gasDay).format('DD/MM/YYYY')
     const newDate = getTodayNow()
     try {
       const newDate7 = getTodayNowAdd7()
@@ -3462,7 +4783,7 @@ export class MeteringManagementService {
           }
         }
 
-        if (!isValidGasDay(gasDay)) {
+        if (!gasDay || !isValidGasDay(gasDay)) {
           throw new HttpException(
             {
               status: HttpStatus.BAD_REQUEST,
@@ -3470,11 +4791,11 @@ export class MeteringManagementService {
             },
             HttpStatus.BAD_REQUEST
           )
-        } else {
-          const ddmmyyyy = dayjs(gasDay?.[0], 'DD/MM/YYYY', true)
-          if (ddmmyyyy.isValid()) {
-            gasDay[0] = ddmmyyyy.format('YYYY-MM-DD')
-          }
+        }
+
+        const ddmmyyyy = dayjs(gasDay[0], 'DD/MM/YYYY', true)
+        if (ddmmyyyy.isValid()) {
+          gasDay[0] = ddmmyyyy.format('YYYY-MM-DD')
         }
 
         if (valueCol.length === 0) {
@@ -3496,7 +4817,7 @@ export class MeteringManagementService {
           return regex.test(value)
         }
 
-        const correctHeaders = ['POINT_ID', 'REGISTER_TIMSTAMP', 'VOLUME', 'ENERGY', 'HV', 'WI', 'CO2', 'C1', 'C2', 'C3', 'iC4', 'nC4', 'iC5', 'nC5', 'C6', 'C7', 'C2+', 'N2', 'O2', 'H2S', 'S', 'Hg', 'Pressure', 'Moisture', 'DewPoint', 'SG', 'Datasource']
+        const correctHeaders = ['POINT_ID', 'REGISTER_TIMSTAMP', 'Gas Hour', 'VOLUME', 'ENERGY', 'HV', 'WI', 'CO2', 'C1', 'C2', 'C3', 'iC4', 'nC4', 'iC5', 'nC5', 'C6', 'C7', 'C2+', 'N2', 'O2', 'H2S', 'S', 'Hg', 'Pressure', 'Moisture', 'DewPoint', 'SG', 'Datasource']
 
         const validateNegativeHeaders = ['VOLUME', 'ENERGY', 'HV', 'WI']
 
@@ -3574,28 +4895,33 @@ export class MeteringManagementService {
                 //   },
                 //   HttpStatus.BAD_REQUEST
                 // )
-              }
-              else{
-              const ckRegis = isValidStrictIsoDatetime(e[obj])
-              if (!ckRegis) {
-                if (validateList['dateFormatNotMatch']) {
-                  validateList['dateFormatNotMatch'] = [...validateList['dateFormatNotMatch'], e['0']]
+              } else {
+                // const ckRegis = isValidStrictIsoDatetime(e[obj])
+                console.log('e[obj] : ', e[obj])
+                // const ckRegis = isValidStrictIsoDatetime(e[obj])
+                const ckRegis = dayjs(e[obj], 'DD/MM/YYYY HH:mm:ss', true).isValid()
+
+                if (!ckRegis) {
+                  if (validateList['dateFormatNotMatch']) {
+                    validateList['dateFormatNotMatch'] = [...validateList['dateFormatNotMatch'], e['0']]
+                  } else {
+                    validateList['dateFormatNotMatch'] = [e['0']]
+                  }
+                  // throw new HttpException(
+                  //   {
+                  //     status:
+                  //       HttpStatus.BAD_REQUEST,
+                  //     error:
+                  //       'Register Timestamp must be earlier or equal to Current date.'
+                  //   },
+                  //   HttpStatus.BAD_REQUEST
+                  // )
                 } else {
-                  validateList['dateFormatNotMatch'] = [e['0']]
-                }
-                // throw new HttpException(
-                //   {
-                //     status:
-                //       HttpStatus.BAD_REQUEST,
-                //     error:
-                //       'Register Timestamp must be earlier or equal to Current date.'
-                //   },
-                //   HttpStatus.BAD_REQUEST
-                // )
-              }
-                else{
-                  const registerTime = dayjs(e[obj], 'YYYY-MM-DDTHH:mm:ss.SSS+Z')
-                  if(newDate7.isBefore(registerTime)){
+                  // const convertFormat = 'YYYY-MM-DD HH:mm:ss'
+                  // const registerTime = dayjs(dayjs.utc(e[obj]).format(convertFormat), convertFormat)
+                  const convertFormat = 'YYYY-MM-DD HH:mm:ss'
+                  const registerTime = dayjs(e[obj], 'DD/MM/YYYY HH:mm:ss').format(convertFormat)
+                  if (newDate7.isBefore(registerTime)) {
                     if (validateList['earlierTimestamp']) {
                       validateList['earlierTimestamp'] = [...validateList['earlierTimestamp'], e['0']]
                     } else {
@@ -3603,8 +4929,8 @@ export class MeteringManagementService {
                     }
                   }
                 }
+                e[obj] = e[obj].split('+')[0]
               }
-              e[obj] = e[obj].split('+')[0]
             }
             return {
               [headerCol[obj]]: {
@@ -3656,7 +4982,7 @@ export class MeteringManagementService {
         }
 
         let newData = {
-          gasDay: gasDay['0'],
+          gasDay: (gasDay && gasDay['0']) || null,
           data: newValue,
           tempExcel: findData
         }
@@ -3699,6 +5025,14 @@ export class MeteringManagementService {
               {
                 status: HttpStatus.BAD_REQUEST,
                 error: 'Required field is missing: Register Timestamp'
+              },
+              HttpStatus.BAD_REQUEST
+            )
+          } else if (!!!newData.data[i]?.["Gas Hour"]?.value) {
+            throw new HttpException(
+              {
+                status: HttpStatus.BAD_REQUEST,
+                error: 'Required field is missing: Gas Hour'
               },
               HttpStatus.BAD_REQUEST
             )
@@ -3752,8 +5086,12 @@ export class MeteringManagementService {
           }
 
           // newData.data[i]?.REGISTER_TIMSTAMP?.value -> 2024-03-15T11:30:00.569+01:00
-          // newData.data[i]?.REGISTER_TIMSTAMP?.value -> 2024-03-15T11:30:00.569
-          const registerTime = dayjs(newData.data[i]?.REGISTER_TIMSTAMP?.value)
+          // const registerTime = dayjs(newData.data[i]?.REGISTER_TIMSTAMP?.value)
+
+          // https://app.clickup.com/t/9018502823/86eub6d16
+          // DD/MM/YYYY HH:mm:ss
+          const registerTime = dayjs(newData.data[i]?.REGISTER_TIMSTAMP?.value, 'DD/MM/YYYY HH:mm:ss')
+          newData.data[i].REGISTER_TIMSTAMP.value = registerTime.format('YYYY-MM-DDTHH:mm:ss.000+00:00') // แปลงเป็นแบบเดิมเพื่อให้ service meter ไม่ต้องแก้
           const ckRg = newDate7.isBefore(registerTime)
           if (ckRg) {
             throw new HttpException(
@@ -3764,10 +5102,31 @@ export class MeteringManagementService {
               HttpStatus.BAD_REQUEST
             )
           }
+       
+          if(dayjs(ddmmyyyy, "DD/MM/YYYY").isSame(dayjs(), "day")){
+            if(Number(newData.data[i]?.["Gas Hour"]?.value) > dayjs().hour()){
+              throw new HttpException(
+                {
+                  status: HttpStatus.BAD_REQUEST,
+                  error: `Point ${newData.data[i]?.POINT_ID?.value}; Gas Hour must be earlier or equal to Current date.`
+                },
+                HttpStatus.BAD_REQUEST
+              )
+            }
+          }
+          // 
         }
-
         meterArr = [...meterArr, newData]
       }
+
+      // throw new HttpException(
+      //     {
+      //       status: HttpStatus.BAD_REQUEST,
+      //       error: `Test.`
+      //     },
+      //     HttpStatus.BAD_REQUEST
+      //   )
+
       const metered_run_number = await this.prisma.metered_run_number.create({
         data: {
           metering_retrieving_id: meteringRetrievingId,
@@ -3995,6 +5354,7 @@ export class MeteringManagementService {
 
       return 'success'
     } catch (error) {
+      console.log('error ', error, error)
       try {
         await middleNotiInapp(
           this.prisma,
@@ -4003,7 +5363,9 @@ export class MeteringManagementService {
           77, // Metering Management menus_id
           1
         )
-      } catch (error) {}
+      } catch (error) {
+        console.log('error2 ', error)
+      }
       throw new HttpException(
         {
           status: HttpStatus.BAD_REQUEST,
@@ -4095,11 +5457,7 @@ export class MeteringManagementService {
       if (!reply?.status || reply?.error === 'Internal server error') {
         if (reply?.error) {
           try {
-            if(reply?.status_code === 504 &&
-              (
-                reply?.error?.toLowerCase()?.includes('timeout') || reply?.detail?.toLowerCase()?.includes('timeout') || reply?.faultcode?.toLowerCase()?.includes('timeout') || reply?.faultstring?.toLowerCase()?.includes('timeout')
-              )
-            ){
+            if (reply?.status_code === 504 && (reply?.error?.toLowerCase()?.includes('timeout') || reply?.detail?.toLowerCase()?.includes('timeout') || reply?.faultcode?.toLowerCase()?.includes('timeout') || reply?.faultstring?.toLowerCase()?.includes('timeout'))) {
               const message = `Metering Interface: Data retrieving for the period ${reply?.start_date ?? startDate} - ${reply?.end_date ?? endDate} and executed on ${reply?.insert_timestamp ?? insertTimestamp} was failed with timeout. Please reduce retrieving period. (Metering Input Code ${reply?.metering_retrieving_id ?? meteringRetrievingId})`
               await middleNotiInapp(
                 this.prisma,
@@ -4108,16 +5466,15 @@ export class MeteringManagementService {
                 77, // Metering Management menus_id
                 1
               )
-            }
-            else{
-            const message = `Metering Interface: Data retrieving for the period ${reply?.start_date ?? startDate} - ${reply?.end_date ?? endDate} and executed on ${reply?.insert_timestamp ?? insertTimestamp} ${reply?.error?.message ?? reply?.error}.`
-            await middleNotiInapp(
-              this.prisma,
-              'Metering',
-              message,
-              77, // Metering Management menus_id
-              1
-            )
+            } else {
+              const message = `Metering Interface: Data retrieving for the period ${reply?.start_date ?? startDate} - ${reply?.end_date ?? endDate} and executed on ${reply?.insert_timestamp ?? insertTimestamp} ${reply?.error?.message ?? reply?.error}.`
+              await middleNotiInapp(
+                this.prisma,
+                'Metering',
+                message,
+                77, // Metering Management menus_id
+                1
+              )
             }
           } catch (error) {}
         } else {
@@ -4134,7 +5491,7 @@ export class MeteringManagementService {
         }
       }
 
-      if (reply?.status && reply.data.length > 0) {
+      if (reply && reply?.status && reply.data.length > 0) {
         try {
           const message = `Metering Interface: Data retrieving for the period ${reply?.start_date ?? startDate} - ${reply?.end_date ?? endDate} and executed on ${reply?.insert_timestamp ?? insertTimestamp} finished OK   (Metering Input Code ${reply?.metering_retrieving_id ?? meteringRetrievingId}). ${reply?.susscess_points ?? 0}/${reply?.total_points ?? 0} registers inserted. Allocation and Balancing process should be executed.`
           await middleNotiInapp(

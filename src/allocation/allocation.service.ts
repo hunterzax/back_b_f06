@@ -1,8 +1,8 @@
-import { forwardRef, HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common'
-import { PrismaService } from 'prisma/prisma.service'
-import { CACHE_MANAGER } from '@nestjs/cache-manager'
-import { Cache } from 'cache-manager'
-import { JwtService } from '@nestjs/jwt'
+import {forwardRef, HttpException, HttpStatus, Inject, Injectable} from '@nestjs/common'
+import {PrismaService} from 'prisma/prisma.service'
+import {CACHE_MANAGER} from '@nestjs/cache-manager'
+import {Cache} from 'cache-manager'
+import {JwtService} from '@nestjs/jwt'
 import * as bcrypt from 'bcrypt'
 
 import * as dayjs from 'dayjs'
@@ -13,11 +13,11 @@ import * as XLSX from 'xlsx-js-style'
 
 import axios from 'axios'
 import * as https from 'https'
-import { MeteredMicroService } from 'src/grpc/metered-service.service'
-import { ExportFilesService } from 'src/export-files/export-files.service'
-import { MeteringManagementService } from 'src/metering-management/metering-management.service'
-import { CapacityService } from 'src/capacity/capacity.service'
-import { FileUploadService } from 'src/grpc/file-service.service'
+import {MeteredMicroService} from 'src/grpc/metered-service.service'
+import {ExportFilesService} from 'src/export-files/export-files.service'
+import {MeteringManagementService} from 'src/metering-management/metering-management.service'
+import {CapacityService} from 'src/capacity/capacity.service'
+import {FileUploadService} from 'src/grpc/file-service.service'
 import {
   getTodayEndAdd7,
   getTodayEndYYYYMMDDDfaultAdd7,
@@ -48,16 +48,16 @@ import {
   createAdjustedNominationContext,
   getAdjustedNomValueFast,
   deduplicateAllocationModesByStartDate,
-  getIntradayAllocationGasDays,
+  getIntradayAllocationGasDays
 } from 'src/common/utils/allocation.util'
 import * as nodemailer from 'nodemailer'
-import { contract_code, group, Prisma } from '@prisma/client'
-import { QualityEvaluationService } from 'src/quality-evaluation/quality-evaluation.service'
-import { findMinMaxExeDate } from 'src/common/utils/balancing.util'
-import { parseToNumber, parseToNumber2Decimal, parseToNumber3Decimal, parseToNumber6Decimal } from 'src/common/utils/number.util'
-import { systemParameterPopulate, systemParameterWithRelations } from 'src/common/utils/tariff.util'
-import { request } from 'http'
-import { middleNotiInapp, middleNotiInappMenuArr } from 'src/common/utils/inapp.util'
+import {contract_code, group, Prisma} from '@prisma/client'
+import {QualityEvaluationService} from 'src/quality-evaluation/quality-evaluation.service'
+import {findMinMaxExeDate} from 'src/common/utils/balancing.util'
+import {parseToNumber, parseToNumber2Decimal, parseToNumber3Decimal, parseToNumber6Decimal} from 'src/common/utils/number.util'
+import {systemParameterPopulate, systemParameterWithRelations} from 'src/common/utils/tariff.util'
+import {request} from 'http'
+import {middleNotiInapp, middleNotiInappMenuArr} from 'src/common/utils/inapp.util'
 import {
   allocationModeRecord,
   conceptPointPopulate,
@@ -73,11 +73,11 @@ import {
   queryShipperNominationFileWithRelations,
   queryShipperNominationFileWithRelationsForCal
 } from '@type/prisma.type'
-import { AllocationRepository } from './allocation.repository'
-import { findHvFromEntryArea, getAdjustNom2 } from 'src/common/utils/nomination.util'
-import { shareShipper, parseGasHoursFromRows } from 'src/common/utils/meter.util'
-import { sleep } from 'src/common/utils/async.util'
-import { join } from 'path'
+import {AllocationRepository} from './allocation.repository'
+import {findHvFromEntryArea, getAdjustNom2} from 'src/common/utils/nomination.util'
+import {shareShipper, parseGasHoursFromRows, shareShipperAtNomLevel} from 'src/common/utils/meter.util'
+import {sleep} from 'src/common/utils/async.util'
+import {join} from 'path'
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -99,13 +99,13 @@ export class AllocationService {
 
     @Inject(forwardRef(() => ExportFilesService))
     private readonly exportFilesService: ExportFilesService
-  ) { }
+  ) {}
 
   async useReqs(req: any) {
-    const ip = req.headers['x-forwarded-for'] || req.ip
+    const ip = req?.headers?.['x-forwarded-for'] || req?.ip
     return {
       ip: ip,
-      sub: req?.user?.sub,
+      sub: (req?.user?.sub || -1),
       first_name: req?.user?.first_name,
       last_name: req?.user?.last_name,
       username: req?.user?.username,
@@ -113,37 +113,18 @@ export class AllocationService {
     }
   }
 
-  getEarliestIntradayReplayStart(
-    replayStarts: any[]
-  ) {
+  getEarliestIntradayReplayStart(replayStarts: any[]) {
     return (
       replayStarts
-        .filter(
-          (replayStart) =>
-            !!replayStart?.gasDay &&
-            Number.isFinite(
-              Number(replayStart?.gasHour)
-            )
-        )
+        .filter((replayStart) => !!replayStart?.gasDay && Number.isFinite(Number(replayStart?.gasHour)))
         .sort((a, b) => {
-          const gasDayDiff =
-            dayjs
-              .tz(a.gasDay, 'Asia/Bangkok')
-              .startOf('day')
-              .valueOf() -
-            dayjs
-              .tz(b.gasDay, 'Asia/Bangkok')
-              .startOf('day')
-              .valueOf()
+          const gasDayDiff = dayjs.tz(a.gasDay, 'Asia/Bangkok').startOf('day').valueOf() - dayjs.tz(b.gasDay, 'Asia/Bangkok').startOf('day').valueOf()
 
           if (gasDayDiff !== 0) {
             return gasDayDiff
           }
 
-          return (
-            Number(a.gasHour) -
-            Number(b.gasHour)
-          )
+          return Number(a.gasHour) - Number(b.gasHour)
         })[0] ?? null
     )
   }
@@ -173,7 +154,7 @@ export class AllocationService {
   }
 
   async evidenApiAllocationEod(payload: any, callback?: (total_record: number) => void) {
-    const { start_date, end_date, skip, limit } = payload
+    const {start_date, end_date, skip, limit} = payload || {}
 
     // console.log('[INFO] evidenApiAllocationEod: payload =', payload)
 
@@ -206,11 +187,11 @@ export class AllocationService {
 
       let evidenData = []
       if (resEviden?.status === 200 && !!resEviden?.data) {
-        if (Array.isArray(resEviden.data) && resEviden.data.length > 0) {
+        if (resEviden && Array.isArray(resEviden.data) && resEviden.data.length > 0) {
           let total_record = undefined
-          resEviden.data.map((resEvidenData: any) => {
-            if (resEvidenData?.data && Array.isArray(resEvidenData.data) && resEvidenData.data.length > 0) {
-              if (resEvidenData?.total_record) {
+          resEviden && resEviden?.data?.forEach((resEvidenData: any) => {
+            if (resEvidenData && resEvidenData?.data && Array.isArray(resEvidenData.data) && resEvidenData.data.length > 0) {
+              if (resEvidenData && resEvidenData?.total_record) {
                 if (total_record) {
                   total_record += resEvidenData?.total_record
                 } else {
@@ -224,10 +205,10 @@ export class AllocationService {
             callback(total_record)
           }
         } else {
-          if (callback && resEviden?.data?.total_record) {
+          if (callback && resEviden && resEviden?.data?.total_record) {
             callback(resEviden.data.total_record)
           }
-          evidenData = resEviden?.data?.data
+          evidenData = resEviden && resEviden?.data?.data || []
         }
       }
       // console.log('[INFO] evidenApiAllocationEod: evidenData.length =', evidenData?.length || 0)
@@ -249,7 +230,7 @@ export class AllocationService {
   }
 
   async evidenApiAllocationIntraday(payload: any, callback?: (total_record: number) => void) {
-    const { gas_day, start_hour, end_hour, skip, limit } = payload
+    const {gas_day, start_hour, end_hour, skip, limit} = payload || {}
 
     // console.log('[INFO] evidenApiAllocationIntraday: payload =', payload)
 
@@ -282,11 +263,11 @@ export class AllocationService {
 
       let evidenData = []
       if (resEviden?.status === 200 && !!resEviden?.data) {
-        if (Array.isArray(resEviden.data) && resEviden.data.length > 0) {
+        if (resEviden && Array.isArray(resEviden.data) && resEviden.data.length > 0) {
           let total_record = undefined
-          resEviden.data.map((resEvidenData: any) => {
-            if (resEvidenData?.data && Array.isArray(resEvidenData.data) && resEvidenData.data.length > 0) {
-              if (resEvidenData?.total_record) {
+          resEviden && resEviden?.data?.forEach((resEvidenData: any) => {
+            if (resEvidenData && resEvidenData?.data && Array.isArray(resEvidenData.data) && resEvidenData.data.length > 0) {
+              if (resEvidenData && resEvidenData?.total_record) {
                 if (total_record) {
                   total_record += resEvidenData?.total_record
                 } else {
@@ -300,10 +281,10 @@ export class AllocationService {
             callback(total_record)
           }
         } else {
-          if (callback && resEviden?.data?.total_record) {
+          if (callback && resEviden && resEviden?.data?.total_record) {
             callback(resEviden.data.total_record)
           }
-          evidenData = resEviden?.data?.data
+          evidenData = resEviden && resEviden?.data?.data || []
         }
       }
       // console.log('[INFO] evidenApiAllocationIntraday: evidenData.length =', evidenData?.length || 0)
@@ -319,7 +300,7 @@ export class AllocationService {
   }
 
   async evidenApiAllocationContractPoint(payload: any, callback?: (total_record: number) => void) {
-    const { start_date, end_date, skip, limit } = payload
+    const {start_date, end_date, skip, limit} = payload || {}
 
     const agent = new https.Agent({
       rejectUnauthorized: false // บอก axios ว่า ไม่ต้อง verify SSL
@@ -350,10 +331,10 @@ export class AllocationService {
 
       let evidenData = []
       if (resEviden?.status === 200 && !!resEviden?.data) {
-        if (Array.isArray(resEviden.data) && resEviden.data.length > 0) {
+        if (resEviden && Array.isArray(resEviden.data) && resEviden.data.length > 0) {
           let total_record = undefined
-          resEviden.data.map((resEvidenData: any) => {
-            if (resEvidenData?.total_record) {
+          resEviden && resEviden?.data?.forEach((resEvidenData: any) => {
+            if (resEvidenData && resEvidenData?.total_record) {
               try {
                 const totalRecord = Number(resEvidenData?.total_record)
                 if (!Number.isNaN(totalRecord)) {
@@ -369,7 +350,7 @@ export class AllocationService {
                 }
               }
             }
-            if (resEvidenData?.data && Array.isArray(resEvidenData.data) && resEvidenData.data.length > 0) {
+            if (resEvidenData && resEvidenData?.data && Array.isArray(resEvidenData.data) && resEvidenData.data.length > 0) {
               evidenData.push(...resEvidenData.data)
             }
           })
@@ -377,10 +358,10 @@ export class AllocationService {
             callback(total_record)
           }
         } else {
-          if (callback && resEviden?.data?.total_record) {
+          if (callback && resEviden && resEviden?.data?.total_record) {
             callback(resEviden.data.total_record)
           }
-          evidenData = resEviden?.data?.data
+          evidenData = resEviden && resEviden?.data?.data || []
         }
       }
 
@@ -394,7 +375,7 @@ export class AllocationService {
   }
 
   async evidenApiAllocationContractPointIntraday(payload: any, callback?: (total_record: number) => void) {
-    const { start_date, end_date, skip, limit } = payload
+    const {start_date, end_date, skip, limit} = payload || {}
 
     const agent = new https.Agent({
       rejectUnauthorized: false // บอก axios ว่า ไม่ต้อง verify SSL
@@ -426,10 +407,10 @@ export class AllocationService {
 
       let evidenData = []
       if (resEviden?.status === 200 && !!resEviden?.data) {
-        if (Array.isArray(resEviden.data) && resEviden.data.length > 0) {
+        if (resEviden && Array.isArray(resEviden.data) && resEviden.data.length > 0) {
           let total_record = undefined
-          resEviden.data.map((resEvidenData: any) => {
-            if (resEvidenData?.total_record) {
+          resEviden && resEviden?.data?.forEach((resEvidenData: any) => {
+            if (resEvidenData && resEvidenData?.total_record) {
               try {
                 const totalRecord = Number(resEvidenData?.total_record)
                 if (!Number.isNaN(totalRecord)) {
@@ -445,7 +426,7 @@ export class AllocationService {
                 }
               }
             }
-            if (resEvidenData?.data && Array.isArray(resEvidenData.data) && resEvidenData.data.length > 0) {
+            if (resEvidenData && resEvidenData?.data && Array.isArray(resEvidenData.data) && resEvidenData.data.length > 0) {
               evidenData.push(...resEvidenData.data)
             }
           })
@@ -453,10 +434,10 @@ export class AllocationService {
             callback(total_record)
           }
         } else {
-          if (callback && resEviden?.data?.total_record) {
+          if (callback && resEviden && resEviden?.data?.total_record) {
             callback(resEviden.data.total_record)
           }
-          evidenData = resEviden?.data?.data
+          evidenData = resEviden && resEviden?.data?.data || []
         }
       }
 
@@ -470,24 +451,26 @@ export class AllocationService {
   }
 
   async evidenApiAllocationContractPointByNom(payload: any, callback?: (total_record: number) => void) {
-    const { start_date, end_date, skip, limit, request_number } = payload
+    const {start_date, end_date, skip, limit, request_number} = payload
 
     const agent = new https.Agent({
       rejectUnauthorized: false // บอก axios ว่า ไม่ต้อง verify SSL
     })
 
-    let data = request_number ? JSON.stringify({
-      start_date: start_date,
-      end_date: end_date,
-      skip: Number(skip),
-      limit: Number(limit),
-      request_number: Number(request_number)
-    }) : JSON.stringify({
-      start_date: start_date,
-      end_date: end_date,
-      skip: Number(skip),
-      limit: Number(limit)
-    })
+    let data = request_number
+      ? JSON.stringify({
+          start_date: start_date,
+          end_date: end_date,
+          skip: Number(skip),
+          limit: Number(limit),
+          request_number: Number(request_number)
+        })
+      : JSON.stringify({
+          start_date: start_date,
+          end_date: end_date,
+          skip: Number(skip),
+          limit: Number(limit)
+        })
 
     let config = {
       method: `${process.env.METHOD_EVIDEN}`,
@@ -507,10 +490,10 @@ export class AllocationService {
 
       let evidenData = []
       if (resEviden?.status === 200 && !!resEviden?.data) {
-        if (Array.isArray(resEviden.data) && resEviden.data.length > 0) {
+        if (resEviden && Array.isArray(resEviden.data) && resEviden.data.length > 0) {
           let total_record = undefined
-          resEviden.data.map((resEvidenData: any) => {
-            if (resEvidenData?.total_record) {
+          resEviden && resEviden?.data?.forEach((resEvidenData: any) => {
+            if (resEvidenData && resEvidenData?.total_record) {
               try {
                 const totalRecord = Number(resEvidenData?.total_record)
                 if (!Number.isNaN(totalRecord)) {
@@ -526,7 +509,7 @@ export class AllocationService {
                 }
               }
             }
-            if (resEvidenData?.data && Array.isArray(resEvidenData.data) && resEvidenData.data.length > 0) {
+            if (resEvidenData && resEvidenData?.data && Array.isArray(resEvidenData.data) && resEvidenData.data.length > 0) {
               evidenData.push(...resEvidenData.data)
             }
           })
@@ -534,10 +517,10 @@ export class AllocationService {
             callback(total_record)
           }
         } else {
-          if (callback && resEviden?.data?.total_record) {
+          if (callback && resEviden && resEviden?.data?.total_record) {
             callback(resEviden.data.total_record)
           }
-          evidenData = resEviden?.data?.data
+          evidenData = resEviden && resEviden?.data?.data || []
         }
       }
 
@@ -551,7 +534,7 @@ export class AllocationService {
   }
 
   async evidenApiAllocationContractPointIntradayByNom(payload: any, callback?: (total_record: number) => void) {
-    const { start_date, end_date, skip, limit } = payload
+    const {start_date, end_date, skip, limit} = payload || {}
 
     const agent = new https.Agent({
       rejectUnauthorized: false // บอก axios ว่า ไม่ต้อง verify SSL
@@ -584,10 +567,10 @@ export class AllocationService {
 
       let evidenData = []
       if (resEviden?.status === 200 && !!resEviden?.data) {
-        if (Array.isArray(resEviden.data) && resEviden.data.length > 0) {
+        if (resEviden && Array.isArray(resEviden.data) && resEviden.data.length > 0) {
           let total_record = undefined
-          resEviden.data.map((resEvidenData: any) => {
-            if (resEvidenData?.total_record) {
+          resEviden && resEviden?.data?.forEach((resEvidenData: any) => {
+            if (resEvidenData && resEvidenData?.total_record) {
               try {
                 const totalRecord = Number(resEvidenData?.total_record)
                 if (!Number.isNaN(totalRecord)) {
@@ -603,7 +586,7 @@ export class AllocationService {
                 }
               }
             }
-            if (resEvidenData?.data && Array.isArray(resEvidenData.data) && resEvidenData.data.length > 0) {
+            if (resEvidenData && resEvidenData?.data && Array.isArray(resEvidenData.data) && resEvidenData.data.length > 0) {
               evidenData.push(...resEvidenData.data)
             }
           })
@@ -611,10 +594,10 @@ export class AllocationService {
             callback(total_record)
           }
         } else {
-          if (callback && resEviden?.data?.total_record) {
+          if (callback && resEviden && resEviden?.data?.total_record) {
             callback(resEviden.data.total_record)
           }
-          evidenData = resEviden?.data?.data
+          evidenData = resEviden && resEviden?.data?.data || []
         }
       }
 
@@ -630,12 +613,12 @@ export class AllocationService {
 
   async allocationStatusMaster() {
     return this.prisma.allocation_status.findMany({
-      orderBy: { id: 'asc' }
+      orderBy: {id: 'asc'}
     })
   }
 
   async allocationManagement(payload: any, userId: any) {
-    const { start_date, end_date, skip, limit } = payload
+    const {start_date, end_date, skip, limit} = payload || {}
 
     const todayStart = getTodayStartAdd7().toDate()
     const todayEnd = getTodayEndAdd7().toDate()
@@ -775,13 +758,13 @@ export class AllocationService {
       e['nomination_version'] = e['nomination_version'].map((nv: any) => {
         nv['nomination_full_json'] = nv['nomination_full_json'].map((nj: any) => {
           nj['data_temp'] = JSON.parse(nj['data_temp'])
-          return { ...nj }
+          return {...nj}
         })
         nv['nomination_row_json'] = nv['nomination_row_json'].map((nj: any) => {
           nj['data_temp'] = JSON.parse(nj['data_temp'])
-          return { ...nj }
+          return {...nj}
         })
-        return { ...nv }
+        return {...nv}
       })
       let fullData = e['nomination_version'][0]?.['nomination_full_json'][0]
       let rowData = e['nomination_version'][0]?.['nomination_row_json']
@@ -803,7 +786,7 @@ export class AllocationService {
     const start = start_date ? getTodayStartAdd7(start_date) : null
     const end = end_date ? getTodayEndAdd7(end_date) : null
 
-    if (!start.isValid() || !end.isValid()) {
+    if (!start || !end || !start.isValid() || !end.isValid()) {
       throw new Error('⛔ Invalid date format')
     }
 
@@ -816,7 +799,7 @@ export class AllocationService {
     let current = start
 
     while (current.isSameOrBefore(end)) {
-      dateArray.push(current.format('YYYY-MM-DD'))
+      dateArray.push(current && current.format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD'))
       current = current.add(1, 'day')
     }
 
@@ -858,7 +841,7 @@ export class AllocationService {
         return f?.query_shipper_nomination_type_id === 1 && f?.data_temp['9'] === 'MMBTU/D'
       })
       const point = pointType1.map((pt: any) => {
-        const { rowData, ...nE } = e
+        const {rowData, ...nE} = e
         return {
           ...nE,
           point: {
@@ -957,11 +940,11 @@ export class AllocationService {
       })
       // const intraDay = intraFilValue[intraFilValue.length - 1] || null;
       // const { data: dataIntraDay = null, ...nIntraDay }: any = intraDay;
-      const { data: dataIntraDay = null, ...nIntraDay } = intraFilValue.at(-1) ?? {}
+      const {data: dataIntraDay = null, ...nIntraDay} = intraFilValue.at(-1) ?? {}
       const intradayFind = dataIntraDay?.find((f: any) => {
         return f?.contract === e['evidenUse']?.['contract'] && f?.shipper === e['evidenUse']?.['shipper']
       })
-      const { data: dataIntradayFind, ...nIntradayFind } = intradayFind ?? {}
+      const {data: dataIntradayFind, ...nIntradayFind} = intradayFind ?? {}
       const intradayData = dataIntradayFind?.find((f: any) => {
         return f?.point === e['evidenUse']?.['data']?.['point']
       })
@@ -1224,7 +1207,7 @@ export class AllocationService {
   }
 
   async allocationManagementNewReview(payload: any, userId: any) {
-    const { start_date, end_date, skip, limit } = payload
+    const {start_date, end_date, skip, limit} = payload || {}
 
     const todayStart = getTodayStartAdd7().toDate()
     const todayEnd = getTodayEndAdd7().toDate()
@@ -1366,13 +1349,13 @@ export class AllocationService {
       e['nomination_version'] = e['nomination_version'].map((nv: any) => {
         nv['nomination_full_json'] = nv['nomination_full_json'].map((nj: any) => {
           nj['data_temp'] = JSON.parse(nj['data_temp'])
-          return { ...nj }
+          return {...nj}
         })
         nv['nomination_row_json'] = nv['nomination_row_json'].map((nj: any) => {
           nj['data_temp'] = JSON.parse(nj['data_temp'])
-          return { ...nj }
+          return {...nj}
         })
-        return { ...nv }
+        return {...nv}
       })
       let fullData = e['nomination_version'][0]?.['nomination_full_json'][0]
       let rowData = e['nomination_version'][0]?.['nomination_row_json']
@@ -1394,7 +1377,7 @@ export class AllocationService {
     const start = start_date ? getTodayStartAdd7(start_date) : null
     const end = end_date ? getTodayEndAdd7(end_date) : null
 
-    if (!start.isValid() || !end.isValid()) {
+    if (!start || !end || !start.isValid() || !end.isValid()) {
       throw new Error('⛔ Invalid date format')
     }
 
@@ -1407,7 +1390,7 @@ export class AllocationService {
     let current = start
 
     while (current.isSameOrBefore(end)) {
-      dateArray.push(current.format('YYYY-MM-DD'))
+      dateArray.push(current && current.format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD'))
       current = current.add(1, 'day')
     }
 
@@ -1445,10 +1428,10 @@ export class AllocationService {
     }
 
     const newEOD = evidenApiAllocationEod.flatMap((fm: any) => {
-      const { data: data1, ...fmD } = fm
+      const {data: data1, ...fmD} = fm
 
       const nData = data1?.flatMap((dFm: any) => {
-        const { data: data2, ...fmD2 } = dFm
+        const {data: data2, ...fmD2} = dFm
         const nData2 = data2.map((dFm2: any) => {
           return {
             ...fmD,
@@ -1618,11 +1601,11 @@ export class AllocationService {
           )
         })
       })
-      const { data: dataIntraDay = null, ...nIntraDay } = intraFilValue.at(-1) ?? {}
+      const {data: dataIntraDay = null, ...nIntraDay} = intraFilValue.at(-1) ?? {}
       const intradayFind = dataIntraDay?.find((f: any) => {
         return f?.contract === eod['contract'] && f?.shipper === eod['shipper']
       })
-      const { data: dataIntradayFind, ...nIntradayFind } = intradayFind ?? {}
+      const {data: dataIntradayFind, ...nIntradayFind} = intradayFind ?? {}
       const intradayData = dataIntradayFind?.find((f: any) => {
         return f?.point === eod['point']
       })
@@ -1735,7 +1718,7 @@ export class AllocationService {
   }
 
   async allocationManagementNew(payload: any, userId: any) {
-    const { start_date, end_date, skip, limit } = payload
+    const {start_date, end_date, skip, limit} = payload || {}
 
     const todayStart = getTodayStartAdd7().toDate()
     const todayEnd = getTodayEndAdd7().toDate()
@@ -1893,13 +1876,13 @@ export class AllocationService {
       e['nomination_version'] = e['nomination_version'].map((nv: any) => {
         nv['nomination_full_json'] = nv['nomination_full_json'].map((nj: any) => {
           nj['data_temp'] = JSON.parse(nj['data_temp'])
-          return { ...nj }
+          return {...nj}
         })
         nv['nomination_row_json'] = nv['nomination_row_json'].map((nj: any) => {
           nj['data_temp'] = JSON.parse(nj['data_temp'])
-          return { ...nj }
+          return {...nj}
         })
-        return { ...nv }
+        return {...nv}
       })
       let fullData = e['nomination_version'][0]?.['nomination_full_json'][0]
       let rowData = e['nomination_version'][0]?.['nomination_row_json']
@@ -1911,7 +1894,7 @@ export class AllocationService {
       }
     })
     // console.log('[DEBUG] allocationManagementNew: ---s--');
-    const { minDate, maxDate } = await findMinMaxExeDate(this.prisma, start_date, end_date)
+    const {minDate, maxDate} = await findMinMaxExeDate(this.prisma, start_date, end_date)
 
     // console.log('[DEBUG] allocationManagementNew:eviden minDate : ', minDate);
     // console.log('[DEBUG] allocationManagementNew:eviden maxDate : ', maxDate);
@@ -1943,7 +1926,7 @@ export class AllocationService {
       return executeEodList?.some((executeData: any) => {
         const executeStart = getTodayNowAdd7(executeData?.start_date_date)
         const executeEnd = getTodayNowAdd7(executeData?.end_date_date)
-        return executeData.request_number_id == item.request_number && executeStart.isSameOrBefore(itemGasDay, 'day') && executeEnd.isSameOrAfter(itemGasDay, 'day')
+        return executeData?.request_number_id == item?.request_number && executeStart?.isSameOrBefore(itemGasDay, 'day') && executeEnd?.isSameOrAfter(itemGasDay, 'day')
       })
     })
 
@@ -1976,13 +1959,13 @@ export class AllocationService {
 
     // Filter based on active records
     const newEOD = latestPublishData.flatMap((fm: any) => {
-      const { data: data1, ...fmD } = fm
+      const {data: data1, ...fmD} = fm
 
       // Find active data for this gas_day
       const activeDataForDate = activeData.find((ad) => ad.date === fm.gas_day)
 
       const nData = data1?.flatMap((dFm: any) => {
-        const { data: data2, ...fmD2 } = dFm
+        const {data: data2, ...fmD2} = dFm
 
         // Validate contract and shipper existence
         const contractValidation = validateContractAndShipper(dFm, activeDataForDate)
@@ -2094,7 +2077,7 @@ export class AllocationService {
 
     const publishIntradayData = matchWithExecuteIntradayList.filter((evidenData: any) => {
       return !publicationCenterDeletedList?.some((unpublishData: any) => {
-        return unpublishData?.execute_timestamp === evidenData.execute_timestamp && unpublishData?.gas_day_text === evidenData.gas_day && unpublishData?.gas_hour === evidenData?.gas_hour
+        return unpublishData?.execute_timestamp === evidenData?.execute_timestamp && unpublishData?.gas_day_text === evidenData?.gas_day && unpublishData?.gas_hour === evidenData?.gas_hour
       })
     })
 
@@ -2262,9 +2245,9 @@ export class AllocationService {
       const previousAllocationTPAforReview = eod['previous_value']
 
       const intradayDataByGasDay = latestPublishIntradayData.find((f: any) => {
-        return (f?.gasday ?? f.gas_day) === eod['gas_day']
+        return (f?.gasday ?? f?.gas_day) === eod?.['gas_day']
       })
-      const { data: intraFil = [], ...intradayByGasDay } = intradayDataByGasDay ?? {}
+      const {data: intraFil = [], ...intradayByGasDay} = intradayDataByGasDay ?? {}
 
       const intraFilValue = intraFil
         .filter((f: any) => f?.data?.some((ff: any) => ff?.point === eod?.['point']) && f?.contract === eod['contract'] && f?.shipper === eod['shipper'])
@@ -2278,7 +2261,7 @@ export class AllocationService {
             data: data
           }
         })
-      const { data: dataIntraDay = null, ...nIntraDay } = intraFilValue.at(-1) ?? {}
+      const {data: dataIntraDay = null, ...nIntraDay} = intraFilValue.at(-1) ?? {}
 
       const intradayUse = {
         ...nIntraDay,
@@ -2437,8 +2420,8 @@ export class AllocationService {
   }
 
   async allcationOnceId(payload: any, userId: any) {
-    const { idAr, ...nPayload } = payload
-    const allocationManagement = await this.allocationManagement2(nPayload, userId)
+    const {idAr, ...nPayload} = payload
+    const allocationManagement = await this.allocationManagementFromAllocationReport(nPayload, userId)
 
     return allocationManagement
     // const fil = allocationManagement.filter((f: any) => {
@@ -2449,16 +2432,16 @@ export class AllocationService {
   }
   async allcationOnceId_(payload: any, userId: any, id_?: any) {
     if (id_) {
-      const { idAr, ...nPayload } = payload
-      const allocationManagement = await this.allocationManagement2(nPayload, userId)
+      const {idAr, ...nPayload} = payload
+      const allocationManagement = await this.allocationManagementFromAllocationReport(nPayload, userId)
       const fil = allocationManagement.filter((f: any) => {
         return id_.includes(f?.id)
       })
 
       return fil
     } else {
-      const { idAr, ...nPayload } = payload
-      const allocationManagement = await this.allocationManagement2(nPayload, userId)
+      const {idAr, ...nPayload} = payload
+      const allocationManagement = await this.allocationManagementFromAllocationReport(nPayload, userId)
 
       return allocationManagement
       // const fil = allocationManagement.filter((f: any) => {
@@ -2470,7 +2453,7 @@ export class AllocationService {
   }
 
   async shipperAllocationReview(id: any, payload: any, userId: any) {
-    const { shipper_allocation_review, comment, row_data } = payload
+    const {shipper_allocation_review, comment, row_data} = payload
     const idN = Number(id)
 
     const allocation = await this.prisma.allocation_management.findFirst({
@@ -2683,7 +2666,7 @@ export class AllocationService {
   }
 
   async allocationManageChangeStatus(payload: any, userId: any) {
-    const { status, comment, rowArray } = payload
+    const {status, comment, rowArray} = payload
     const nowAt = getTodayNowAdd7()
 
     for (let i = 0; i < rowArray.length; i++) {
@@ -2719,7 +2702,7 @@ export class AllocationService {
             }
           })
         }
-      } catch (error) { }
+      } catch (error) {}
 
       if (!!comment) {
         await this.prisma.allocation_management_comment.create({
@@ -2740,7 +2723,7 @@ export class AllocationService {
   }
 
   async allocationManageChangeStatusValidate(payload: any, userId: any) {
-    const { status, rowArray } = payload
+    const {status, rowArray} = payload
     const nowAt = getTodayNowAdd7()
 
     //check only when Accepted
@@ -2822,7 +2805,7 @@ export class AllocationService {
 
       let evidenData = []
       if (resEviden?.status === 200 && !!resEviden?.data) {
-        evidenData = resEviden?.data
+        evidenData = resEviden && resEviden?.data
       }
 
       return evidenData
@@ -2859,7 +2842,7 @@ export class AllocationService {
     // console.log(`[DEBUG] evidenApiCenterPost: resEviden (${resEviden?.status}): ${JSON.stringify(resEviden?.data, null, 2)}`)
     let evidenData = []
     if (resEviden?.status === 200 && !!resEviden?.data) {
-      evidenData = resEviden?.data
+      evidenData = resEviden && resEviden?.data
     }
     return evidenData
   }
@@ -2975,22 +2958,8 @@ export class AllocationService {
     message = `${message} \n(process executed on ${nowAt.format('DD/MM/YYYY HH:mm:ss')}).`
 
     try {
-      await middleNotiInappMenuArr(
-        this.prisma,
-        'Balancing',
-        message,
-        [87, 88, 99, 100, 101],
-        1,
-        'Alloc & Bal'
-      )
-      await middleNotiInappMenuArr(
-        this.prisma,
-        'Allocation',
-        message,
-        [80, 82],
-        1,
-        'Alloc & Bal'
-      )
+      await middleNotiInappMenuArr(this.prisma, 'Balancing', message, [87, 88, 99, 100, 101], 1, 'Alloc & Bal')
+      await middleNotiInappMenuArr(this.prisma, 'Allocation', message, [80, 82], 1, 'Alloc & Bal')
     } catch (error) {
       console.error('[ERROR] executeData: eod timeout notification:', error?.stack || error)
     }
@@ -3046,10 +3015,7 @@ export class AllocationService {
       }
 
       const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-      const {
-        yesterday,
-        today
-      } = this.getIntradayExecutionContext(triggerEod)
+      const {yesterday, today} = this.getIntradayExecutionContext(triggerEod)
       const now = getTodayNow()
 
       console.log(`[INFO] continueIntradayExecutionAfterEod: find latest successful request number eod for intraday process`)
@@ -3060,99 +3026,36 @@ export class AllocationService {
       const id_eod_2 = Number(refEodExeucte2?.id)
       const rq_eod_2 = Number(refEodExeucte2?.request_number_id)
       const recalSourceEod = triggerEod?.status === 'OK' ? triggerEod : await this.repo.findLatestOKEodForDate(today)
-      const modeZoneBaseInventoryRecalculation =
-        await this.repo.findEarliestModeZoneBaseInventoryIntradayRecalculationCandidate()
-      const isModeZoneBaseInventoryRecal =
-        !!modeZoneBaseInventoryRecalculation?.modeZoneBaseInventory
-      const dailyAdjustmentRecalculation =
-        await this.repo.findEarliestDailyAdjustmentIntradayRecalculationCandidate()
-      const isDailyAdjustmentRecal =
-        !!dailyAdjustmentRecalculation?.dailyAdjustment
+      const modeZoneBaseInventoryRecalculation = await this.repo.findEarliestModeZoneBaseInventoryIntradayRecalculationCandidate()
+      const isModeZoneBaseInventoryRecal = !!modeZoneBaseInventoryRecalculation?.modeZoneBaseInventory
+      const dailyAdjustmentRecalculation = await this.repo.findEarliestDailyAdjustmentIntradayRecalculationCandidate()
+      const isDailyAdjustmentRecal = !!dailyAdjustmentRecalculation?.dailyAdjustment
 
       let useData = []
       const is_recal = (recalSourceEod?.status === 'OK' && recalSourceEod?.start_date != today) || isModeZoneBaseInventoryRecal || isDailyAdjustmentRecal
 
-      if (isModeZoneBaseInventoryRecal) {
-        const modeZoneBaseInventory =
-          modeZoneBaseInventoryRecalculation.modeZoneBaseInventory
-        const effectiveTime =
-          modeZoneBaseInventoryRecalculation
-            ?.modeZoneBaseInventoryEffectiveTime
-        const latestGasHourBoundary =
-          modeZoneBaseInventoryRecalculation
-            ?.latestGasHourBoundary
-        console.log(
-          `[INFO][continueIntradayExecutionAfterEod]: mode_zone_base_inventory recalculation candidate id=${modeZoneBaseInventory.id} start_date=${dayjs(modeZoneBaseInventory.start_date).format('YYYY-MM-DD HH:mm:ss')} effective_time_bkk=${effectiveTime ? dayjs(effectiveTime).tz('Asia/Bangkok').format('YYYY-MM-DD HH:mm:ss') : 'null'} latest_gas_hour_boundary_bkk=${latestGasHourBoundary ? dayjs(latestGasHourBoundary).tz('Asia/Bangkok').format('YYYY-MM-DD HH:mm:ss') : 'null'} create_date_num=${modeZoneBaseInventory.create_date_num} latest_intraday_execute_timestamp=${modeZoneBaseInventoryRecalculation?.latestIntraday?.execute_timestamp} latest_gas_day=${modeZoneBaseInventoryRecalculation?.latestIntraday?.gas_day} latest_gas_hour=${modeZoneBaseInventoryRecalculation?.latestIntraday?.gas_hour} replay_start_gas_day=${modeZoneBaseInventoryRecalculation?.replayStartGasDay} replay_start_gas_hour=${modeZoneBaseInventoryRecalculation?.replayStartGasHour} qualification_reason=${modeZoneBaseInventoryRecalculation?.modeZoneBaseInventoryEvaluationReason}`
-        )
-      } else if (modeZoneBaseInventoryRecalculation?.checkedModeZoneBaseInventory) {
-        const checkedModeZoneBaseInventory =
-          modeZoneBaseInventoryRecalculation.checkedModeZoneBaseInventory
-        const checkedEffectiveTime =
-          modeZoneBaseInventoryRecalculation
-            ?.checkedModeZoneBaseInventoryEffectiveTime
-        const latestGasHourBoundary =
-          modeZoneBaseInventoryRecalculation
-            ?.latestGasHourBoundary
-        console.log(
-          `[DEBUG][continueIntradayExecutionAfterEod]: mode_zone_base_inventory replay not triggered id=${checkedModeZoneBaseInventory.id} start_date=${dayjs(checkedModeZoneBaseInventory.start_date).format('YYYY-MM-DD HH:mm:ss')} effective_time_bkk=${checkedEffectiveTime ? dayjs(checkedEffectiveTime).tz('Asia/Bangkok').format('YYYY-MM-DD HH:mm:ss') : 'null'} latest_gas_hour_boundary_bkk=${latestGasHourBoundary ? dayjs(latestGasHourBoundary).tz('Asia/Bangkok').format('YYYY-MM-DD HH:mm:ss') : 'null'} create_date_num=${checkedModeZoneBaseInventory.create_date_num} latest_intraday_execute_timestamp=${modeZoneBaseInventoryRecalculation?.latestIntraday?.execute_timestamp} latest_gas_day=${modeZoneBaseInventoryRecalculation?.latestIntraday?.gas_day} latest_gas_hour=${modeZoneBaseInventoryRecalculation?.latestIntraday?.gas_hour} qualification_reason=${modeZoneBaseInventoryRecalculation?.checkedModeZoneBaseInventoryEvaluationReason}`
-        )
-      }
-
-      if (isDailyAdjustmentRecal) {
-        const dailyAdjustment =
-          dailyAdjustmentRecalculation.dailyAdjustment
-        const effectiveTime =
-          dailyAdjustmentRecalculation
-            ?.dailyAdjustmentEffectiveTime
-        const latestGasHourBoundary =
-          dailyAdjustmentRecalculation
-            ?.latestGasHourBoundary
-        console.log(
-          `[INFO][continueIntradayExecutionAfterEod]: daily_adjustment recalculation candidate id=${dailyAdjustment.id} daily_code=${dailyAdjustment.daily_code} gas_day=${dayjs(dailyAdjustment.gas_day).tz('Asia/Bangkok').format('YYYY-MM-DD')} time=${dailyAdjustment.time} effective_time_bkk=${effectiveTime ? dayjs(effectiveTime).tz('Asia/Bangkok').format('YYYY-MM-DD HH:mm:ss') : 'null'} latest_gas_hour_boundary_bkk=${latestGasHourBoundary ? dayjs(latestGasHourBoundary).tz('Asia/Bangkok').format('YYYY-MM-DD HH:mm:ss') : 'null'} create_date_num=${dailyAdjustment.create_date_num} latest_intraday_execute_timestamp=${dailyAdjustmentRecalculation?.latestIntraday?.execute_timestamp} latest_gas_day=${dailyAdjustmentRecalculation?.latestIntraday?.gas_day} latest_gas_hour=${dailyAdjustmentRecalculation?.latestIntraday?.gas_hour} replay_start_gas_day=${dailyAdjustmentRecalculation?.replayStartGasDay} replay_start_gas_hour=${dailyAdjustmentRecalculation?.replayStartGasHour} qualification_reason=${dailyAdjustmentRecalculation?.dailyAdjustmentEvaluationReason}`
-        )
-      } else if (dailyAdjustmentRecalculation?.checkedDailyAdjustment) {
-        const checkedDailyAdjustment =
-          dailyAdjustmentRecalculation.checkedDailyAdjustment
-        const checkedEffectiveTime =
-          dailyAdjustmentRecalculation
-            ?.checkedDailyAdjustmentEffectiveTime
-        const latestGasHourBoundary =
-          dailyAdjustmentRecalculation
-            ?.latestGasHourBoundary
-        console.log(
-          `[DEBUG][continueIntradayExecutionAfterEod]: daily_adjustment replay not triggered id=${checkedDailyAdjustment.id} daily_code=${checkedDailyAdjustment.daily_code} gas_day=${dayjs(checkedDailyAdjustment.gas_day).tz('Asia/Bangkok').format('YYYY-MM-DD')} time=${checkedDailyAdjustment.time} effective_time_bkk=${checkedEffectiveTime ? dayjs(checkedEffectiveTime).tz('Asia/Bangkok').format('YYYY-MM-DD HH:mm:ss') : 'null'} latest_gas_hour_boundary_bkk=${latestGasHourBoundary ? dayjs(latestGasHourBoundary).tz('Asia/Bangkok').format('YYYY-MM-DD HH:mm:ss') : 'null'} create_date_num=${checkedDailyAdjustment.create_date_num} latest_intraday_execute_timestamp=${dailyAdjustmentRecalculation?.latestIntraday?.execute_timestamp} latest_gas_day=${dailyAdjustmentRecalculation?.latestIntraday?.gas_day} latest_gas_hour=${dailyAdjustmentRecalculation?.latestIntraday?.gas_hour} qualification_reason=${dailyAdjustmentRecalculation?.checkedDailyAdjustmentEvaluationReason}`
-        )
-      }
-
       console.log(`[DEBUG] continueIntradayExecutionAfterEod: is recal ${is_recal} mode_zone_base_inventory=${isModeZoneBaseInventoryRecal} daily_adjustment=${isDailyAdjustmentRecal}`)
       console.log(`[INFO] continueIntradayExecutionAfterEod: list intraday execute`)
       if (is_recal) {
-        const replayStart =
-          this.getEarliestIntradayReplayStart([
-            isModeZoneBaseInventoryRecal
-              ? {
+        const replayStart = this.getEarliestIntradayReplayStart([
+          isModeZoneBaseInventoryRecal
+            ? {
                 source: 'mode_zone_base_inventory',
-                gasDay:
-                  modeZoneBaseInventoryRecalculation?.replayStartGasDay,
-                gasHour:
-                  modeZoneBaseInventoryRecalculation?.replayStartGasHour
+                gasDay: modeZoneBaseInventoryRecalculation?.replayStartGasDay,
+                gasHour: modeZoneBaseInventoryRecalculation?.replayStartGasHour
               }
-              : null,
-            isDailyAdjustmentRecal
-              ? {
+            : null,
+          isDailyAdjustmentRecal
+            ? {
                 source: 'daily_adjustment',
-                gasDay:
-                  dailyAdjustmentRecalculation?.replayStartGasDay,
-                gasHour:
-                  dailyAdjustmentRecalculation?.replayStartGasHour
+                gasDay: dailyAdjustmentRecalculation?.replayStartGasDay,
+                gasHour: dailyAdjustmentRecalculation?.replayStartGasHour
               }
-              : null
-          ])
+            : null
+        ])
 
         if (replayStart) {
-          console.log(
-            `[INFO][continueIntradayExecutionAfterEod]: replay start source=${replayStart.source} gas_day=${replayStart.gasDay} gas_hour=${replayStart.gasHour}`
-          )
+          console.log(`[INFO][continueIntradayExecutionAfterEod]: replay start source=${replayStart.source} gas_day=${replayStart.gasDay} gas_hour=${replayStart.gasHour}`)
           let request_number_previous_hour = null
 
           if (replayStart.gasDay === yesterday) {
@@ -3332,16 +3235,7 @@ export class AllocationService {
           gas_day: useData[i]?.gas_day,
           gas_hour: useData[i]?.gas_hour
         }
-        await this.repo.createLogExecuteIntraday(
-          useData[i]?.request_number_id,
-          useData[i]?.execute_timestamp,
-          useData[i]?.request_number_previous_hour,
-          reqEod,
-          useData[i]?.gas_day,
-          useData[i]?.gas_hour,
-          now,
-          userId
-        )
+        await this.repo.createLogExecuteIntraday(useData[i]?.request_number_id, useData[i]?.execute_timestamp, useData[i]?.request_number_previous_hour, reqEod, useData[i]?.gas_day, useData[i]?.gas_hour, now, userId)
         await this.evidenApiCenterPost(sendIntraday, 'execute_intraday')
         await sleep(1000)
       }
@@ -3469,7 +3363,7 @@ export class AllocationService {
   }
 
   async allcationOnceIdQuery(payload: any, userId: any) {
-    const { idAr, ...nPayload } = payload
+    const {idAr, ...nPayload} = payload
     const allocationQuery = await this.allocationQuery(nPayload, userId)
     const fil = allocationQuery.filter((f: any) => {
       return idAr.includes(f?.id)
@@ -3480,7 +3374,7 @@ export class AllocationService {
   //
 
   async allocationQueryVersion(payload: any, userId: any) {
-    const { start_date, end_date, is_last_version, skip, limit, tab } = payload
+    const {start_date, end_date, is_last_version, skip, limit, tab} = payload
 
     const start = start_date ? getTodayStartAdd7(start_date) : null
     const end = end_date ? getTodayEndAdd7(end_date) : null
@@ -3512,7 +3406,7 @@ export class AllocationService {
     let current = start
 
     while (current.isSameOrBefore(end)) {
-      dateArray.push(current.format('YYYY-MM-DD'))
+      dateArray.push(current && current.format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD'))
       current = current.add(1, 'day')
     }
 
@@ -3571,6 +3465,57 @@ export class AllocationService {
 
     const result = []
 
+    if(evidenApiAllocationEod.length > 0) {
+      // ดึง Execute (EOD) ที่อยู่ในช่วงวันที่ เพื่อใช้ตรวจสอบข้อมูลที่เผยแพร่จริง
+      const executeEodList = await this.prisma.execute_eod.findMany({
+        where: {
+          status: {
+            equals: 'OK',
+            mode: 'insensitive'
+          },
+          start_date_date: {
+            lte: end.toDate()
+          },
+          end_date_date: {
+            gte: start.toDate()
+          }
+        }
+      })
+
+      evidenApiAllocationEod = evidenApiAllocationEod.filter((item: any) => {
+        const itemGasDay = getTodayNowYYYYMMDDDfaultAdd7(item.gas_day)
+        return executeEodList?.some((executeData: any) => {
+          const executeStart = getTodayNowAdd7(executeData?.start_date_date)
+          const executeEnd = getTodayNowAdd7(executeData?.end_date_date)
+          return executeData?.request_number_id == item?.request_number && executeStart?.isSameOrBefore(itemGasDay, 'day') && executeEnd?.isSameOrAfter(itemGasDay, 'day')
+        })
+      })
+    }
+
+    if(intradayEviden.length > 0) {
+      // ดึง Execute Intraday รายชั่วโมงในช่วงเวลาเดียวกัน
+      const executeIntradayList = await this.prisma.execute_intraday.findMany({
+        where: {
+          status: {
+            equals: 'OK',
+            mode: 'insensitive'
+          },
+          gas_day_date: {
+            gte: start.toDate(),
+            lte: end.toDate()
+          }
+        }
+      })
+
+      intradayEviden = intradayEviden.filter((item: any) => {
+        const itemGasDay = getTodayNowYYYYMMDDDfaultAdd7(item.gas_day)
+        return executeIntradayList?.some((executeData: any) => {
+          const executeGasDay = getTodayNowAdd7(executeData.gas_day)
+          return executeData.request_number_id == item.request_number && executeData.gas_hour == item.gas_hour && executeGasDay.isSame(itemGasDay, 'day')
+        })
+      })
+    }
+
     evidenApiAllocationEod.map((item: any) => {
       if (result.some((f: any) => f?.execute_timestamp === item?.execute_timestamp)) return
       result.push({
@@ -3628,7 +3573,7 @@ export class AllocationService {
   }
 
   async publicationCenterGen(payload: any, userId: any) {
-    const { execute_timestamp, gas_day, gas_hour } = payload
+    const {execute_timestamp, gas_day, gas_hour} = payload
 
     const resData = await this.prisma.publication_center.findFirst({
       where: {
@@ -3676,14 +3621,14 @@ export class AllocationService {
   }
 
   async allocationReportView(payload: any, userId: any) {
-    const { start_date, end_date, skip, limit, tab, contract, shipper, gas_day, gas_hour, request_number, execute_timestamp, id } = payload
+    const {start_date, end_date, skip, limit, tab, contract, shipper, gas_day, gas_hour, request_number, execute_timestamp, id} = payload
 
     const start = getTodayStartAdd7(start_date)
     const end = getTodayEndAdd7(end_date)
     const startDate = start.toDate()
     const endDate = end.toDate()
 
-    if (!start.isValid() || !end.isValid()) {
+    if (!start || !end || !start.isValid() || !end.isValid()) {
       throw new Error('⛔ Invalid date format')
     }
 
@@ -3763,7 +3708,7 @@ export class AllocationService {
       allocationReportView = await this.repo.getAllocationReportView(startDate, endDate)
     }
 
-    const response = result?.map((record: any) => {
+    const response = result && result?.map((record: any) => {
       const values = record?.values ?? []
 
       // faster than multiple .find(): build tag->value once
@@ -3787,9 +3732,7 @@ export class AllocationService {
         allocatedValue,
         entry_exit_obj
       }
-    })
-
-   
+    }) || []
 
     return response
   }
@@ -3803,11 +3746,11 @@ export class AllocationService {
     const min = sorted[0].format('DD/MM/YYYY')
     const max = sorted[sorted.length - 1].format('DD/MM/YYYY')
 
-    return { min, max }
+    return {min, max}
   }
 
   async genExcelTemplate(payload: any) {
-    let { contract_code_name, shipper_code } = payload
+    let {contract_code_name, shipper_code} = payload
     const todayStart = getTodayStartAdd7().toDate()
     const todayEnd = getTodayEndAdd7().toDate()
 
@@ -3857,7 +3800,7 @@ export class AllocationService {
     // const weeklyPrev7 = this.getPrev4YearsDates() // test 4 year
 
     // ของจริงเปิด
-    const { min: start_date, max: end_date } = this.getMinMaxDatesFromArray(apiRange)
+    const {min: start_date, max: end_date} = this.getMinMaxDatesFromArray(apiRange)
     // const start_date = '2025-01-01';
     // const end_date = '2025-02-28';
 
@@ -3873,10 +3816,10 @@ export class AllocationService {
     })
 
     const newEOD = evidenApiAllocationEod.flatMap((fm: any) => {
-      const { data: data1, ...fmD } = fm
+      const {data: data1, ...fmD} = fm
 
       const nData = data1?.flatMap((dFm: any) => {
-        const { data: data2, ...fmD2 } = dFm
+        const {data: data2, ...fmD2} = dFm
         const nData2 = data2.map((dFm2: any) => {
           return {
             ...fmD,
@@ -3890,7 +3833,7 @@ export class AllocationService {
 
       return [...nData]
     })
-    console.log('newEOD : ', newEOD);
+    // console.log('newEOD : ', newEOD)
     const resultEodLast1: any = Object.values(
       newEOD.reduce((acc, curr) => {
         const key = `${curr.gas_day}| ${curr.shipper}| ${curr.contract}| ${curr.point}| ${curr.entry_exit}| ${curr.area}| ${curr.zone} `
@@ -3906,23 +3849,25 @@ export class AllocationService {
     // console.log('fresultEodLast1_ : ', fresultEodLast1_); // test
     // point_type = 'CONCEPT'
 
-    const eodApi = resultEodLast1.filter((f: any) => {
-      return f?.contract === contract_code_name && f?.shipper === shipper_code
-    })?.filter((f: any) => {
-      if(f?.point_type === "CONCEPT"){
-        if(f?.point === "East_to_BVW10" || f?.point === "East_to_RA6" || f?.point === "West_to_BVW10" || f?.point === "West_to_RA6"){
+    const eodApi = resultEodLast1
+      .filter((f: any) => {
+        return f?.contract === contract_code_name && f?.shipper === shipper_code
+      })
+      ?.filter((f: any) => {
+        if (f?.point_type === 'CONCEPT') {
+          if (f?.point === 'East_to_BVW10' || f?.point === 'East_to_RA6' || f?.point === 'West_to_BVW10' || f?.point === 'West_to_RA6') {
+            return true
+          } else {
+            return false
+          }
+        } else {
           return true
-        }else{
-          return false
         }
-      }else{
-        return true
-      }
-    })
+      })
     // const eodApiFil = eodApi.map(({ zone, area, point, entry_exit }) => ({ zone, area, point, unit: "MMBTU/D", entry_exit }))
     const eodApiFil = Array.from(
       new Map(
-        eodApi.map(({ zone, area, point, entry_exit }) => {
+        eodApi.map(({zone, area, point, entry_exit}) => {
           const key = `${zone}| ${area}| ${point}| ${entry_exit} `
           return [
             key,
@@ -3952,7 +3897,7 @@ export class AllocationService {
     const today = dayjs()
 
     // สร้าง array 7 วันย้อนหลัง (รวมวันนี้)
-    const weekDates = Array.from({ length: length }, (_, i) => today.add(i - (length - 1), 'day').format('DD/MM/YYYY'))
+    const weekDates = Array.from({length: length}, (_, i) => today.add(i - (length - 1), 'day').format('DD/MM/YYYY'))
 
     return weekDates
   }
@@ -3961,20 +3906,18 @@ export class AllocationService {
     const today = dayjs().subtract(1, 'day')
 
     // สร้าง array 7 วันย้อนหลัง (รวมวันนี้)
-    const weekDates = Array.from({ length: length }, (_, i) => today.add(i - (length - 1), 'day').format('DD/MM/YYYY'))
+    const weekDates = Array.from({length: length}, (_, i) => today.add(i - (length - 1), 'day').format('DD/MM/YYYY'))
 
     return weekDates
   }
 
   getPrev4YearsDates() {
-    const endDate = dayjs().subtract(1, "day");
-    const startDate = endDate.subtract(4, "year");
+    const endDate = dayjs().subtract(1, 'day')
+    const startDate = endDate.subtract(4, 'year')
 
-    const totalDays = endDate.diff(startDate, "day") + 1;
+    const totalDays = endDate.diff(startDate, 'day') + 1
 
-    return Array.from({ length: totalDays }, (_, i) =>
-      startDate.add(i, "day").format("DD/MM/YYYY")
-    );
+    return Array.from({length: totalDays}, (_, i) => startDate.add(i, 'day').format('DD/MM/YYYY'))
   }
 
   async componentGenExcelAllocation(data: any, data2: any, data3: any, typeOfNomination: any) {
@@ -4058,8 +4001,8 @@ export class AllocationService {
           worksheet1[cell].s.border = worksheet1[cell].s.border || {}
 
           //   ใส่เส้นแนวตั้ง (ทุกแถว)
-          worksheet1[cell].s.border.left = { style: 'thin' }
-          worksheet1[cell].s.border.right = { style: 'thin' }
+          worksheet1[cell].s.border.left = {style: 'thin'}
+          worksheet1[cell].s.border.right = {style: 'thin'}
 
           //   ใส่เส้นแนวนอนเฉพาะแถวสุดท้ายที่มีข้อมูล
           if (rowNumber === lastRowWithData) {
@@ -4082,14 +4025,14 @@ export class AllocationService {
   }
 
   async genExcelTemplateFinal(payload: any) {
-    let { todayStart, todayEnd, weeklyPrev7, contract_code_name, shipper_code, eodApi } = payload
+    let {todayStart, todayEnd, weeklyPrev7, contract_code_name, shipper_code, eodApi} = payload
 
     // ***************************
 
     let eodData = eodApi.flatMap((e: any) => {
       return [[e?.zone || '', e?.area || '', e?.point || '', e?.unit || '', e?.entry_exit || '', ...Array(weeklyPrev7.length).fill('')]]
     })
-    console.log('eodData : ', eodData);
+    // console.log('eodData : ', eodData)
     const data = [
       [], // Row 0
       ['SHIPPER ID', 'CONTRACT CODE'], // Row 1
@@ -4120,13 +4063,10 @@ export class AllocationService {
         allocation_status_id: 3
       }
     })
-
+    // console.log('grpcTransform : ', grpcTransform);
     const convertSheet = JSON.parse(grpcTransform?.jsonDataMultiSheet) || null
-    const sheet = convertSheet?.find((f: any) => f?.sheet === 'Allocation Review')?.data || []
-    const shipperIdSheet = sheet[1]['0']
-    const contractCodeSheet = sheet[1]['1']
-    const headSheet = sheet[2]
-    if (!headSheet || Object.keys(headSheet).length < 5 || !isMatch(headSheet['0'], 'Zone') || !isMatch(headSheet['1'], 'Area') || !isMatch(headSheet['2'], 'POINT_ID') || !isMatch(headSheet['3'], 'Unit') || !isMatch(headSheet['4'], 'Entry_Exit')) {
+    // console.log('convertSheet : ', convertSheet);
+    if(convertSheet?.length === 0){
       throw new HttpException(
         {
           status: HttpStatus.BAD_REQUEST,
@@ -4137,225 +4077,7 @@ export class AllocationService {
       )
     }
 
-    const lastKey = Math.max(...Object.keys(headSheet).map(Number))
-    const resultKeyEnd = Object.keys(headSheet)
-      .filter((key) => Number(key) >= 5)
-      .reduce(
-        (acc, key) => {
-          acc[key] = headSheet[key]
-          return acc
-        },
-        {} as Record<string, string>
-      )
-
-    console.log('resultKeyEnd : ', resultKeyEnd)
-    const resultDateKey = Object.entries(resultKeyEnd).map(([key, date]) => ({
-      key: Number(key),
-      date
-    }))
-
-
-    const numericKeys = Object.keys(headSheet)?.map(Number)?.filter((key) => !Number.isNaN(key))?.sort((a, b) => a - b);
-    const maxKey = Math.max(...numericKeys);
-    const missingKeys = Array.from(
-      { length: maxKey + 1 },
-      (_, index) => index
-    )?.filter((key) => !numericKeys?.includes(key));
-    if(missingKeys?.length > 0){
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          error: `Null is Invalid Gas Day Format` // https://app.clickup.com/t/9018502823/86eub6day
-        },
-        HttpStatus.BAD_REQUEST
-      )
-    }
-
-    let validateList = []
-    let minDate: dayjs.Dayjs = dayjs()
-    let maxDate: dayjs.Dayjs = dayjs()
-    const dateArr = resultDateKey?.map((e: any) => {
-      const eDate = dayjs(e?.date?.trim(), 'DD/MM/YYYY')
-      if (!eDate.isValid()) {
-        validateList.push(`${e?.date} is invalid gas day format.`)
-      } else {
-        if (minDate) {
-          minDate = eDate.isBefore(minDate) ? eDate : minDate
-        } else {
-          minDate = eDate
-        }
-
-        if (maxDate) {
-          maxDate = eDate.isAfter(maxDate) ? eDate : maxDate
-        } else {
-          maxDate = eDate
-        }
-      }
-      return e?.date
-    })
-
-    // console.log('resultDateKey : ', resultDateKey);
-    // console.log('dateArr : ', dateArr);
-    
-
-    const systemParameter: systemParameterWithRelations[] = await this.prisma.system_parameter.findMany({
-      where: {
-        system_parameter: {
-          id: {
-            in: [ONSHORE_NUMBER_OF_DAYS_AFTER_ALLOCATION_WHEN_SHIPPER_CAN_CREATE_ALLOCATION_REVIEW, ONSHORE_NUMBER_OF_DAYS_AFTER_ALLOCATION_WHEN_SHIPPER_CAN_CREATE_ALLOCATION_REVIEW_DUPLICATE]
-          }
-        },
-        AND: [
-          {
-            start_date: {
-              lte: maxDate?.toDate() // start_date ต้องก่อนหรือเท่ากับสิ้นสุดวันนี้
-            }
-          },
-          {
-            OR: [
-              {
-                end_date: null
-              }, // ถ้า end_date เป็น null
-              {
-                end_date: {
-                  gte: minDate?.toDate()
-                }
-              } // ถ้า end_date ไม่เป็น null ต้องหลังหรือเท่ากับเริ่มต้นวันนี้
-            ]
-          }
-        ]
-      },
-      ...systemParameterPopulate
-    })
-
-    // 3 เช็ค วัน ซ้ำ
-    const hasDuplicate = new Set(dateArr).size !== dateArr.length
-    if (!!hasDuplicate) {
-      validateList.push('Date should not overlap.')
-    }
-    // 4 max วัน ไม่เกิน 31
-    if (dateArr.length >= 31) {
-      validateList.push('Date should not over max 31 day.')
-    }
-
-    // 5 -> lastKey 11
-    const valueSheet = sheet.slice(3)
-
-    if (validateList.length > 0) {
-      const message = validateList.join('<br/>')
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          key: message,
-          error: message
-        },
-        HttpStatus.BAD_REQUEST
-      )
-    }
-
-    const allocationCheck = await this.prisma.allocation_management.findMany({
-      where: {
-        gas_day: {
-          gte: minDate?.toDate(),
-          lte: maxDate?.toDate()
-        },
-        contract_code_text: contractCodeSheet
-      }
-    })
-
-    const { min: start_date, max: end_date } = this.getMinMaxDatesFromArray(dateArr)
-    // const start_date = '2025-01-01';
-    // const end_date = '2025-02-28';
-    const evidenApiAllocationEod = await this.evidenApiAllocationEod({
-      start_date: dayjs(start_date, 'DD/MM/YYYY').format('YYYY-MM-DD'),
-      end_date: dayjs(end_date, 'DD/MM/YYYY').format('YYYY-MM-DD'),
-      skip: 0,
-      limit: 1000
-    })
-
-    // Extract gas days and generate date array
-    const dateArray = extractAndGenerateDateArray(evidenApiAllocationEod)
-
-    // Build active data for all dates
-    const activeData = await buildActiveDataForDates(dateArray, this.prisma)
-
-    const newEOD = evidenApiAllocationEod.flatMap((fm: any) => {
-      const { data: data1, ...fmD } = fm
-
-      const nData = data1?.flatMap((dFm: any) => {
-        const { data: data2, ...fmD2 } = dFm
-        const nData2 = data2.map((dFm2: any) => {
-          return {
-            ...fmD,
-            ...fmD2,
-            ...dFm2
-          }
-        })
-
-        return [...nData2]
-      })
-
-      return [...nData]
-    })
-    const resultEodLast1: any = Object.values(
-      newEOD.reduce((acc, curr) => {
-        const key = `${curr.gas_day}| ${curr.shipper}| ${curr.contract}| ${curr.point}| ${curr.entry_exit}| ${curr.area}| ${curr.zone} `
-        if (!acc[key] || acc[key].execute_timestamp < curr.execute_timestamp) {
-          acc[key] = curr
-        }
-        return acc
-      }, {})
-    )
-
-    const eodApi = resultEodLast1.filter((f: any) => {
-      return f?.contract === contractCodeSheet && f?.shipper === shipperIdSheet
-    })
-
-    // 2 s,c ใน วันมีไหม
-    const checkGasdayShipperContractCk = eodApi?.find((f: any) => {
-      return shipperIdSheet && f?.contract && contractCodeSheet
-    })
-    
-
-    if (!!!checkGasdayShipperContractCk) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          // error: `Date is not match`,
-          error: `Contract Code & Shipper does not match`
-          // error: `${ logErr.map((e: any) => e).join(',') } `,
-        },
-        HttpStatus.BAD_REQUEST
-      )
-    }
-
-    const checkGasdayShipperContract = eodApi?.find((f: any) => {
-      return dateArr.includes(dayjs(f?.gas_day, 'YYYY-MM-DD').format('DD/MM/YYYY')) && f?.shipper && shipperIdSheet && f?.contract && contractCodeSheet
-    })
-    if (!!!checkGasdayShipperContract) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          error: `Date is not match`
-          // error: `Contract Code && Shipper does not match`,
-          // error: `${ logErr.map((e: any) => e).join(',') } `,
-        },
-        HttpStatus.BAD_REQUEST
-      )
-    }
-
-    let logWarning: any = []
-    let dataUseDB: any = []
-    let warningArr: any = []
-    // warning
-
-    // ดึง
-    // 1 MMBTU/D
-    const checkNotMMBTUD = valueSheet?.find((f: any) => f?.['3'] !== 'MMBTU/D')
-
-    if (checkNotMMBTUD) {
-      warningArr.push('Only MMBTU/D unit is allowed, other units ignored.')
-    }
+    console.log('convertSheet : ', convertSheet);
 
     function numberToExcelColumn(col: number): string {
       let result = ''
@@ -4369,217 +4091,453 @@ export class AllocationService {
 
       return result
     }
-    // 5 เช็ค ข้อมูลใน row ว่ามีตรงไหม วันไหนไม่มี warning
-    for (let i = 0; i < valueSheet.length; i++) {
-      const zone = valueSheet[i]['0'] || ''
-      const area = valueSheet[i]['1'] || ''
-      const point = valueSheet[i]['2'] || ''
-      const unit = valueSheet[i]['3'] || ''
-      const entry_exit = valueSheet[i]['4'] ? valueSheet[i]['4']?.toUpperCase() : ''
 
-      if (unit != 'MMBTU/D') {
-        continue
-      }
-
-      const resultDateValue = Object.entries(valueSheet[i])
-        .filter(([key]) => {
-          const numKey = parseInt(key, 10)
-          if(numKey >= dataStartAtRow){
-            if(numKey <= lastKey){
-              return true
-            }
-            else{
-              warningArr.push(`Missing or invalid Gas Day in Column ${numberToExcelColumn(numKey + 1)}; not saved.`)
-              return false
-            }
-          }
-          return false
-        })
-        .map(([key, value]) => ({
-          key,
-          value
-        }))
-      // console.log('resultDateValue : ', resultDateValue?.length);
-      // console.log('Object.entries(valueSheet[i]) : ', Object.entries(valueSheet[i]));
-      // console.log('Object.entries(valueSheet[i]) : ', Object.entries(valueSheet[i])?.length - 5);
-      // if (Object.entries(valueSheet[i])?.length - 5 !== resultDateValue?.length) {
-      //   warningArr.push(`Missing or invalid Gas Day in Column ${numberToExcelColumn(Object.entries(valueSheet[i])?.length)}; not saved.`)
-      // }
-      if (resultDateValue.length === 0) continue
-      for (let iDate = 0; iDate < resultDateValue.length; iDate++) {
-        const dateConvertKey = resultDateKey?.find((f: any) => {
-          return f?.key === Number(resultDateValue[iDate]['key'])
-        })
-
-        const currentDate = dayjs(dateConvertKey?.date, 'DD/MM/YYYY')
-        const activeSystemParameter = systemParameter.find((parameter) => parameter.start_date <= currentDate.toDate() && (parameter.end_date >= currentDate.toDate() || parameter.end_date === null))
-        const numberOfDaysCanReviewAfter = parseToNumber(activeSystemParameter?.value)
-        if (numberOfDaysCanReviewAfter != null) {
-          const canReviewAfterDate = now.subtract(numberOfDaysCanReviewAfter, 'day')
-          if (currentDate.isBefore(canReviewAfterDate)) {
-            const warningMessage = `Date ${dateConvertKey?.date} is before the can review date ${canReviewAfterDate.format('DD/MM/YYYY')} , not saved.`
-            if (!warningArr.includes(warningMessage)) {
-              warningArr.push(warningMessage)
-            }
-            continue
-          }
+    const loopImportData = async (convertSheet:any) => {
+      let throwErr = []
+      let dataArr = []
+      let logWarning: any = []
+      let dataUseDB: any = []
+      let warningArr: any = []
+      let dataDb = []
+      
+      for (let i = 0; i < convertSheet.length; i++) {
+        dataUseDB = []
+        dataDb = []
+        const sheetName = `Sheet: ${i + 1}`
+        // const sheet = convertSheet?.find((f: any) => f?.sheet === 'Allocation Review')?.data || []
+        const sheet = convertSheet[i].data || []
+        const shipperIdSheet = sheet[1]['0']
+        const contractCodeSheet = sheet[1]['1']
+        const headSheet = sheet[2]
+        if (!headSheet || Object.keys(headSheet).length < 5 || !isMatch(headSheet['0'], 'Zone') || !isMatch(headSheet['1'], 'Area') || !isMatch(headSheet['2'], 'POINT_ID') || !isMatch(headSheet['3'], 'Unit') || !isMatch(headSheet['4'], 'Entry_Exit')) {
+          throwErr.push(`(${sheetName}) Missing required columns, Please check the file structure.`)
         }
-        const activeDataForDate = activeData.find((ad) => getTodayNowYYYYMMDDDfaultAdd7(ad.date).format('DD/MM/YYYY') === dateConvertKey?.date)
-        const findNomMaster = activeDataForDate?.activeNominationPoints?.find((f: any) => f?.nomination_point === point)
-        const activeConceptPoint = activeDataForDate?.activeConceptPoints?.find((f: any) => f?.concept_point === point)
-        if (findNomMaster) {
-          let isWarning = false
-          if (!isMatch(findNomMaster?.zone?.name, zone)) {
-            warningArr.push(`Invalid Zone on ${dateConvertKey?.date} in row ${i + dataStartAtRow}; not saved.`)
-            isWarning = true
-          }
-          if (!isMatch(findNomMaster?.area?.name, area)) {
-            warningArr.push(`Invalid Area on ${dateConvertKey?.date} in row ${i + dataStartAtRow}; not saved.`)
-            isWarning = true
-          }
-          if (!isMatch(findNomMaster?.entry_exit?.name, entry_exit)) {
-            warningArr.push(`Invalid Entry / Exit on ${dateConvertKey?.date} in row ${i + dataStartAtRow}; not saved.`)
-            isWarning = true
-          }
-          if (isWarning) {
-            continue
-          }
-        } else if (!activeConceptPoint) {
-          // warningArr.push(`Invalid POINT_ID on ${dateConvertKey?.date} in row ${i + dataStartAtRow}; not saved.`)
-
-          warningArr.push(`Missing or invalid Gas Day in Column ${numberToExcelColumn(5 + 1 + iDate)}; not saved.`)
-          continue
-        }
-        const dateValue = resultDateValue[iDate]['value']
-        const eodApiCheck = eodApi?.find((f: any) => {
-          return f?.zone === zone && f?.area === area && f?.point === point && f?.entry_exit === entry_exit && dayjs(f?.gas_day, 'YYYY-MM-DD').format('DD/MM/YYYY') === dateConvertKey?.date
-        })
-
-        const findAllocationAccept = allocationManage?.find((f: any) => {
-          return f?.point_text === eodApiCheck?.point && f?.gas_day_text === eodApiCheck?.gas_day && f?.zone_text === eodApiCheck?.zone && f?.area_text === eodApiCheck?.area && f?.entry_exit_text === eodApiCheck?.entry_exit
-        })
-
-        if (eodApiCheck && (findNomMaster || activeConceptPoint) && !findAllocationAccept) {
-          console.log('[INFO] uploadFile: มี')
-          const notData = {
-            shipperIdSheet,
-            contractCodeSheet,
-            zone,
-            area,
-            point,
-            unit,
-            entry_exit,
-            gas_day: dayjs(dateConvertKey?.date, 'DD/MM/YYYY').format('YYYY-MM-DD'),
-            value: dateValue,
-            system_allocation: eodApiCheck.value,
-            previous_value: eodApiCheck.previous_value
-          }
-          dataUseDB.push(notData)
-        } else {
-          if (eodApiCheck && (findNomMaster || activeConceptPoint) && findAllocationAccept) {
-            // https://app.clickup.com/t/86eu48dnq
-            warningArr.push(`Point ${eodApiCheck?.point} on ${dateConvertKey?.date} has already been accepted and will not be imported`)
-          } else if (eodApiCheck && !findNomMaster && !activeConceptPoint) {
-            warningArr.push(`Point ${eodApiCheck?.point} is inactive on ${dateConvertKey?.date} , valid rows saved.`)
-          } else {
-            const notData = {
-              shipperIdSheet,
-              contractCodeSheet,
-              zone,
-              area,
-              point,
-              unit: valueSheet[i]['3'],
-              entry_exit,
-              gas_day: dayjs(dateConvertKey?.date, 'DD/MM/YYYY').format('YYYY-MM-DD'),
-              value: dateValue,
-              note: 'not have eviden'
-            }
-            logWarning.push(notData)
-          }
-        }
-      }
-    }
-
-    let dataDb = []
-    if (dataUseDB.length > 0) {
-      for (let i = 0; i < dataUseDB.length; i++) {
-        const findAllo = allocationCheck?.find((f: any) => {
-          return (
-            f?.zone_text === dataUseDB[i]?.zone &&
-            f?.area_text === dataUseDB[i]?.area &&
-            f?.point_text === dataUseDB[i]?.point &&
-            f?.entry_exit_text === dataUseDB[i]?.entry_exit &&
-            f?.shipper_name_text === dataUseDB[i]?.shipperIdSheet &&
-            f?.contract_code_text === dataUseDB[i]?.contractCodeSheet &&
-            f?.gas_day_text === dataUseDB[i]?.gas_day
+        const lastKey = Math.max(...Object.keys(headSheet).map(Number))
+        const resultKeyEnd = Object.keys(headSheet)
+          .filter((key) => Number(key) >= 5)
+          .reduce(
+            (acc, key) => {
+              acc[key] = headSheet[key]
+              return acc
+            },
+            {} as Record<string, string>
           )
-        })
-        if (findAllo) {
-          if (findAllo?.allocation_status_id === 3) {
-            // accept ห้าม update ให้ warning
-            const notData = {
-              shipperIdSheet,
-              contractCodeSheet,
-              zone: dataUseDB[i]?.zone,
-              area: dataUseDB[i]?.area,
-              point: dataUseDB[i]?.point,
-              unit: dataUseDB[i]?.unit,
-              entry_exit: dataUseDB[i]?.entry_exit,
-              gas_day: dataUseDB[i]?.gas_day,
-              value: dataUseDB[i]?.value,
-              note: 'not have update status accept'
-            }
-            logWarning.push(notData)
-          } else {
-            // update status 2
-            const notData = {
-              id: findAllo?.id,
-              shipperIdSheet,
-              contractCodeSheet,
-              zone: dataUseDB[i]?.zone,
-              area: dataUseDB[i]?.area,
-              point: dataUseDB[i]?.point,
-              unit: dataUseDB[i]?.unit,
-              entry_exit: dataUseDB[i]?.entry_exit,
-              gas_day: dataUseDB[i]?.gas_day,
-              value: dataUseDB[i]?.value,
-              note: 'update',
-              system_allocation: dataUseDB[i]?.system_allocation,
-              previous_value: dataUseDB[i]?.previous_value
-            }
-            dataDb.push(notData)
-          }
-        } else {
-          // ไม่มี ให้ create & update status 2
-          const notData = {
-            id: null,
-            shipperIdSheet,
-            contractCodeSheet,
-            zone: dataUseDB[i]?.zone,
-            area: dataUseDB[i]?.area,
-            point: dataUseDB[i]?.point,
-            unit: dataUseDB[i]?.unit,
-            entry_exit: dataUseDB[i]?.entry_exit,
-            gas_day: dataUseDB[i]?.gas_day,
-            value: dataUseDB[i]?.value,
-            note: 'create'
-          }
-          dataDb.push(notData)
+
+        const resultDateKey = Object.entries(resultKeyEnd).map(([key, date]) => ({
+          key: Number(key),
+          date
+        }))
+
+        const numericKeys = Object.keys(headSheet)
+          ?.map(Number)
+          ?.filter((key) => !Number.isNaN(key))
+          ?.sort((a, b) => a - b)
+        const maxKey = Math.max(...numericKeys)
+        const missingKeys = Array.from({length: maxKey + 1}, (_, index) => index)?.filter((key) => !numericKeys?.includes(key))
+        if (missingKeys?.length > 0) {
+          throwErr.push(`(${sheetName}) Null is Invalid Gas Day Format`) // https://app.clickup.com/t/9018502823/86eub6day
         }
+
+        let minDate: dayjs.Dayjs = dayjs()
+        let maxDate: dayjs.Dayjs = dayjs()
+        const dateArr = resultDateKey?.map((e: any) => {
+          const eDate = dayjs(e?.date?.trim(), 'DD/MM/YYYY')
+          if (!eDate.isValid()) {
+            throwErr.push(`(${sheetName}) ${e?.date} is invalid gas day format.`)
+          } else {
+            if (minDate) {
+              minDate = eDate.isBefore(minDate) ? eDate : minDate
+            } else {
+              minDate = eDate
+            }
+
+            if (maxDate) {
+              maxDate = eDate.isAfter(maxDate) ? eDate : maxDate
+            } else {
+              maxDate = eDate
+            }
+          }
+          return e?.date
+        })
+
+        const systemParameter: systemParameterWithRelations[] = await this.prisma.system_parameter.findMany({
+          where: {
+            system_parameter: {
+              id: {
+                in: [ONSHORE_NUMBER_OF_DAYS_AFTER_ALLOCATION_WHEN_SHIPPER_CAN_CREATE_ALLOCATION_REVIEW, ONSHORE_NUMBER_OF_DAYS_AFTER_ALLOCATION_WHEN_SHIPPER_CAN_CREATE_ALLOCATION_REVIEW_DUPLICATE]
+              }
+            },
+            AND: [
+              {
+                start_date: {
+                  lte: maxDate?.toDate() // start_date ต้องก่อนหรือเท่ากับสิ้นสุดวันนี้
+                }
+              },
+              {
+                OR: [
+                  {
+                    end_date: null
+                  }, // ถ้า end_date เป็น null
+                  {
+                    end_date: {
+                      gte: minDate?.toDate()
+                    }
+                  } // ถ้า end_date ไม่เป็น null ต้องหลังหรือเท่ากับเริ่มต้นวันนี้
+                ]
+              }
+            ]
+          },
+          ...systemParameterPopulate
+        })
+
+        // 3 เช็ค วัน ซ้ำ
+        const hasDuplicate = new Set(dateArr).size !== dateArr.length
+        if (!!hasDuplicate) {
+          throwErr.push(`(${sheetName}) Date should not overlap.`)
+        }
+
+        // 4 max วัน ไม่เกิน 31
+        if (dateArr.length >= 31) {
+          throwErr.push(`(${sheetName}) Date should not over max 31 day.`)
+        }
+
+        // 5 -> lastKey 11
+        const valueSheet = sheet.slice(3)
+        // console.log('valueSheet : ', valueSheet);
+
+        const allocationCheck = await this.prisma.allocation_management.findMany({
+          where: {
+            gas_day: {
+              gte: minDate?.toDate(),
+              lte: maxDate?.toDate()
+            },
+            contract_code_text: contractCodeSheet
+          }
+        })
+
+        const {min: start_date, max: end_date} = this.getMinMaxDatesFromArray(dateArr)
+
+        const evidenApiAllocationEod = await this.evidenApiAllocationEod({
+          start_date: dayjs(start_date, 'DD/MM/YYYY').format('YYYY-MM-DD'),
+          end_date: dayjs(end_date, 'DD/MM/YYYY').format('YYYY-MM-DD'),
+          skip: 0,
+          limit: 1000
+        })
+
+        // Extract gas days and generate date array
+        const dateArray = extractAndGenerateDateArray(evidenApiAllocationEod)
+
+        // Build active data for all dates
+        const activeData = await buildActiveDataForDates(dateArray, this.prisma)
+        const newEOD = evidenApiAllocationEod.flatMap((fm: any) => {
+          const {data: data1, ...fmD} = fm
+
+          const nData = data1?.flatMap((dFm: any) => {
+            const {data: data2, ...fmD2} = dFm
+            const nData2 = data2.map((dFm2: any) => {
+              return {
+                ...fmD,
+                ...fmD2,
+                ...dFm2
+              }
+            })
+
+            return [...nData2]
+          })
+
+          return [...nData]
+        })
+        const resultEodLast1: any = Object.values(
+          newEOD.reduce((acc, curr) => {
+            const key = `${curr.gas_day}| ${curr.shipper}| ${curr.contract}| ${curr.point}| ${curr.entry_exit}| ${curr.area}| ${curr.zone} `
+            if (!acc[key] || acc[key].execute_timestamp < curr.execute_timestamp) {
+              acc[key] = curr
+            }
+            return acc
+          }, {})
+        )
+
+        const eodApi = resultEodLast1.filter((f: any) => {
+          return f?.contract === contractCodeSheet && f?.shipper === shipperIdSheet
+        })
+
+        // 2 s,c ใน วันมีไหม
+        const checkGasdayShipperContractCk = eodApi?.find((f: any) => {
+          return shipperIdSheet && f?.contract && contractCodeSheet
+        })
+
+        if (!!!checkGasdayShipperContractCk) {
+          throwErr.push(`(${sheetName}) Contract Code & Shipper does not match`)
+        }
+
+        const checkGasdayShipperContract = eodApi?.find((f: any) => {
+          return dateArr.includes(dayjs(f?.gas_day, 'YYYY-MM-DD').format('DD/MM/YYYY')) && f?.shipper && shipperIdSheet && f?.contract && contractCodeSheet
+        })
+        if (!!!checkGasdayShipperContract) {
+          throwErr.push(`(${sheetName}) Date is not match`)
+        }
+
+        // 1 MMBTU/D
+        const checkNotMMBTUD = valueSheet && valueSheet?.find((f: any) => f?.['3'] !== 'MMBTU/D') || null
+
+        if (checkNotMMBTUD) {
+          warningArr.push(`(${sheetName}) Only MMBTU/D unit is allowed, other units ignored.`)
+        }
+
+        // 5 เช็ค ข้อมูลใน row ว่ามีตรงไหม วันไหนไม่มี warning
+        for (let i = 0; i < (valueSheet && valueSheet.length || []); i++) {
+          const zone = valueSheet[i]['0'] || ''
+          const area = valueSheet[i]['1'] || ''
+          const point = valueSheet[i]['2'] || ''
+          const unit = valueSheet[i]['3'] || ''
+          const entry_exit = valueSheet[i]['4'] ? valueSheet[i]['4']?.toUpperCase() : ''
+          if(entry_exit === ""){
+            const conceptSupport = ['East_to_BVW10', 'East_to_RA6', 'West_to_BVW10', 'West_to_RA6']
+            const findCP = conceptSupport.includes(point)
+            if(!findCP){
+              throwErr.push(`(${sheetName}) [${point}] Concept Point Support (East_to_BVW10, East_to_RA6, West_to_BVW10, West_to_RA6) ONLY`)
+            }
+          }
+
+          if (unit != 'MMBTU/D') {
+            continue
+          }
+
+          const resultDateValue = Object.entries(valueSheet[i])
+            .filter(([key]) => {
+              const numKey = parseInt(key, 10)
+              if (numKey >= dataStartAtRow) {
+                if (numKey <= lastKey) {
+                  return true
+                } else {
+                  warningArr.push(`(${sheetName}) Missing or invalid Gas Day in Column ${numberToExcelColumn(numKey + 1)}; not saved.`)
+                  return false
+                }
+              }
+              return false
+            })
+            .map(([key, value]) => ({
+              key,
+              value
+            }))
+          
+          if (resultDateValue.length === 0) continue
+          for (let iDate = 0; iDate < resultDateValue.length; iDate++) {
+            const dateConvertKey = resultDateKey?.find((f: any) => {
+              return f?.key === Number(resultDateValue[iDate]['key'])
+            })
+
+            const currentDate = dayjs(dateConvertKey?.date, 'DD/MM/YYYY')
+            const activeSystemParameter = systemParameter.find((parameter) => parameter.start_date <= currentDate.toDate() && (parameter.end_date >= currentDate.toDate() || parameter.end_date === null))
+            const numberOfDaysCanReviewAfter = parseToNumber(activeSystemParameter?.value)
+            if (numberOfDaysCanReviewAfter != null) {
+              const canReviewAfterDate = now.subtract(numberOfDaysCanReviewAfter, 'day')
+              if (currentDate.isBefore(canReviewAfterDate)) {
+                const warningMessage = `(${sheetName}) Date ${dateConvertKey?.date} is before the can review date ${canReviewAfterDate.format('DD/MM/YYYY')} , not saved.`
+                if (!warningArr.includes(warningMessage)) {
+                  warningArr.push(warningMessage)
+                }
+                continue
+              }
+            }
+            const activeDataForDate = activeData.find((ad) => getTodayNowYYYYMMDDDfaultAdd7(ad.date).format('DD/MM/YYYY') === dateConvertKey?.date)
+            const findNomMaster = activeDataForDate?.activeNominationPoints?.find((f: any) => f?.nomination_point === point)
+            const activeConceptPoint = activeDataForDate?.activeConceptPoints?.find((f: any) => f?.concept_point === point)
+            if (findNomMaster) {
+              let isWarning = false
+              if (!isMatch(findNomMaster?.zone?.name, zone)) {
+                warningArr.push(`(${sheetName}) Invalid Zone on ${dateConvertKey?.date} in row ${i + dataStartAtRow}; not saved.`)
+                isWarning = true
+              }
+              if (!isMatch(findNomMaster?.area?.name, area)) {
+                warningArr.push(`(${sheetName}) Invalid Area on ${dateConvertKey?.date} in row ${i + dataStartAtRow}; not saved.`)
+                isWarning = true
+              }
+              if (!isMatch(findNomMaster?.entry_exit?.name, entry_exit)) {
+                warningArr.push(`(${sheetName}) Invalid Entry / Exit on ${dateConvertKey?.date} in row ${i + dataStartAtRow}; not saved.`)
+                isWarning = true
+              }
+              if (isWarning) {
+                continue
+              }
+            } else if (!activeConceptPoint) {
+              warningArr.push(`(${sheetName}) Missing or invalid Gas Day in Column ${numberToExcelColumn(5 + 1 + iDate)}; not saved.`)
+              continue
+            }
+            const dateValue = resultDateValue[iDate]['value']
+            const eodApiCheck = eodApi?.find((f: any) => {
+              return f?.zone === zone && f?.area === area && f?.point === point && f?.entry_exit === entry_exit && dayjs(f?.gas_day, 'YYYY-MM-DD').format('DD/MM/YYYY') === dateConvertKey?.date
+            })
+
+            
+
+            const findAllocationAccept = allocationManage?.find((f: any) => {
+              return f?.point_text === eodApiCheck?.point && f?.gas_day_text === eodApiCheck?.gas_day && f?.zone_text === eodApiCheck?.zone && f?.area_text === eodApiCheck?.area && f?.entry_exit_text === eodApiCheck?.entry_exit
+            })
+
+            if (eodApiCheck && (findNomMaster || activeConceptPoint) && !findAllocationAccept) {
+             
+              const notData = {
+                shipperIdSheet,
+                contractCodeSheet,
+                zone,
+                area,
+                point,
+                unit,
+                entry_exit,
+                gas_day: dayjs(dateConvertKey?.date, 'DD/MM/YYYY').format('YYYY-MM-DD'),
+                value: dateValue,
+                system_allocation: eodApiCheck.value,
+                previous_value: eodApiCheck.previous_value
+              }
+              dataUseDB.push(notData)
+            } else {
+              if (eodApiCheck && (findNomMaster || activeConceptPoint) && findAllocationAccept) {
+                // https://app.clickup.com/t/86eu48dnq
+                warningArr.push(`(${sheetName}) Point ${eodApiCheck?.point} on ${dateConvertKey?.date} has already been accepted and will not be imported`)
+              } else if (eodApiCheck && !findNomMaster && !activeConceptPoint) {
+                warningArr.push(`(${sheetName}) Point ${eodApiCheck?.point} is inactive on ${dateConvertKey?.date} , valid rows saved.`)
+              } else {
+                const notData = {
+                  shipperIdSheet,
+                  contractCodeSheet,
+                  zone,
+                  area,
+                  point,
+                  unit: valueSheet[i]['3'],
+                  entry_exit,
+                  gas_day: dayjs(dateConvertKey?.date, 'DD/MM/YYYY').format('YYYY-MM-DD'),
+                  value: dateValue,
+                  note: 'not have eviden'
+                }
+                logWarning.push(notData)
+              }
+            }
+          }
+        }
+        
+        // console.log('- - - -');
+        // console.log('convertSheet[i] : ', convertSheet[i]);
+        // console.log('dataUseDB : ', dataUseDB);
+        if (dataUseDB.length > 0) {
+          for (let i_ = 0; i_ < dataUseDB.length; i_++) {
+            const findAllo = allocationCheck?.find((f: any) => {
+              return (
+                f?.zone_text === dataUseDB[i_]?.zone &&
+                f?.area_text === dataUseDB[i_]?.area &&
+                f?.point_text === dataUseDB[i_]?.point &&
+                f?.entry_exit_text === dataUseDB[i_]?.entry_exit &&
+                f?.shipper_name_text === dataUseDB[i_]?.shipperIdSheet &&
+                f?.contract_code_text === dataUseDB[i_]?.contractCodeSheet &&
+                f?.gas_day_text === dataUseDB[i_]?.gas_day
+              )
+            })
+            // console.log('findAllo : ', findAllo);
+            if (findAllo) {
+              if (findAllo?.allocation_status_id === 3) {
+                // accept ห้าม update ให้ warning
+                const notData = {
+                  shipperIdSheet,
+                  contractCodeSheet,
+                  zone: dataUseDB[i_]?.zone,
+                  area: dataUseDB[i_]?.area,
+                  point: dataUseDB[i_]?.point,
+                  unit: dataUseDB[i_]?.unit,
+                  entry_exit: dataUseDB[i_]?.entry_exit,
+                  gas_day: dataUseDB[i_]?.gas_day,
+                  value: dataUseDB[i_]?.value,
+                  note: 'not have update status accept'
+                }
+                logWarning.push(notData)
+              } else {
+                // update status 2
+                const notData = {
+                  id: findAllo?.id,
+                  shipperIdSheet,
+                  contractCodeSheet,
+                  zone: dataUseDB[i_]?.zone,
+                  area: dataUseDB[i_]?.area,
+                  point: dataUseDB[i_]?.point,
+                  unit: dataUseDB[i_]?.unit,
+                  entry_exit: dataUseDB[i_]?.entry_exit,
+                  gas_day: dataUseDB[i_]?.gas_day,
+                  value: dataUseDB[i_]?.value,
+                  note: 'update',
+                  system_allocation: dataUseDB[i_]?.system_allocation,
+                  previous_value: dataUseDB[i_]?.previous_value
+                }
+                dataDb.push(notData)
+              }
+            } else {
+              // ไม่มี ให้ create & update status 2
+              const notData = {
+                id: null,
+                shipperIdSheet,
+                contractCodeSheet,
+                zone: dataUseDB[i_]?.zone,
+                area: dataUseDB[i_]?.area,
+                point: dataUseDB[i_]?.point,
+                unit: dataUseDB[i_]?.unit,
+                entry_exit: dataUseDB[i_]?.entry_exit,
+                gas_day: dataUseDB[i_]?.gas_day,
+                value: dataUseDB[i_]?.value,
+                note: 'create'
+              }
+              dataDb.push(notData)
+            }
+          }
+        }
+        console.log('dataDb : ', dataDb);
+
+     
+
+        dataArr.push({
+          dateArr: dateArr,
+          dataDb: dataDb,
+        })
+      }
+      
+      return {
+        throwErr: throwErr,
+        logWarning: logWarning,
+        warningArr: warningArr,
+        dataArr: dataArr,
       }
     }
+
+    let { 
+      throwErr,
+      logWarning,
+      warningArr,
+      dataArr,
+     } = await loopImportData(convertSheet)
+
+     console.log('throwErr : ', throwErr);
+     console.log('logWarning : ', logWarning);
+     console.log('warningArr : ', warningArr);
+     console.log('dataArr : ', dataArr);
+
+    if(throwErr?.length > 0){
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          error: throwErr?.join("<br/>")
+        },
+        HttpStatus.BAD_REQUEST
+      )
+    }
+
+    // throw new HttpException(
+    //     {
+    //       status: HttpStatus.BAD_REQUEST,
+    //       error: 'test'
+    //     },
+    //     HttpStatus.BAD_REQUEST
+    //   )
 
     if (warningArr.length == 0 || isSaveByIgnoreWaring) {
       const nowAt = getTodayNowAdd7()
       const toDayReviewCodeStartWith = `${nowAt.tz('Asia/Bangkok').format('YYYYMMDD')}-ALP-`
-
-      // const allocationCount = await this.prisma.allocation_management.count({
-      //   where: {
-      //     review_code: {
-      //       startsWith: toDayReviewCodeStartWith,
-      //     },
-      //   },
-      // });
 
       const rows = await this.prisma.allocation_management.groupBy({
         by: ['review_code'],
@@ -4592,7 +4550,9 @@ export class AllocationService {
       })
 
       const allocationCount = rows.length
-
+      // console.log('[...dataArr.map((e:any) => e.dataDb)] : ', [...dataArr.map((e:any) => e.dataDb)]);
+      const dataDb = [...dataArr.map((e:any) => e.dataDb)].flat()
+      // console.log('dataDb : ', dataDb);
       for (let i = 0; i < dataDb.length; i++) {
         if (dataDb[i]?.note === 'create') {
           // create
@@ -4678,11 +4638,12 @@ export class AllocationService {
             create: createByOnce,
             shipper_allocation_review: dataDb[i]?.value.replace(/,/g, '') || null,
             systemAllocation: dataDb[i]?.system_allocation || null,
-            // intradaySystem: body?.row_data?.intradaySystem || null,
             previousAllocationTPAforReview: dataDb[i]?.previous_value || null,
             ...findAM
           })
         } else {
+          // console.log('dataDb[i] : ', dataDb[i]);
+          // console.log('dataDb[i]?.value : ', dataDb[i]?.value);
           const shipperAllocationReviewCreate = await this.prisma.allocation_management_shipper_review.create({
             data: {
               allocation_status_id: 2,
@@ -4693,16 +4654,6 @@ export class AllocationService {
               create_by: Number(userId)
             }
           })
-
-          //     const update = await this.prisma.allocation_management.updateMany({
-          //   where: {
-          //     id: create?.id,
-          //   },
-          //   data: {
-          //     review_code: reviewCodeNum,
-          //     allocation_status_id: 2,
-          //   },
-          // });
 
           const findAMReview = await this.prisma.allocation_management.findFirst({
             where: {
@@ -4726,7 +4677,6 @@ export class AllocationService {
                 id: dataDb[i]?.id ?? -1
               },
               data: {
-                // review_code: reviewCodeNum,
                 allocation_status_id: 2
               }
             })
@@ -4773,7 +4723,6 @@ export class AllocationService {
             create: createByOnce,
             shipper_allocation_review: dataDb[i]?.value.replace(/,/g, '') || null,
             systemAllocation: dataDb[i]?.system_allocation || null,
-            // intradaySystem: body?.row_data?.intradaySystem || null,
             previousAllocationTPAforReview: dataDb[i]?.previous_value || null,
             ...findAM
           })
@@ -4782,29 +4731,17 @@ export class AllocationService {
       warningArr = []
     }
 
-    // success
-    // 7 update status 2 ที่สำเร็จ
-    // value
-    const valueSheetMMBTU = valueSheet?.filter((f: any) => f?.['3'] === 'MMBTU/D')
-
     return {
       warning: [...new Set(warningArr)],
       data: {
-        headSheet,
-        eodApi,
-        resultDateKey,
-        valueSheetMMBTU,
-        dateArr,
-        logWarning,
-        // dataUseDB,
-        dataDb
+        dataArr,
       }
     }
   }
 
   async allocationReportViewGet(payload: any, userId: any) {
     console.time('[RUNTIME] allocationReportViewGet')
-    const { start_date, end_date, skip, limit } = payload
+    const {start_date, end_date, skip, limit, version} = payload
 
     // *Input validation
     const startDate = start_date ? getTodayStartAdd7(start_date) : null
@@ -4814,13 +4751,17 @@ export class AllocationService {
       throw new Error('⛔ Invalid date format')
     }
 
-    if (endDate.isBefore(startDate)) {
+    if (endDate && endDate.isBefore(startDate)) {
       throw new Error('⛔ End date must be after or equal to start date')
     }
 
     // *Query Necessary Data in parallel
     console.time('[RUNTIME] allocationReportViewGet.Query')
-    const [entryExitMaster, allocationReportView, evidenApi] = await Promise.all([this.repo.getEntryExit(), this.repo.getAllocationReportView(startDate.toDate(), endDate.toDate()), this.repo.getEvidenApiAllocationReportNom(startDate, endDate, true)])
+    const [entryExitMaster, allocationReportView, evidenApi] = startDate && endDate && await Promise.all([
+      this.repo.getEntryExit(),
+      this.repo.getAllocationReportView(startDate.toDate(), endDate.toDate()),
+      this.repo.getEvidenApiAllocationReportNom(startDate, endDate, version ? false : true, version ? parseToNumber(version) : undefined)
+    ]) || []
     console.timeEnd('[RUNTIME] allocationReportViewGet.Query')
 
     console.log('[INFO] allocationReportViewGet: evidenApi?.length', evidenApi?.length || 0)
@@ -4863,10 +4804,6 @@ export class AllocationService {
       const nominationValue = values.find((f: any) => f?.tag === 'nominatedValue')?.value ?? null
       const allocatedValue = values.find((f: any) => f?.tag === 'allocatedValue')?.value ?? null
 
-      if (allocatedValue === null || allocatedValue === undefined) {
-        console.log('[WARN] allocationReportViewGet: not found allocate value', allo?.gas_day, ' ', allo?.shipper, ' ', allo?.contract, ' ', allo?.point)
-      }
-
       const entryExitKey = allo.entry_exit?.toUpperCase()
       const entry_exit_obj = entryExitMap.get(entryExitKey)
 
@@ -4893,10 +4830,11 @@ export class AllocationService {
 
   async allocationMonthlyGetData(payload: any, userId: any) {
     console.time('[RUNTIME] allocationMonthlyGetData')
-    const { start_date, end_date, skip, limit, shipperId, month, year, version, contractCode } = payload
+    const {start_date, end_date, skip, limit, shipperId, month, year, version, contractCode} = payload
 
     const allocationReportViewGet = await this.allocationReportViewGet(
       {
+        version,
         start_date,
         end_date,
         skip,
@@ -4904,27 +4842,59 @@ export class AllocationService {
       },
       userId
     )
+    const normalizedShipperIds = (() => {
+      if (!shipperId) return []
 
-    const shipperIdFilter = !!shipperId
-      ? allocationReportViewGet?.filter((f: any) => {
-        return f?.shipper === shipperId
-      })
-      : allocationReportViewGet
+      if (Array.isArray(shipperId)) {
+        return shipperId
+      }
+
+      if (typeof shipperId === 'string') {
+        const value = shipperId.trim()
+
+        // กรณี "['NGP-S16-001','NGP-S16-002']"
+        if (value.startsWith('[') && value.endsWith(']')) {
+          return value
+            .slice(1, -1)
+            .split(',')
+            .map((item) => item.trim().replace(/^['"]|['"]$/g, ''))
+            .filter(Boolean)
+        }
+
+        // กรณี "NGP-S16-001"
+        return [value]
+      }
+
+      return []
+    })()
+
+    const shipperIdFilter =
+      normalizedShipperIds.length > 0
+        ? allocationReportViewGet?.filter((f: any) =>
+            normalizedShipperIds.includes(f?.shipper)
+          )
+        : allocationReportViewGet
+    // const shipperIdFilter = !!shipperId
+    //   ? allocationReportViewGet?.filter((f: any) => {
+    //       return f?.shipper === shipperId
+    //     })
+    //   : allocationReportViewGet
     const monthFilter = !!month
       ? shipperIdFilter?.filter((f: any) => {
-        return dayjs(f?.gas_day, 'YYYY-MM-DD').format('MM') === month
-      })
+          return dayjs(f?.gas_day, 'YYYY-MM-DD').format('MM') === month
+        })
       : shipperIdFilter
-    const versionFilter = !!version
-      ? monthFilter?.filter((f: any) => {
-        return f?.execute_timestamp === Number(version)
-      })
-      : monthFilter
+    const versionFilter = monthFilter
+    // const versionFilter = !!version
+    //   ? monthFilter?.filter((f: any) => {
+    //     return f?.execute_timestamp === Number(version)
+    //   })
+    //   : monthFilter
     const contractCodeFilter =
       !!contractCode && contractCode !== 'Summary'
         ? versionFilter?.filter((f: any) => {
-          return f?.contract === contractCode
-        })
+            return f?.contract === contractCode
+          })
         : versionFilter
     console.log('[INFO] allocationMonthlyGetData: contractCodeFilter.length', contractCodeFilter?.length || 0)
     console.timeEnd('[RUNTIME] allocationMonthlyGetData')
@@ -4934,8 +4904,10 @@ export class AllocationService {
   // ...
   async allocationMonthlyReport(payload: any, userId: any, ext?: any) {
     console.time('[RUNTIME] allocationMonthlyReport')
-    const { start_date, end_date, skip, limit, shipperId, month, year, version, contractCode } = payload
+    const {start_date, end_date, skip, limit, shipperId, month, year, version, contractCode, nomPoint, share} = payload
     // * Prepare Data
+    // shipperId
+    
     const contractCodeFilter = await this.allocationMonthlyGetData(payload, userId)
     const type_report = !!contractCode && contractCode !== 'Summary' ? contractCode : 'Summary'
     const dates = generateDatesInMonth(Number(year), Number(month))
@@ -4949,8 +4921,8 @@ export class AllocationService {
         if (!grouped[contractKey]) {
           grouped[contractKey] = {
             contract: contractKey, // กำหนดค่า contract
-            shipperId: item?.group?.id_name,
-            shipperName: item?.group?.name,
+            shipperId: item && item?.group?.id_name || -1,
+            shipperName: item && item?.group?.name || -1,
             data: [] // เตรียม array ว่างไว้
           }
         }
@@ -4965,15 +4937,15 @@ export class AllocationService {
       !!contractCode && contractCode !== 'Summary'
         ? groupByContract(contractCodeFilter)
         : [
-          ...groupByContract(contractCodeFilter),
-          {
-            contract: 'Summary',
-            data: contractCodeFilter
-          }
-        ]
+            ...groupByContract(contractCodeFilter),
+            {
+              contract: 'Summary',
+              data: contractCodeFilter
+            }
+          ]
     console.log('[INFO] allocationMonthlyReport: resultG?.length', resultG?.length || 0)
 
-    const resultGArea = resultG?.map((e: any) => {
+    let resultGArea = resultG?.map((e: any) => {
       const grouped: Record<string, any> = {}
       for (const item of e['data']) {
         const areaKey = item.area
@@ -5000,7 +4972,7 @@ export class AllocationService {
         const combineGroupedValues = (data: any[]) => {
           const grouped: Record<string, any> = {}
 
-          data.forEach(({ gas_day, point, customer_type, value }) => {
+          data.forEach(({gas_day, point, customer_type, value}) => {
             const key = `${gas_day}|${point}|${customer_type}`
             if (!grouped[key]) {
               grouped[key] = {
@@ -5108,7 +5080,7 @@ export class AllocationService {
       (resultGArea?.[resultGArea?.length - 1]?.data || [])?.map((e: any) => ({
         area: e?.area
       })) || []
-    const areaShipperData = (areaShipperData_ || [])?.map((e: any) => {
+    const areaShipperData = areaShipperData_.map((e: any) => {
       const shipperArr_ = resultGArea
         ?.filter((f: any) => {
           if (f?.shipperId && f?.shipperName) {
@@ -5200,16 +5172,113 @@ export class AllocationService {
       }
     })
 
+    let nomShare = []
+    if(share === "on"){
+      const shareNom = await shareShipperAtNomLevel(
+        this.prisma,
+        dayjs(start_date),
+        dayjs(end_date),
+      )
+      nomShare = shareNom?.map((e:any) => e?.nomination_point)
+    }
+    console.log('nomShare : ', nomShare);
+
+    let resultNom = []
+    let resultArea = []
+    console.log('nomPoint : ', nomPoint);
+    const filNomShare = share === "on" && (nomPoint && nomPoint.length > 0) 
+    ? nomShare.filter((f:any) => {
+      return (
+        nomPoint.includes(f)
+      )
+    }) : share === "on" ? nomShare : nomPoint
+    console.log('filNomShare : ', filNomShare);
+
+      // nomPoint= "AAA,ABP1,ABP1_R,ABP2,ABP2_R,ABP3"
+      // shareShipperAtNomLevel
+      if(share === "on" && !filNomShare){
+        resultNom = []
+        resultArea = []
+      }else{
+        if (filNomShare && filNomShare.length > 0) {
+           if (Array.isArray(resultGArea)) {
+             resultNom = resultGArea.map((contractData: any) => {
+                 const filteredArea = (contractData.data || [])
+                   .map((areaData: any) => {
+                     const filteredPoint = (areaData.data || []).filter((pointData: any) =>
+                       filNomShare.includes(pointData.point)
+                     )
+   
+                     if (filteredPoint.length > 0) {
+                       return {
+                         ...areaData,
+                         data: filteredPoint
+                       }
+                     }
+   
+                     return null
+                   })
+                   .filter(Boolean)
+   
+                 if (filteredArea.length > 0) {
+                   return {
+                     ...contractData,
+                     data: filteredArea
+                   }
+                 }
+   
+                 return null
+               })
+               .filter(Boolean)
+           }
+   
+           if (Array.isArray(areaShipperData)) {
+             resultArea = areaShipperData
+               .map((areaGroup: any) => {
+                 const filteredShippers = (areaGroup?.shipperData || [])
+                   .map((ship: any) => {
+                     const filteredPoints = (ship?.data || []).filter((pointData: any) => filNomShare.includes(pointData.point))
+   
+                     if (filteredPoints.length > 0) {
+                       return {
+                         ...ship,
+                         data: filteredPoints
+                       }
+                     }
+   
+                     return null
+                   })
+                   .filter(Boolean)
+   
+                 if (filteredShippers.length > 0) {
+                   return {
+                     ...areaGroup,
+                     shipperData: filteredShippers
+                   }
+                 }
+   
+                 return null
+               })
+               .filter(Boolean)
+           }
+         }else{
+           resultNom = resultGArea
+           resultArea = areaShipperData
+         }
+      }
+
+
+
     return {
       headDate: dates,
-      areaShipperData: areaShipperData,
-      data: resultGArea,
+      areaShipperData: resultArea,
+      data: resultNom,
       typeReport: type_report
     }
   }
 
   async allocationMonthlyVersionExe(payload: any, userId: any) {
-    const { start_date, end_date, skip, limit, shipperId, month, year, version, contractCode } = payload
+    const {start_date, end_date, skip, limit, shipperId, month, year, version, contractCode} = payload
 
     const contractCodeFilter = await this.allocationMonthlyGetData(payload, userId)
 
@@ -5239,8 +5308,109 @@ export class AllocationService {
 
     return Object.values(groupedData)
   }
+
+  async allocationMonthlyVersionExe2(payload: any, userId: any) {
+    const {start_date, end_date, skip, limit, shipperId, month, year, version, contractCode} = payload
+    const {minDate, maxDate} = await findMinMaxExeDate(this.prisma, start_date, end_date)
+    console.log('.');
+    let totalRecord = 0
+    minDate && await this.evidenApiAllocationContractPointByNom(
+      {
+        start_date: minDate.format('YYYY-MM-DD'),
+        end_date: maxDate.format('YYYY-MM-DD'),
+        skip: 0,
+        limit: 1
+      },
+      (total_record: number) => {
+        totalRecord = total_record
+      }
+    )
+
+    let evidenApi: any[] = []
+    if (totalRecord > 0) {
+      const BATCH_SIZE = 200
+      const requests = []
+      for (let offset = 0; offset < totalRecord; offset += BATCH_SIZE) {
+        requests.push(
+          minDate && this.evidenApiAllocationContractPointByNom({
+            start_date: minDate.format('YYYY-MM-DD'),
+            end_date: maxDate.format('YYYY-MM-DD'),
+            skip: offset,
+            limit: BATCH_SIZE
+          }) || []
+        )
+      }
+      const results = await Promise.all(requests)
+      evidenApi = results.flat()
+    } else {
+      evidenApi = await this.evidenApiAllocationContractPointByNom({
+        start_date,
+        end_date,
+        skip,
+        limit
+      })
+    }
+    // ดึง Execute (EOD) ที่อยู่ในช่วงวันที่ เพื่อใช้ตรวจสอบข้อมูลที่เผยแพร่จริง
+    const executeEodList = await this.prisma.execute_eod.findMany({
+      where: {
+        status: {
+          equals: 'OK',
+          mode: 'insensitive'
+        },
+        start_date_date: {
+          lte: maxDate.toDate()
+        },
+        end_date_date: {
+          gte: minDate.toDate()
+        }
+      }
+    })
+
+    evidenApi = evidenApi.filter((item: any) => {
+      const itemGasDay = getTodayNowYYYYMMDDDfaultAdd7(item.gas_day)
+      return executeEodList?.some((executeData: any) => {
+        const executeStart = getTodayNowAdd7(executeData?.start_date_date)
+        const executeEnd = getTodayNowAdd7(executeData?.end_date_date)
+        return executeData?.request_number_id == item?.request_number && executeStart?.isSameOrBefore(itemGasDay, 'day') && executeEnd?.isSameOrAfter(itemGasDay, 'day')
+      })
+    })
+
+    let result = []
+    evidenApi.map((item: any) => {
+      item.data.map((itemData: any) => {
+        let index = result.findIndex((existing) => existing.shipper == itemData.shipper)
+        if (index < 0) {
+          result.push({
+            shipper: itemData.shipper,
+            data: [
+              {
+                request_number: item.request_number,
+                execute_timestamp: item.execute_timestamp
+              }
+            ]
+          })
+        } else if (!result[index].data.some((existing: any) => existing.execute_timestamp == item.execute_timestamp)) {
+          result[index].data.push({
+            request_number: item.request_number,
+            execute_timestamp: item.execute_timestamp
+          })
+        }
+      })
+    })
+    // console.log('evidenApi : ', evidenApi); 
+    result.sort((a, b) => String(a.shipper).localeCompare(String(b.shipper)))
+    result.forEach((item) => {
+      item.data.sort((a: any, b: any) => String(a.execute_timestamp).localeCompare(String(b.execute_timestamp)))
+    })
+
+    return result
+  }
   // shipperId
   async allocationMonthlyReportApproved(payload: any, userId: any, ext?: any) {
+    if(payload){
+      throw new Error('payload not value')
+
+    }
     const allocationMonthlyReport = await this.allocationMonthlyReport(payload, userId, ext)
 
     function getMonthNameFromNumber(monthNumber: string) {
@@ -5248,9 +5418,9 @@ export class AllocationService {
       return month.format('MMMM') // 'MMMM' จะได้ชื่อเดือนเต็ม เช่น June
     }
 
-    const monthText = getMonthNameFromNumber(payload?.month)
-    const monthYearFormat = `${monthText} ${payload?.year}`
-    const contractCode = !!payload?.contractCode && payload?.contractCode !== 'Summary' ? payload?.contractCode : null
+    const monthText = payload && getMonthNameFromNumber(payload.month)
+    const monthYearFormat = `${monthText} ${payload.year}`
+    const contractCode = !!payload.contractCode && payload.contractCode !== 'Summary' ? payload.contractCode : null
     const typeReport = !!contractCode && contractCode !== 'Summary' ? 'By Contract Code' : 'Summary'
 
     const newDate = getTodayNowAdd7()
@@ -5270,7 +5440,7 @@ export class AllocationService {
       }
     })
     const versionCount = monthlyCount > 0 ? monthlyCount + 1 : 1
-    const fileRun = `${dayjs(newDate).format('YYYYMMDD')} Monthly Report ${versionCount} (Rev.${versionCount})`
+    const fileRun = `${dayjs(newDate).format('YYYYMMDD')} Monthly Report ${monthYearFormat} (Rev.${versionCount})`
     // const monthlyCountAll = await this.prisma.allocation_monthly_report_approved.count({
     //   where: {}
     // })
@@ -5356,7 +5526,7 @@ export class AllocationService {
   }
 
   async curtailmentsAllocation(payload: any, userId: any) {
-    const { type } = payload
+    const {type} = payload
     const resData = await this.prisma.curtailments_allocation.findMany({
       where: {
         curtailments_allocation_type_id: Number(type)
@@ -5458,28 +5628,85 @@ export class AllocationService {
   }
 
   async selectNomination(payload: any, userId: any) {
-
-
-    const { gasDay, area, ev, nominationPoint, unit, type } = payload
+    const {gasDay, area, ev, nominationPoint, unit, type} = payload
     const todayStart = getTodayStartAdd7().toDate()
     const todayEnd = getTodayEndAdd7().toDate()
 
     const gasDayjs = gasDay ? getTodayStartDDMMYYYYAdd7(gasDay).toDate() : todayStart
-    const { weekStart: targetWeekStart } = getWeekRange(gasDayjs)
-    const { weekEnd: targetWeekEnd } = getWeekRange(gasDayjs) 
+    const {weekStart: targetWeekStart} = getWeekRange(gasDayjs)
+    const {weekEnd: targetWeekEnd} = getWeekRange(gasDayjs)
 
-    const flagEv = ev === "true" ? true : false
+    const flagEv = ev === 'true' ? true : false
 
-    const hvFromEntryArea = flagEv ? await findHvFromEntryArea({
-      prisma: this.prisma,
-      targetArea: '',
-      gasDate: gasDayjs,
-      dataList: [],
-    }) : [];
-    console.log('hvFromEntryArea : ', hvFromEntryArea);
+    const dataList: queryShipperNominationFileWithRelationsForCal[] = await this.prisma.query_shipper_nomination_file.findMany({
+      where: {
+        // NOT: {
+        //   contract_code_id: null,
+        // }, // revers bal ไม่แสดง effect
+        AND: [
+          {
+            OR: [
+              {
+                // nomination รายวัน (type 1) ที่อยู่ในช่วงวันที่ที่เลือก
+                nomination_type: { id: 1 },
+                gas_day: gasDayjs,
+              },
+              {
+                // nomination รายสัปดาห์ (type 2) ที่อยู่ในช่วงสัปดาห์ที่ครอบคลุมวันที่เลือก
+                nomination_type: { id: 2 },
+                gas_day: {
+                  gte: targetWeekStart,
+                  lte: targetWeekEnd,
+                },
+              },
+            ],
+          },
+          // เฉพาะรายการที่ไม่ถูกลบ
+          {
+            OR: [
+              {
+                del_flag: false,
+              },
+              {
+                del_flag: null,
+              },
+            ],
+          },
+          // เฉพาะ status 1 (Waiting For Response), 2 (Approved) และ 5 (Approved by System)
+          {
+            query_shipper_nomination_status: {
+              id: {
+                in: [1, 2, 5],
+              },
+            },
+          },
+        ],
+      },
+      ...queryShipperNominationFilePopulateForCal,
+      orderBy: [
+        {
+          nomination_type_id: 'asc',
+        },
+        { id: 'desc' },
+      ],
+    })
+
+    const hvFromEntryArea = flagEv
+      ? await findHvFromEntryArea({
+          prisma: this.prisma,
+          targetArea: '',
+          gasDate: gasDayjs,
+          dataList: dataList 
+          // dataList: [] 
+        })
+      : []
+    console.log('hvFromEntryArea : ', hvFromEntryArea)
+    // https://localhost:4001/master/quality-evaluation?gasDay=2026-08-13
+
+
     // console.log('[east-x3] hvFromEntryArea : ', hvFromEntryArea?.get("east-x3"));
 
-    // const 
+    // const
     // sumHvMultiplyVi / sumVi
 
     const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
@@ -5519,7 +5746,7 @@ export class AllocationService {
           {
             del_flag: false
           },
-          { del_flag: null }
+          {del_flag: null}
         ],
         query_shipper_nomination_status: {
           id: {
@@ -5635,7 +5862,10 @@ export class AllocationService {
     // console.log('resData : ', resData);
     const grouped = {}
     for (const curr of resData) {
-      const key = `${curr.gas_day}| ${curr.group?.name}| ${curr?.nomination_type?.id} `
+      if(!curr){
+        continue;
+      }
+      const key = `${curr?.gas_day}| ${curr?.group?.name}| ${curr?.nomination_type?.id} `
 
       if (!grouped[key]) {
         grouped[key] = {
@@ -5697,7 +5927,7 @@ export class AllocationService {
     // console.log('resultGroupType : ', resultGroupType);
 
     const nomFlat = resultGroupType?.flatMap((e: any) => {
-      const { dataDW, ...nE } = e
+      const {dataDW, ...nE} = e
       const nom = dataDW?.map((eD: any) => {
         return {
           ...nE,
@@ -5710,10 +5940,10 @@ export class AllocationService {
     // console.log('nomFlat : ', nomFlat);
 
     const nomJsonRowFlat = nomFlat?.flatMap((e: any) => {
-      const { nomination_version, ...nE } = e
+      const {nomination_version, ...nE} = e
       let nomination_version_one = e?.nomination_version[0] || []
       nomination_version_one.nomination_full_json = nomination_version_one.nomination_full_json[0]
-      const { nomination_row_json, ...nER } = nomination_version_one
+      const {nomination_row_json, ...nER} = nomination_version_one
 
       const nom = nomination_row_json?.map((eD: any) => {
         return {
@@ -5740,7 +5970,7 @@ export class AllocationService {
 
     const nomTypeExt = nomData?.flatMap((e: any) => {
       let dataE = []
-      if (e['nomination_type_id'] === 2) {
+      if (e && e['nomination_type_id'] === 2) {
         // weekly
         for (let i = 0; i < daysOfWeek.length; i++) {
           //
@@ -5748,7 +5978,7 @@ export class AllocationService {
             ...e,
             total: Number(e['data_temp'][`${14 + i} `]?.trim()?.replace(/,/g, '')) || 0,
             totalType: daysOfWeek[i],
-            gasDayUse: e?.nomVersionFull?.data_temp?.headData[`${14 + i} `]
+            gasDayUse: e && e?.nomVersionFull?.data_temp?.headData[`${14 + i} `] || null
           })
         }
       } else {
@@ -5766,7 +5996,7 @@ export class AllocationService {
     // console.log('nomTypeExt : ', nomTypeExt);
 
     const nomExt = nomTypeExt?.map((e: any) => {
-      const { gasDayUse, contract, shipper_name, zone_text, area_text, unit, point, entryExit, total, totalType, contract_code, reserve_balancing_gas_contract, ...nE } = e
+      const {gasDayUse, contract, shipper_name, zone_text, area_text, unit, point, entryExit, total, totalType, contract_code, reserve_balancing_gas_contract, ...nE} = e
       const entryExitId = entryExit === 'Entry' ? 1 : 2
       const areaObj = areaMaster?.find((f: any) => {
         return f?.name === area_text && f?.entry_exit_id === entryExitId
@@ -5795,34 +6025,32 @@ export class AllocationService {
       ?.map((e: any) => {
         return e?.point
       })
-      
-      // gasDay, area, nominationPoint, unit, type
-      // console.log('pointAll : ', pointAll);
-      
-      if(flagEv){
+
+    // gasDay, area, nominationPoint, unit, type
+    // console.log('pointAll : ', pointAll);
+
+    if (flagEv) {
       const pointAllNom = await this.prisma.nomination_point.findMany({
-        where:{
-          nomination_point:{
+        where: {
+          nomination_point: {
             in: pointAll
           }
         }
       })
-      
+
       return {
-          data: [...new Set(pointAll)],
-          nom: pointAllNom || [],
-          hvFromEntryArea: hvFromEntryArea
-          ? Object.fromEntries(hvFromEntryArea)
-          : null,
+        data: [...new Set(pointAll)],
+        nom: pointAllNom || [],
+        hvFromEntryArea: hvFromEntryArea ? Object.fromEntries(hvFromEntryArea) : null
       }
-    }else{
+    } else {
       return [...new Set(pointAll)]
     }
   }
 
   async curtailmentsAllocationGetMaxCap(payload: any, userId: any) {
     try {
-      const { gasDay, area, nominationPoint, unit, type } = payload
+      const {gasDay, area, nominationPoint, unit, type} = payload
 
       if (!gasDay || !area || !unit || !type) {
         throw new HttpException(
@@ -5865,7 +6093,7 @@ export class AllocationService {
         }
 
         if (isMatch(unit, 'MMBTU/D')) {
-          const hv = await this.qualityEvaluationService.findHVByDateAndArea({ gasDay, area }, userId)
+          const hv = await this.qualityEvaluationService.findHVByDateAndArea({gasDay, area}, userId)
           return activeNominationPoint.maximum_capacity * hv
         } else {
           return activeNominationPoint.maximum_capacity
@@ -5886,7 +6114,7 @@ export class AllocationService {
         if (isMatch(unit, 'MMBTU/D')) {
           return activeArea.area_nominal_capacity
         } else {
-          const hv = await this.qualityEvaluationService.findHVByDateAndArea({ gasDay, area }, userId)
+          const hv = await this.qualityEvaluationService.findHVByDateAndArea({gasDay, area}, userId)
           return activeArea.area_nominal_capacity / hv
         }
       }
@@ -5896,10 +6124,10 @@ export class AllocationService {
   }
 
   async curtailmentsAllocationCalc(payload: any, userId: any) {
-    const { gasDay, area, nominationPoint, unit, type, maxCapacity } = payload
+    const {gasDay, area, nominationPoint, unit, type, maxCapacity} = payload
     const gasDayjs = getTodayStartDDMMYYYYAdd7(gasDay)
-    const { weekStart: targetWeekStart } = getWeekRange(gasDayjs.toDate())
-    const { weekEnd: targetWeekEnd } = getWeekRange(gasDayjs.toDate())
+    const {weekStart: targetWeekStart} = getWeekRange(gasDayjs.toDate())
+    const {weekEnd: targetWeekEnd} = getWeekRange(gasDayjs.toDate())
 
     const todayStart = getTodayStartAdd7().toDate()
     const todayEnd = getTodayEndAdd7().toDate()
@@ -5931,26 +6159,45 @@ export class AllocationService {
 
     const resData = await this.prisma.query_shipper_nomination_file.findMany({
       where: {
-        NOT: {
-          contract_code_id: null
-        }, // revers bal ไม่แสดง effect
+        AND: [
+          {
         OR: [
           {
             del_flag: false
           },
-          { del_flag: null }
+          {del_flag: null}
         ],
+          },
+          {
         query_shipper_nomination_status: {
           id: {
             in: [2, 5, 1]
           }
         },
-        gas_day: {
-          gte: targetWeekStart,
-          lte: targetWeekEnd
-        } //!Hot fix
+          },
+          {
+            OR: [
+              {
+                // nomination รายวัน (type 1) ที่อยู่ในช่วงวันที่ที่เลือก
+                nomination_type: { id: 1 },
+                gas_day: {
+                  gte: gasDayjs.toDate(),
+                  lte: gasDayjs.endOf('day').toDate(),
+                },
+              },
+              {
+                // nomination รายสัปดาห์ (type 2) ที่อยู่ในช่วงสัปดาห์ที่ครอบคลุมวันที่เลือก
+                nomination_type: { id: 2 },
+                gas_day: {
+                  gte: targetWeekStart,
+                  lte: targetWeekEnd,
+                },
+              },
+            ],
+          },
         // id: 47,
         // nomination_type_id: 2,
+        ]
       },
       include: {
         group: true,
@@ -6063,14 +6310,18 @@ export class AllocationService {
         //   },
         // },
       },
-      orderBy: {
-        id: 'desc'
-      }
+      orderBy: [
+        { nomination_type_id: 'asc' },
+        { id: 'desc' },
+      ]
     })
-    console.log('resData : ',resData);
+    console.log('resData : ', resData)
     const grouped = {}
     for (const curr of resData) {
-      const key = `${curr.gas_day}| ${curr.group?.name}| ${curr?.nomination_type?.id} `
+      if(!curr){
+        continue;
+      }
+      const key = `${curr?.gas_day}| ${curr?.group?.name}| ${curr?.nomination_type?.id} `
 
       if (!grouped[key]) {
         grouped[key] = {
@@ -6130,7 +6381,7 @@ export class AllocationService {
     })
 
     const nomFlat = resultGroupType?.flatMap((e: any) => {
-      const { dataDW, ...nE } = e
+      const {dataDW, ...nE} = e
       const nom = dataDW?.map((eD: any) => {
         return {
           ...nE,
@@ -6142,10 +6393,10 @@ export class AllocationService {
     })
 
     const nomJsonRowFlat = nomFlat?.flatMap((e: any) => {
-      const { nomination_version, ...nE } = e
+      const {nomination_version, ...nE} = e
       let nomination_version_one = e?.nomination_version[0] || []
       nomination_version_one.nomination_full_json = nomination_version_one.nomination_full_json[0]
-      const { nomination_row_json, ...nER } = nomination_version_one
+      const {nomination_row_json, ...nER} = nomination_version_one
       // NONTPA
       const nom = nomination_row_json?.map((eD: any) => {
         if (eD['data_temp']['6'] === 'NONTPA') {
@@ -6167,19 +6418,33 @@ export class AllocationService {
       return [...nom]
     })
 
-    const nomData = nomJsonRowFlat?.filter((f: any) => {
+    const nomDataFiltered = nomJsonRowFlat?.filter((f: any) => {
       return f?.query_shipper_nomination_type_id === 1
     })
+    const minNominationTypeByContractPoint = new Map()
+    for (const item of nomDataFiltered || []) {
+      const key = `${item?.contract}|${item?.point}|${item?.unit}`
+      const nominationTypeId = Number(item?.nomination_type_id)
+      const currentMin = minNominationTypeByContractPoint.get(key)
+      if (currentMin === undefined || nominationTypeId < currentMin) {
+        minNominationTypeByContractPoint.set(key, nominationTypeId)
+      }
+    }
+    const nomData = nomDataFiltered?.filter((f: any) => {
+      const key = `${f?.contract}|${f?.point}|${f?.unit}`
+      return Number(f?.nomination_type_id) === minNominationTypeByContractPoint.get(key)
+    })
+    
     const nomTypeExt = nomData?.flatMap((e: any) => {
       let dataE = []
-      if (e['nomination_type_id'] === 2) {
+      if (e && e['nomination_type_id'] === 2) {
         // weekly
         for (let i = 0; i < daysOfWeek.length; i++) {
           //
-          
+
           dataE.push({
             ...e,
-            total: Number(e['data_temp'][`${14 + i} `]?.trim()?.replace(/,/g, '')) || 0,
+            total: Number(e['data_temp'][`${14 + i}`]?.trim()?.replace(/,/g, '')) || 0,
             totalType: daysOfWeek[i],
             gasDayUse: e?.nomVersionFull?.data_temp?.headData[`${14 + i}`],
             HV: Number(e['data_temp']['12']?.trim()?.replace(/,/g, '')) || 0,
@@ -6202,7 +6467,7 @@ export class AllocationService {
     })
 
     const nomExt = nomTypeExt?.map((e: any) => {
-      const { rowId, HV, gasDayUse, contract, shipper_name, zone_text, area_text, unit, point, entryExit, total, totalType, contract_code, reserve_balancing_gas_contract_id, NONTPA, ...nE } = e
+      const {rowId, HV, gasDayUse, contract, shipper_name, zone_text, area_text, unit, point, entryExit, total, totalType, contract_code, reserve_balancing_gas_contract_id, NONTPA, ...nE} = e
       const entryExitId = entryExit === 'Entry' ? 1 : 2
       const areaObj = areaMaster?.find((f: any) => {
         return f?.name === area_text && f?.entry_exit_id === entryExitId
@@ -6229,16 +6494,16 @@ export class AllocationService {
         NONTPA
       }
     })
-    console.log('type : ', type);
-    console.log('nomExt : ', nomExt);
+    console.log('type : ', type)
+    console.log('nomExt : ', nomExt)
     const nomExtFilter =
       type === '1'
         ? nomExt?.filter((f: any) => {
-          return f?.area_text === area && f?.gasDayUse === gasDay
-        })
+            return f?.area_text === area && f?.gasDayUse === gasDay
+          })
         : nomExt?.filter((f: any) => {
-          return f?.area_text === area && f?.gasDayUse === gasDay && f?.point === nominationPoint
-        })
+            return f?.area_text === area && f?.gasDayUse === gasDay && f?.point === nominationPoint
+          })
 
     const deduplicateByKeys = (data) => {
       const map = new Map()
@@ -6266,10 +6531,13 @@ export class AllocationService {
 
       return result
     }
-    console.log('nomExtFilter : ', nomExtFilter);
+    console.log('nomExtFilter : ', nomExtFilter)
     const filteredDataDW = deduplicateByKeys(nomExtFilter)
     const groupedArea = {}
     for (const curr of filteredDataDW) {
+      if(!curr){
+        continue;
+      }
       const key = `${curr.gasDayUse}| ${curr.shipper_name}| ${curr?.contract}| ${curr?.area_text} `
 
       if (!groupedArea[key]) {
@@ -6282,52 +6550,52 @@ export class AllocationService {
         }
       }
 
-      groupedArea[key].data.push({ ...curr })
+      groupedArea[key].data.push({...curr})
     }
     const resultGroupArea: any = Object.values(groupedArea)
     const calcHvResultGroupArea = resultGroupArea.map((e: any) => {
-      const hvXvi = e['data'].length > 0 ? e['data'].reduce((sum, item) => sum + Number(item['HV']) * Number(item['total']), 0) : null //wi excl
-      const viAll = e['data'].length > 0 ? e['data'].reduce((sum, item) => (item['NONTPA'] === 'NONTPA' ? sum - Number(item['total']) : sum + Number(item['total'])), 0) : null //wi excl
+      const hvXvi = e['data'] && e['data'].length > 0 ? e['data'].reduce((sum, item) => sum + Number(item['HV']) * Number(item['total']), 0) : null //wi excl
+      const viAll = e['data'] && e['data'].length > 0 ? e['data'].reduce((sum, item) => (item['NONTPA'] === 'NONTPA' ? sum - Number(item['total']) : sum + Number(item['total'])), 0) : null //wi excl
       const calcHv = hvXvi / viAll
 
       // entryExit Entry Exit
       const entry =
-        e['data'].length > 0
+        e['data'] && e['data'].length > 0
           ? e['data']?.filter((f: any) => {
-            return f?.entryExit === 'Entry'
-          })
+              return f?.entryExit === 'Entry'
+            })
           : null
       const exit =
-        e['data'].length > 0
+        e['data'] && e['data'].length > 0
           ? e['data']?.filter((f: any) => {
-            return f?.entryExit === 'Exit'
-          })
+              return f?.entryExit === 'Exit'
+            })
           : null
       const entryMMBTU =
-        entry.filter((f: any) => {
+        entry && entry.filter((f: any) => {
           return f?.unit === 'MMBTU/D'
         }) || null
       const entryMMSCFD =
-        entry.filter((f: any) => {
+        entry && entry.filter((f: any) => {
           return f?.unit === 'MMSCFD'
         }) || null
       const exitMMBTU =
-        exit.filter((f: any) => {
+        exit && exit.filter((f: any) => {
           return f?.unit === 'MMBTU/D'
         }) || null
 
       let nominationValue = 0
       if (unit === 'MMBTU/D') {
-        let nominationValueEntry = entryMMBTU.reduce((sum, item) => (item['NONTPA'] === 'NONTPA' ? sum - Number(item['total']) : sum + Number(item['total'])), 0)
-        let nominationValueExit = exitMMBTU.reduce((sum, item) => (item['NONTPA'] === 'NONTPA' ? sum - Number(item['total']) : sum + Number(item['total'])), 0)
+        let nominationValueEntry = (entryMMBTU || []).reduce((sum, item) => (item?.['NONTPA'] === 'NONTPA' ? sum - Number(item?.['total'] || 0) : sum + Number(item?.['total'] || 0)), 0)
+        let nominationValueExit = (exitMMBTU || []).reduce((sum, item) => (item?.['NONTPA'] === 'NONTPA' ? sum - Number(item?.['total'] || 0) : sum + Number(item?.['total'] || 0)), 0)
         nominationValue = nominationValueEntry + nominationValueExit
       } else if (unit === 'MMSCFD') {
-        let nominationValueEntry = entryMMSCFD.reduce((sum, item) => (item['NONTPA'] === 'NONTPA' ? sum - Number(item['total']) : sum + Number(item['total'])), 0)
+        let nominationValueEntry = (entryMMSCFD || []).reduce((sum, item) => (item?.['NONTPA'] === 'NONTPA' ? sum - Number(item?.['total'] || 0) : sum + Number(item?.['total'] || 0)), 0)
         //  let nominationValueExit = calcHv === 0 ? null : exitMMBTU.reduce((sum, item) => sum + Number(item["total"]), 0) / calcHv
         //  nominationValue = nominationValueEntry + nominationValueExit
         nominationValue = nominationValueEntry
       }
-      const { data, ...nE } = e
+      const {data, ...nE} = (e || null)
       return {
         calcHv,
         nominationValue: nominationValue,
@@ -6352,7 +6620,7 @@ export class AllocationService {
           return sum + value
         }, 0) || 0
 
-    console.log('calcHvResultGroupArea : ', calcHvResultGroupArea);
+    console.log('calcHvResultGroupArea : ', calcHvResultGroupArea)
 
     const calcRemain = calcHvResultGroupArea?.map((e: any) => {
       let remainingCapacity = null
@@ -6373,12 +6641,12 @@ export class AllocationService {
     })
 
     // gasDay, area, nominationPoint, unit, type
-    console.log('calcRemain : ',calcRemain);
+    console.log('calcRemain : ', calcRemain)
     return calcRemain
   }
 
   async curtailmentsAllocationCalcSave(payload: any, userId: any) {
-    const { gasDay, area, nominationPoint, unit, type, maxCapacity } = payload
+    const {gasDay, area, nominationPoint, unit, type, maxCapacity} = payload
 
     const calcRemain = await this.curtailmentsAllocationCalc(payload, userId)
     const newDate = getTodayNowAdd7()
@@ -6413,7 +6681,7 @@ export class AllocationService {
       //   },
       // },
     }
-    const { data: datDB, ...ndataUse } = dataUse
+    const {data: datDB, ...ndataUse} = dataUse
     const create = await this.prisma.curtailments_allocation.create({
       data: ndataUse
     })
@@ -6443,12 +6711,12 @@ export class AllocationService {
   }
 
   async allocationReportViewSpeed(payload: any, userId: any) {
-    const { start_date, end_date, skip, limit, tab, contract, shipper, gas_day, id, evidenApi, areaMaster, zoneMaster, groupMaster, entryExitMaster } = payload
+    const {start_date, end_date, skip, limit, tab, contract, shipper, gas_day, id, evidenApi, areaMaster, zoneMaster, groupMaster, entryExitMaster} = payload
 
     const start = start_date ? getTodayStartAdd7(start_date) : null
     const end = end_date ? getTodayEndAdd7(end_date) : null
 
-    if (!start.isValid() || !end.isValid()) {
+    if (!start || !end || !start.isValid() || !end.isValid()) {
       throw new Error('⛔ Invalid date format')
     }
 
@@ -6464,13 +6732,13 @@ export class AllocationService {
 
     const newEOD =
       evidenApi?.flatMap((fm: any) => {
-        const { data: data1, ...fmD } = fm
+        const {data: data1, ...fmD} = fm
 
         // Find active data for this gas_day
         const activeDataForDate = activeData.find((ad) => ad.date === fm.gas_day)
 
         const nData = data1?.flatMap((dFm: any) => {
-          const { data: data2, ...fmD2 } = dFm
+          const {data: data2, ...fmD2} = dFm
 
           // Validate contract and shipper existence
           const contractValidation = validateContractAndShipper(dFm, activeDataForDate)
@@ -6564,7 +6832,7 @@ export class AllocationService {
       })
     }
 
-    const newEODF = resultEodLast?.map((eod: any) => {
+    const newEODF = (resultEodLast || []).map((eod: any) => {
       const contractCapacity = eod['values']?.find((f: any) => f?.tag === 'contractCapacity')?.value ?? null
       const nominationValue = eod['values']?.find((f: any) => f?.tag === 'nominatedValue')?.value ?? null
       const allocatedValue = eod['values']?.find((f: any) => f?.tag === 'allocatedValue')?.value ?? null
@@ -6588,7 +6856,7 @@ export class AllocationService {
         )
       })
 
-      const { values, ...nEod } = eod
+      const {values, ...nEod} = eod
 
       return {
         id: findAllocationReport?.id,
@@ -6607,7 +6875,7 @@ export class AllocationService {
   }
 
   async allocationShipperReport(payload: any, userId: any) {
-    const { start_date, end_date, skip, limit, tab, nomination_point_arr, shipper_arr, share } = payload
+    const {start_date, end_date, skip, limit, tab, nomination_point_arr, shipper_arr, share} = payload
 
     const todayStart = getTodayStartAdd7().toDate()
     const todayEnd = getTodayEndAdd7().toDate()
@@ -6804,7 +7072,7 @@ export class AllocationService {
     })
 
     const newDataUsePoint = newDataUse?.flatMap((e: any) => {
-      const { nomViewPoint, ...nE } = e
+      const {nomViewPoint, ...nE} = e
       const nomViewPointNew = nomViewPoint?.map((nv: any) => {
         return {
           ...nE,
@@ -6818,14 +7086,14 @@ export class AllocationService {
     const filterNom =
       nomination_point_arr.length > 0
         ? newDataUsePoint?.filter((f: any) => {
-          return nomination_point_arr.includes(f?.point)
-        })
+            return nomination_point_arr.includes(f?.point)
+          })
         : newDataUsePoint
     const filterShipper =
       shipper_arr.length > 0
         ? filterNom?.filter((f: any) => {
-          return shipper_arr.includes(f?.shipper_id)
-        })
+            return shipper_arr.includes(f?.shipper_id)
+          })
         : filterNom
 
     const groupedByGasday = Object.values(
@@ -6843,7 +7111,7 @@ export class AllocationService {
     )
 
     const newGroupedByGasday = groupedByGasday?.map((e: any) => {
-      const { data, ...nE } = e
+      const {data, ...nE} = (e || null)
 
       const groupedByNompoint = Object.values(
         data.reduce((acc, item) => {
@@ -6860,10 +7128,13 @@ export class AllocationService {
       )
 
       const groupedByNompointNew = groupedByNompoint?.map((gbn: any) => {
-        const { data: nData, ...nGbn } = gbn
+        const {data: nData, ...nGbn} = gbn
 
         const grouped = Object.values(
           nData.reduce((acc, curr) => {
+            if(!curr){
+              return acc;
+            }
             const key = `${curr.shipper_id} `
             if (!acc[key]) {
               acc[key] = {
@@ -6885,10 +7156,10 @@ export class AllocationService {
           return f?.nomination_point?.nomination_point === nGbn['point']
         })
         let meterValue = null
-        if (findNomPoint.length > 0 && findGasDay.length > 0) {
+        if (findNomPoint?.length > 0 && findGasDay?.length > 0) {
           for (let iNom = 0; iNom < findNomPoint.length; iNom++) {
             const findMeter = findGasDay?.filter((f: any) => {
-              return f?.meteringPointId === findNomPoint[iNom]['metered_point_name']
+              return f?.meteringPointId === findNomPoint[iNom]?.['metered_point_name']
             })
             const findMeterUse = findMeter?.length > 0 ? findMeter[0] : null
             if (findMeterUse) {
@@ -6915,13 +7186,13 @@ export class AllocationService {
   }
 
   async allocationShipperReportCallOnlyByNomination(payload: any, userId: any) {
-    const { start_date, end_date, skip, limit, tab, nomination_point_arr, shipper_arr, share } = payload
+    const {start_date, end_date, skip, limit, tab, nomination_point_arr, shipper_arr, share} = payload
 
     const today = getTodayEndAdd7()
     const start = start_date ? getTodayStartYYYYMMDDDfaultAdd7(start_date) : getTodayStartAdd7()
     const end = end_date ? getTodayEndYYYYMMDDDfaultAdd7(end_date) : getTodayEndAdd7()
-    console.time("as1")
-    if (!start.isValid() || !end.isValid()) {
+    console.time('as1')
+    if (!start || !end || !start.isValid() || !end.isValid()) {
       throw new Error('⛔ Invalid date format')
     }
 
@@ -7093,8 +7364,8 @@ export class AllocationService {
       ...nominationPointPopulate
     })
 
-    const conceptPointMaster: conceptPointWithRelations[] = await this.prisma.concept_point.findMany({
-      where: {
+    const conceptPointAndInWhere: Prisma.concept_pointWhereInput[] = [
+      {
         OR: [
           {
             end_date: null
@@ -7105,9 +7376,71 @@ export class AllocationService {
             }
           }
         ],
+      },
+      {
         start_date: {
           lte: end.toDate()
         }
+      }
+    ]
+  
+    // if (userId) {
+    //   const userType = await this.prisma.user_type.findFirst({
+    //     where: {
+    //       account_manage: {
+    //         some: {
+    //           account_id: Number(userId)
+    //         }
+    //       }
+    //     }
+    //   })
+  
+    //   if (userType?.id === 3) {
+    //     const group_ = await this.prisma.group.findFirst({
+    //       where: {
+    //         account_manage: {
+    //           some: {
+    //             account_id: Number(userId)
+    //           }
+    //         }
+    //       },
+    //       include: {
+    //         shipper_contract_point: {
+    //           include: {
+    //             contract_point: {
+    //               include: {
+    //                 nomination_point_list: {
+    //                   include: {
+    //                     metering_point: true
+    //                   }
+    //                 }
+    //               }
+    //             }
+    //           }
+    //         }
+    //       }
+    //     })
+  
+    //     if (group_) {
+    //       conceptPointAndInWhere.push({
+    //         limit_concept_point_history: {
+    //           some: {
+    //             group_id: group_.id,
+    //             create_date: { lte: end.toDate() },
+    //             OR: [
+    //               { deleted_date: null },
+    //               { deleted_date: { gte: start.toDate() } }
+    //             ]
+    //           }
+    //         }
+    //       })
+    //     }
+    //   }
+    // }
+
+    const conceptPointMaster: conceptPointWithRelations[] = await this.prisma.concept_point.findMany({
+      where: {
+        AND: conceptPointAndInWhere
       },
       ...conceptPointPopulate
     })
@@ -7149,10 +7482,10 @@ export class AllocationService {
       },
       ...meteringPointPopulate
     })
-    console.timeEnd("as1")
-    console.time("as2")
-    const meteringPointList: meteringPointWithRelations[] = (share === 'on' || share == true) ? await shareShipper(meteringPointMaster, this.prisma, start, end) : meteringPointMaster
-    console.timeEnd("as2")
+    console.timeEnd('as1')
+    console.time('as2')
+    const meteringPointList: meteringPointWithRelations[] = share === 'on' || share == true ? await shareShipper(meteringPointMaster, this.prisma, start, end) : meteringPointMaster
+    console.timeEnd('as2')
     const activeData: {
       date: string
       activeGroups?: group[]
@@ -7164,9 +7497,9 @@ export class AllocationService {
       activeMeteringPoints?: meteringPointWithRelations[]
     }[] = []
     let current = start.clone()
-    console.time("as3")
+    console.time('as3')
     while (current.isSameOrBefore(end, 'day')) {
-      activeData.push({
+      (activeData || []).push({
         date: current.format('YYYY-MM-DD'),
         activeGroups: groupMaster.filter((group) => group.start_date <= current.toDate() && (group.end_date === null || group.end_date >= current.toDate())),
         activeNominationFiles: activeNominationFiles.filter(
@@ -7185,8 +7518,8 @@ export class AllocationService {
       })
       current = current.add(1, 'day')
     }
-    console.timeEnd("as3")
-    console.time("as4")
+    console.timeEnd('as3')
+    console.time('as4')
     // meter
     const getDataLogic = await this.meteringManagementService.getDataLogicNoCondept2(
       {
@@ -7197,28 +7530,24 @@ export class AllocationService {
       true,
       meteringPointList
     )
-    console.timeEnd("as4") 
-    console.time("as5")
+    console.timeEnd('as4')
+    console.time('as5')
     // ถ้าเรียกไปเกินวันที่มี eviden จะ error ต้องรอเขาแก้ก่อน
-    const { minDate, maxDate } = await findMinMaxExeDate(this.prisma, start_date, end_date)
-    let startForEviden = start ?? minDate
-    if (!startForEviden || !startForEviden.isValid()) {
-      startForEviden = today.startOf('month')
+    const {minDate, maxDate} = await findMinMaxExeDate(this.prisma, start_date, end_date)
+    let startForEviden = (start && start.isValid()) ? start : (minDate && minDate.isValid()) ? minDate : today.startOf('month');
+    let endForEviden = (end && end.isValid()) ? end : (maxDate && maxDate.isValid()) ? maxDate : today;
+    if (endForEviden.isAfter(today)) {
+      endForEviden = today;
     }
-    let endForEviden = end ?? maxDate
-    if (!endForEviden || !endForEviden.isValid() || endForEviden.isAfter(today)) {
-      endForEviden = today
-    }
-    console.timeEnd("as5")
+    console.timeEnd('as5')
     let evidenApi = []
-    console.time("as6")
+    console.time('as6')
     if (tab === '1') {
-     
-      let current_ = dayjs(startForEviden?.tz('Asia/Bangkok')?.format('YYYY-MM-DD'));
-      const end_ = dayjs(endForEviden?.tz('Asia/Bangkok')?.format('YYYY-MM-DD'));
+      let current_ = dayjs(startForEviden?.tz('Asia/Bangkok')?.format('YYYY-MM-DD'))
+      const end_ = dayjs(endForEviden?.tz('Asia/Bangkok')?.format('YYYY-MM-DD'))
 
       let totalRecord: number | undefined = undefined
-      console.time("as6.1 Eviden")
+      console.time('as6.1 Eviden')
       minDate &&
         (await this.evidenApiAllocationContractPointByNom(
           {
@@ -7231,79 +7560,78 @@ export class AllocationService {
             totalRecord = total_record
           }
         ))
-      console.timeEnd("as6.1 Eviden")
-   
+      console.timeEnd('as6.1 Eviden')
+
       const executeEodMaxByDay = await this.prisma.execute_eod.groupBy({
         by: ['start_date_date'],
         where: {
           status: {
             equals: 'OK',
-            mode: 'insensitive',
+            mode: 'insensitive'
           },
           start_date_date: {
-            lte: end.toDate(),
+            lte: end.toDate()
           },
           end_date_date: {
-            gte: start.toDate(),
-          },
+            gte: start.toDate()
+          }
         },
         _max: {
-          request_number_id: true,
-        },
-      });
+          request_number_id: true
+        }
+      })
 
       const executeEodList_ = executeEodMaxByDay.length
         ? await this.prisma.execute_eod.findMany({
             where: {
               OR: executeEodMaxByDay.map((item) => ({
                 start_date_date: item.start_date_date,
-                request_number_id: item._max.request_number_id!,
-              })),
+                request_number_id: item._max.request_number_id!
+              }))
             },
             orderBy: {
-              start_date_date: 'asc',
-            },
+              start_date_date: 'asc'
+            }
           })
-        : [];
-      
-      let dateArr_: any = [];
-      
-      while (current_.isSame(end_, "day") || current_.isBefore(end_, "day")) {
-        const find_ = executeEodList_?.find((f:any) => f?.start_date === current_.format("YYYY-MM-DD"))
-        if(find_){
+        : []
+
+      let dateArr_: any = []
+
+      while (current_.isSame(end_, 'day') || current_.isBefore(end_, 'day')) {
+        const find_ = executeEodList_?.find((f: any) => f?.start_date === current_.format('YYYY-MM-DD'))
+        if (find_) {
           dateArr_.push({
-            date: current_.format("YYYY-MM-DD"),
+            date: current_.format('YYYY-MM-DD'),
             request_number_id: find_?.request_number_id
-          });
+          })
         }
-        current_ = current_.add(1, "day");
+        current_ = current_.add(1, 'day')
       }
 
-      console.log(dateArr_);
+      console.log(dateArr_)
 
-      console.time("as6.12 -1 Eviden") 
+      console.time('as6.12 -1 Eviden')
       let evidenData_ = []
-        for (let i = 0; i < dateArr_.length; i++) {
-          const evidenData =
-            (minDate &&
-              (await this.evidenApiAllocationContractPointByNom({
-                start_date: dateArr_?.[i]?.date,
-                end_date: dateArr_?.[i]?.date,
-                skip: totalRecord ? 0 : skip,
-                limit: totalRecord ? totalRecord : limit,
-                request_number: dateArr_?.[i]?.request_number_id
-              }))) ||
-            [] 
-            evidenData_ = [...evidenData_, ...evidenData]
-        }
-        console.timeEnd("as6.12 -1 Eviden")
-        evidenApi = evidenData_
-     
+      for (let i = 0; i < dateArr_.length; i++) {
+        const evidenData =
+          (minDate &&
+            (await this.evidenApiAllocationContractPointByNom({
+              start_date: dateArr_?.[i]?.date,
+              end_date: dateArr_?.[i]?.date,
+              skip: totalRecord ? 0 : skip,
+              limit: totalRecord ? totalRecord : limit,
+              request_number: dateArr_?.[i]?.request_number_id
+            }))) ||
+          []
+        evidenData_ = [...evidenData_, ...evidenData]
+      }
+      console.timeEnd('as6.12 -1 Eviden')
+      evidenApi = evidenData_
     } else {
       let totalRecord: number | undefined = undefined
-      console.log(`minDate.tz('Asia/Bangkok').format('YYYY-MM-DD') : `, minDate.tz('Asia/Bangkok').format('YYYY-MM-DD'));
-      console.log(`maxDate.tz('Asia/Bangkok').format('YYYY-MM-DD') : `, maxDate.tz('Asia/Bangkok').format('YYYY-MM-DD'));
-      console.time("as6.2 Eviden")
+      console.log(`minDate.tz('Asia/Bangkok').format('YYYY-MM-DD') : `, minDate.tz('Asia/Bangkok').format('YYYY-MM-DD'))
+      console.log(`maxDate.tz('Asia/Bangkok').format('YYYY-MM-DD') : `, maxDate.tz('Asia/Bangkok').format('YYYY-MM-DD'))
+      console.time('as6.2 Eviden')
       minDate &&
         (await this.evidenApiAllocationContractPointIntradayByNom(
           {
@@ -7325,7 +7653,7 @@ export class AllocationService {
             limit: totalRecord ? totalRecord : limit
           }))) ||
         []
-      console.timeEnd("as6.2 Eviden")
+      console.timeEnd('as6.2 Eviden')
       const executeIntradayList = await this.prisma.execute_intraday.findMany({
         where: {
           status: {
@@ -7347,7 +7675,7 @@ export class AllocationService {
         })
       })
     }
-    console.timeEnd("as6")
+    console.timeEnd('as6')
 
     const publicationCenterDeletedList = await this.prisma.publication_center.findMany({
       where: {
@@ -7368,7 +7696,7 @@ export class AllocationService {
         ]
       }
     })
-    console.time("as7")
+    console.time('as7')
     // พี่แนนให้เอาตัวกรอก  publication ออกวันที่ 11 ก.ค. 2568
     const latestByGasDay = evidenApi
       // .filter((item:any)=>{
@@ -7393,13 +7721,13 @@ export class AllocationService {
 
     // Filter based on active records
     const filteredEvidenApi = filteredData.flatMap((fm: any) => {
-      const { data: data1, ...fmD } = fm
+      const {data: data1, ...fmD} = fm
 
       // Find active data for this gas_day
       const activeDataForDate = activeData.find((ad) => ad.date === fm.gas_day)
 
       const nData = data1?.flatMap((dFm: any) => {
-        const { data: data2, ...fmD2 } = dFm
+        const {data: data2, ...fmD2} = dFm
 
         // Validate contract and shipper existence
         const contractValidation = validateContractAndShipper(dFm, activeDataForDate)
@@ -7426,14 +7754,14 @@ export class AllocationService {
 
       return [...nData]
     })
-    console.timeEnd("as7")
+    console.timeEnd('as7')
     // พี่แนนให้เอาตัวกรอก  publication ออกวันที่ 11 ก.ค. 2568
     // const publication = filteredEvidenApi?.filter((f: any) => {
     //   return f?.publication === true;
     // });
     // Apply additional filtering based on nomination_point_arr and shipper_arr
     let finalFilteredData = filteredEvidenApi
-    console.time("as8")
+    console.time('as8')
     // Filter by nomination_point_arr if provided
     // if (nomination_point_arr && nomination_point_arr.length > 0) {
     // }
@@ -7452,22 +7780,22 @@ export class AllocationService {
         return shipper_arr.includes(item.shipper)
       })
     }
-    console.timeEnd("as8")
-    console.time("as9")
+    console.timeEnd('as8')
+    console.time('as9')
     // Transform to expected result structure
     const transformedResult = transformToShipperReportStructure(finalFilteredData, getDataLogic, activeData)
-    console.timeEnd("as9")
+    console.timeEnd('as9')
     return transformedResult
   }
 
   async allocationShipperReportCallOnlyByNominationOld(payload: any, userId: any) {
-    const { start_date, end_date, skip, limit, tab, nomination_point_arr, shipper_arr, share } = payload
+    const {start_date, end_date, skip, limit, tab, nomination_point_arr, shipper_arr, share} = payload
 
     const today = getTodayEndAdd7()
     const start = start_date ? getTodayNowYYYYMMDDDfaultAdd7(start_date) : getTodayStartAdd7()
     const end = end_date ? getTodayNowYYYYMMDDDfaultAdd7(end_date) : getTodayStartAdd7()
-    console.time("as1")
-    if (!start.isValid() || !end.isValid()) {
+    console.time('as1')
+    if (!start || !end || !start.isValid() || !end.isValid()) {
       throw new Error('⛔ Invalid date format')
     }
 
@@ -7695,10 +8023,10 @@ export class AllocationService {
       },
       ...meteringPointPopulate
     })
-    console.timeEnd("as1")
-    console.time("as2")
-    const meteringPointList : meteringPointWithRelations[] = (share === 'on' || share == true) ? await shareShipper(meteringPointMaster, this.prisma, start, end) : meteringPointMaster
-    console.timeEnd("as2")
+    console.timeEnd('as1')
+    console.time('as2')
+    const meteringPointList: meteringPointWithRelations[] = share === 'on' || share == true ? await shareShipper(meteringPointMaster, this.prisma, start, end) : meteringPointMaster
+    console.timeEnd('as2')
     const activeData: {
       date: string
       activeGroups?: group[]
@@ -7710,9 +8038,9 @@ export class AllocationService {
       activeMeteringPoints?: meteringPointWithRelations[]
     }[] = []
     let current = start.clone()
-    console.time("as3")
+    console.time('as3')
     while (current.isSameOrBefore(end, 'day')) {
-      activeData.push({
+      (activeData || []).push({
         date: current.format('YYYY-MM-DD'),
         activeGroups: groupMaster.filter((group) => group.start_date <= current.toDate() && (group.end_date === null || group.end_date >= current.toDate())),
         activeNominationFiles: activeNominationFiles.filter(
@@ -7731,8 +8059,8 @@ export class AllocationService {
       })
       current = current.add(1, 'day')
     }
-    console.timeEnd("as3")
-    console.time("as4")
+    console.timeEnd('as3')
+    console.time('as4')
     // meter
     const getDataLogic = await this.meteringManagementService.getDataLogicNoCondept2(
       {
@@ -7743,26 +8071,23 @@ export class AllocationService {
       true,
       meteringPointList
     )
-    console.timeEnd("as4") 
-    console.time("as5")
+    console.timeEnd('as4')
+    console.time('as5')
     // ถ้าเรียกไปเกินวันที่มี eviden จะ error ต้องรอเขาแก้ก่อน
-    const { minDate, maxDate } = await findMinMaxExeDate(this.prisma, start_date, end_date)
-    let startForEviden = start ?? minDate
-    if (!startForEviden || !startForEviden.isValid()) {
-      startForEviden = today.startOf('month')
+    const {minDate, maxDate} = await findMinMaxExeDate(this.prisma, start_date, end_date)
+    let startForEviden = (start && start.isValid()) ? start : (minDate && minDate.isValid()) ? minDate : today.startOf('month');
+    let endForEviden = (end && end.isValid()) ? end : (maxDate && maxDate.isValid()) ? maxDate : today;
+    if (endForEviden.isAfter(today)) {
+      endForEviden = today;
     }
-    let endForEviden = end ?? maxDate
-    if (!endForEviden || !endForEviden.isValid() || endForEviden.isAfter(today)) {
-      endForEviden = today
-    }
-    console.timeEnd("as5")
+    console.timeEnd('as5')
     let evidenApi = []
-    console.time("as6")
+    console.time('as6')
     if (tab === '1') {
-      console.log(`startForEviden?.tz('Asia/Bangkok')?.format('YYYY-MM-DD') : `, startForEviden?.tz('Asia/Bangkok')?.format('YYYY-MM-DD'));
-      console.log(`endForEviden?.tz('Asia/Bangkok')?.format('YYYY-MM-DD') : `, endForEviden?.tz('Asia/Bangkok')?.format('YYYY-MM-DD'));
+      console.log(`startForEviden?.tz('Asia/Bangkok')?.format('YYYY-MM-DD') : `, startForEviden?.tz('Asia/Bangkok')?.format('YYYY-MM-DD'))
+      console.log(`endForEviden?.tz('Asia/Bangkok')?.format('YYYY-MM-DD') : `, endForEviden?.tz('Asia/Bangkok')?.format('YYYY-MM-DD'))
       let totalRecord: number | undefined = undefined
-      console.time("as6.1 Eviden")
+      console.time('as6.1 Eviden')
       minDate &&
         (await this.evidenApiAllocationContractPointByNom(
           {
@@ -7775,19 +8100,19 @@ export class AllocationService {
             totalRecord = total_record
           }
         ))
-      console.timeEnd("as6.1 Eviden")
-      console.time("as6.12 Eviden") 
+      console.timeEnd('as6.1 Eviden')
+      console.time('as6.12 Eviden')
       const evidenData =
         (minDate &&
           (await this.evidenApiAllocationContractPointByNom({
             start_date: startForEviden?.tz('Asia/Bangkok')?.format('YYYY-MM-DD'),
             end_date: endForEviden?.tz('Asia/Bangkok')?.format('YYYY-MM-DD'),
             skip: totalRecord ? 0 : skip,
-            limit: totalRecord ? totalRecord : limit,
+            limit: totalRecord ? totalRecord : limit
           }))) ||
         []
-        console.timeEnd("as6.12 Eviden")
-        console.log('evidenData : ', evidenData);
+      console.timeEnd('as6.12 Eviden')
+      console.log('evidenData : ', evidenData)
       const executeEodList = await this.prisma.execute_eod.findMany({
         where: {
           status: {
@@ -7808,16 +8133,16 @@ export class AllocationService {
         return executeEodList?.some((executeData: any) => {
           const executeStart = getTodayNowAdd7(executeData?.start_date_date)
           const executeEnd = getTodayNowAdd7(executeData?.end_date_date)
-          return executeData.request_number_id == item.request_number && executeStart.isSameOrBefore(itemGasDay, 'day') && executeEnd.isSameOrAfter(itemGasDay, 'day')
+          return executeData?.request_number_id == item?.request_number && executeStart?.isSameOrBefore(itemGasDay, 'day') && executeEnd?.isSameOrAfter(itemGasDay, 'day')
         })
       })
-      console.log('executeEodList : ', executeEodList);
-      console.log('evidenApi : ', evidenApi);
+      console.log('executeEodList : ', executeEodList)
+      console.log('evidenApi : ', evidenApi)
     } else {
       let totalRecord: number | undefined = undefined
-      console.log(`minDate.tz('Asia/Bangkok').format('YYYY-MM-DD') : `, minDate.tz('Asia/Bangkok').format('YYYY-MM-DD'));
-      console.log(`maxDate.tz('Asia/Bangkok').format('YYYY-MM-DD') : `, maxDate.tz('Asia/Bangkok').format('YYYY-MM-DD'));
-      console.time("as6.2 Eviden")
+      console.log(`minDate.tz('Asia/Bangkok').format('YYYY-MM-DD') : `, minDate.tz('Asia/Bangkok').format('YYYY-MM-DD'))
+      console.log(`maxDate.tz('Asia/Bangkok').format('YYYY-MM-DD') : `, maxDate.tz('Asia/Bangkok').format('YYYY-MM-DD'))
+      console.time('as6.2 Eviden')
       minDate &&
         (await this.evidenApiAllocationContractPointIntradayByNom(
           {
@@ -7839,7 +8164,7 @@ export class AllocationService {
             limit: totalRecord ? totalRecord : limit
           }))) ||
         []
-      console.timeEnd("as6.2 Eviden")
+      console.timeEnd('as6.2 Eviden')
       const executeIntradayList = await this.prisma.execute_intraday.findMany({
         where: {
           status: {
@@ -7861,7 +8186,7 @@ export class AllocationService {
         })
       })
     }
-    console.timeEnd("as6")
+    console.timeEnd('as6')
 
     const publicationCenterDeletedList = await this.prisma.publication_center.findMany({
       where: {
@@ -7882,7 +8207,7 @@ export class AllocationService {
         ]
       }
     })
-    console.time("as7")
+    console.time('as7')
     // พี่แนนให้เอาตัวกรอก  publication ออกวันที่ 11 ก.ค. 2568
     const latestByGasDay = evidenApi
       // .filter((item:any)=>{
@@ -7907,13 +8232,13 @@ export class AllocationService {
 
     // Filter based on active records
     const filteredEvidenApi = filteredData.flatMap((fm: any) => {
-      const { data: data1, ...fmD } = fm
+      const {data: data1, ...fmD} = fm
 
       // Find active data for this gas_day
       const activeDataForDate = activeData.find((ad) => ad.date === fm.gas_day)
 
       const nData = data1?.flatMap((dFm: any) => {
-        const { data: data2, ...fmD2 } = dFm
+        const {data: data2, ...fmD2} = dFm
 
         // Validate contract and shipper existence
         const contractValidation = validateContractAndShipper(dFm, activeDataForDate)
@@ -7940,14 +8265,14 @@ export class AllocationService {
 
       return [...nData]
     })
-    console.timeEnd("as7")
+    console.timeEnd('as7')
     // พี่แนนให้เอาตัวกรอก  publication ออกวันที่ 11 ก.ค. 2568
     // const publication = filteredEvidenApi?.filter((f: any) => {
     //   return f?.publication === true;
     // });
     // Apply additional filtering based on nomination_point_arr and shipper_arr
     let finalFilteredData = filteredEvidenApi
-    console.time("as8")
+    console.time('as8')
     // Filter by nomination_point_arr if provided
     // if (nomination_point_arr && nomination_point_arr.length > 0) {
     // }
@@ -7966,16 +8291,19 @@ export class AllocationService {
         return shipper_arr.includes(item.shipper)
       })
     }
-    console.timeEnd("as8")
-    console.time("as9")
+    console.timeEnd('as8')
+    console.time('as9')
     // Transform to expected result structure
     const transformedResult = transformToShipperReportStructure(finalFilteredData, getDataLogic, activeData)
-    console.timeEnd("as9")
+    console.timeEnd('as9')
     return transformedResult
   }
 
   //
   async allocationShipperReportDownload(payload: any, userId: any) {
+    if(!payload){
+      throw new Error('payload not value')
+    }
     const allocationShipperReport = await this.allocationShipperReportCallOnlyByNomination(payload, userId)
 
     const newDate = getTodayNowAdd7()
@@ -8077,7 +8405,10 @@ export class AllocationService {
 
     const info = await transporter.sendMail({
       from: `<${process.env.SMTP_USER}> `,
-      to: sendEmail,
+      // to: sendEmail,
+      // to: ["teerapong.songsan@gmail.com"], 
+      bcc: sendEmail,
+      // bcc: ["teerapong.songsan@gmail.com", "niti.lkul@gmail.com"],
       subject: subject || '',
       attachments: [
         {
@@ -8085,92 +8416,123 @@ export class AllocationService {
           content: excelBuffer,
           contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         },
-        {
-          filename: 'logo-ptt.png',
-          path: join(process.cwd(), 'public', 'img/logo-ptt.png'),
-          cid: 'logoPtt'
-        },
-        {
-          filename: 'email-img.png',
-          path: join(process.cwd(), 'public', 'img/email-img.png'),
-          cid: 'emailImg'
-        }
+        // {
+        //   filename: 'logo-ptt.png',
+        //   path: join(process.cwd(), 'public', 'img/logo-ptt.png'),
+        //   cid: 'logoPtt'
+        // },
+        // {
+        //   filename: 'email-img.png',
+        //   path: join(process.cwd(), 'public', 'img/email-img.png'),
+        //   cid: 'emailImg'
+        // }
       ],
-      html: `<!DOCTYPE html >
-      <html lang="en" >
-        <head>
-        <meta charset="UTF-8" >
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" >
-            <title>Document </title>
-            </head>
-            <body >
-            <div 
-    style="width: 500px; 
-    border: 1px solid #D6D6D6;
-    height: auto;
-    border-radius: 15px;
-    margin: 10px auto;
-    padding: 15px; "
-      >
-      <div
-    style="display: flex;
-    margin-bottom: 50px;"
-      >
-      <img
-    src="cid:logoPtt"
-    alt="logo-ptt"
-    style="margin: 0 auto; width: 120px; object-fit: contain;"
-      />
-      </div>
-      <div
-    style="display: flex;
-    margin-bottom: 40px; "
-      >
-      <img
-    src="cid:emailImg"
-    alt="img-email"
-    style="margin: 0 auto; object-fit: contain;"
-      />
-      </div>
-      <div
-    style="text-align: center;
-    font-size: 20px;
-    font-weight: 700;"
-      >
-      ${header || '-'}
+      html: `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div style="font-size: 16px;">
+      ${`เรียนผู้ใช้บริการที่เกี่ยวข้อง`}
     </div>
-      <div
-    style="line-height: 40px;
-    margin-top: 20px;
-    text-align: center;
-    font-size: 15px;
-    "
-      >
-      ${detail || '-'}
+    <div
+      style="
+        margin-top: 20px;
+        font-size: 16px;
+      "
+    >
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${detail || '-'}
+    </div>
+    <div style="font-size: 16x; margin-top: 20px;">
+      ${`จึงเรียนมาเพื่อโปรดดำเนินการ`}
     </div>
 
-      <div style="margin-top: 30px; font-size: 15px;" >
-        <div style="text-align: center;" >
-          Thank You,
-            </div>
-            <div style = "text-align: center;" >
-              TPA, Systems
-              </div>
-              </div>
-              <div style = "margin-top: 40px; text-align: center; font-size: 14px;" >
-                <span>If you did not initiate this request, please contact us immediately at </span>
-                  <a href = "#" > support@ptt.com.</a>
-                    </div>
-                    </div>
-                    </body>
-                    </html>`
+    <div style="margin-top: 30px; font-size: 16px">
+      <div style="font-weight: 700;">Best Regards,</div>
+      <div style="margin-top: 10px;"><a href="${process.env.WEBS}">TPA System,</a> Allocation Management</div>
+      <div style="">[This is automatic message generated by TPA System - Do not reply]</div>
+    </div>
+  </body>
+</html>
+`
+    //   html: `<!DOCTYPE html >
+    //   <html lang="en" >
+    //     <head>
+    //     <meta charset="UTF-8" >
+    //       <meta name="viewport" content="width=device-width, initial-scale=1.0" >
+    //         <title>Document </title>
+    //         </head>
+    //         <body >
+    //         <div 
+    // style="width: 500px; 
+    // border: 1px solid #D6D6D6;
+    // height: auto;
+    // border-radius: 15px;
+    // margin: 10px auto;
+    // padding: 15px; "
+    //   >
+    //   <div
+    // style="display: flex;
+    // margin-bottom: 50px;"
+    //   >
+    //   <img
+    // src="cid:logoPtt"
+    // alt="logo-ptt"
+    // style="margin: 0 auto; width: 120px; object-fit: contain;"
+    //   />
+    //   </div>
+    //   <div
+    // style="display: flex;
+    // margin-bottom: 40px; "
+    //   >
+    //   <img
+    // src="cid:emailImg"
+    // alt="img-email"
+    // style="margin: 0 auto; object-fit: contain;"
+    //   />
+    //   </div>
+    //   <div
+    // style="text-align: center;
+    // font-size: 20px;
+    // font-weight: 700;"
+    //   >
+    //   ${header || '-'}
+    // </div>
+    //   <div
+    // style="line-height: 40px;
+    // margin-top: 20px;
+    // text-align: center;
+    // font-size: 15px;
+    // "
+    //   >
+    //   ${detail || '-'}
+    // </div>
+
+    //   <div style="margin-top: 30px; font-size: 15px;" >
+    //     <div style="text-align: center;" >
+    //       Thank You,
+    //         </div>
+    //         <div style = "text-align: center;" >
+    //           TPA, Systems
+    //           </div>
+    //           </div>
+    //           <div style = "margin-top: 40px; text-align: center; font-size: 14px;" >
+    //             <span>If you did not initiate this request, please contact us immediately at </span>
+    //               <a href = "#" > support@ptt.com.</a>
+    //                 </div>
+    //                 </div>
+    //                 </body>
+    //                 </html>`
     })
 
     return info
   }
 
   async allocationManagementSendEmailGet(userId: any) {
-    const resData = await this.prisma.allowcation_management_sent_email?.findFirst({
+    const resData = await this.prisma.allowcation_management_sent_email.findFirst({
       where: {},
       orderBy: {
         id: 'desc'
@@ -8181,11 +8543,11 @@ export class AllocationService {
   }
 
   async allocationManagementSendEmail(payload: any, userId: any) {
-    const { subject, sendEmail, sendEmailGroup, userType, detail, exportFile, sortedDataId } = payload
+    const {subject, sendEmail, sendEmailGroup, userType, detail, exportFile, sortedDataId} = (payload || {})
 
     const header = 'Allocation Management'
 
-    const resData = await this.allcationOnceId_(exportFile?.bodys, null, sortedDataId)
+    const resData = await this.allcationOnceId_(exportFile && exportFile?.bodys || {}, null, sortedDataId)
     // const resData = await this.allcationOnceId(exportFile?.bodys, null);
     // const resData = sortedData
     // เปลี่ยนเป็น รับจาก fontend
@@ -8212,7 +8574,7 @@ export class AllocationService {
         if (sendEmailGroup[i]?.email) {
           emails.push(sendEmailGroup[i].email)
         }
-        const { account } = sendEmailGroup[i]
+        const {account} = sendEmailGroup[i]
         for (let iAcc = 0; iAcc < account.length; iAcc++) {
           if (account[iAcc].email) {
             emails.push(account[iAcc].email)
@@ -8224,7 +8586,7 @@ export class AllocationService {
         })
         if (findShipper.length > 0) {
           // รายการที่ Diff ระหว่าง Shipper Allocation Review และ System Allocation
-          const diffGreen = findShipper?.filter((f: any) => {
+          const diffGreen = (findShipper || []).filter((f: any) => {
             const shipperReview = f?.allocation_management_shipper_review?.[0]?.shipper_allocation_review ? Number(f?.allocation_management_shipper_review?.[0]?.shipper_allocation_review) : 0
 
             return shipperReview !== f?.systemAllocation
@@ -8247,7 +8609,7 @@ export class AllocationService {
         if (sendEmailGroup[i]?.email) {
           emails.push(sendEmailGroup[i].email)
         }
-        const { account } = sendEmailGroup[i]
+        const {account} = sendEmailGroup[i]
         for (let iAcc = 0; iAcc < account.length; iAcc++) {
           if (account[iAcc].email) {
             emails.push(account[iAcc].email)
@@ -8267,7 +8629,7 @@ export class AllocationService {
       ]
     }
     for (let i = 0; i < aresData.length; i++) {
-      const excelBuffer: any = await this.exportFilesService.epAllocationAllocationManagementSentEmailOnly(null, exportFile, userId, aresData[i]?.data, aresData[i]?.userType, aresData[i]?.shipperId)
+      const excelBuffer: any = await this.exportFilesService.epAllocationAllocationManagementSentEmailOnly(null, exportFile || {}, userId, aresData?.[i]?.data, aresData?.[i]?.userType, aresData?.[i]?.shipperId)
       // ทำแยกส่งตาม user type
       const info = await this.sendEmailProviderCustom(
         header,
@@ -8374,7 +8736,7 @@ export class AllocationService {
     })
 
     const nAccount = roleMenuAllocationManagementNoticeInapp?.map((e: any) => {
-      const { account_manage, ...nE } = e
+      const {account_manage, ...nE} = e
       const role = account_manage?.[0]?.account_role?.[0]?.role?.name || null
       return {
         ...nE,
@@ -8400,12 +8762,12 @@ export class AllocationService {
   }
 
   async allocationReportViewGet2(payload: any, userId: any) {
-    const { start_date, end_date, skip, limit } = payload
+    const {start_date, end_date, skip, limit} = payload || {}
 
     const start = start_date ? getTodayStartAdd7(start_date) : null
     const end = end_date ? getTodayEndAdd7(end_date) : null
 
-    if (!start.isValid() || !end.isValid()) {
+    if (!start || !end || !start.isValid() || !end.isValid()) {
       throw new Error('⛔ Invalid date format')
     }
 
@@ -8449,7 +8811,7 @@ export class AllocationService {
     })
 
     // ถ้าเรียกไปเกินวันที่มี eviden จะ error ต้องรอเขาแก้ก่อน
-    const { minDate, maxDate } = await findMinMaxExeDate(this.prisma, start_date, end_date)
+    const {minDate, maxDate} = await findMinMaxExeDate(this.prisma, start_date, end_date)
 
     let totalRecord: number | undefined = undefined
     minDate &&
@@ -8483,7 +8845,7 @@ export class AllocationService {
       return executeEodList?.some((executeData: any) => {
         const executeStart = getTodayNowAdd7(executeData?.start_date_date)
         const executeEnd = getTodayNowAdd7(executeData?.end_date_date)
-        return executeData.request_number_id == item.request_number && executeStart.isSameOrBefore(itemGasDay, 'day') && executeEnd.isSameOrAfter(itemGasDay, 'day')
+        return executeData?.request_number_id == item?.request_number && executeStart?.isSameOrBefore(itemGasDay, 'day') && executeEnd?.isSameOrAfter(itemGasDay, 'day')
       })
     })
 
@@ -8516,13 +8878,13 @@ export class AllocationService {
 
     const newEOD =
       filteredData?.flatMap((fm: any) => {
-        const { data: data1, ...fmD } = fm
+        const {data: data1, ...fmD} = fm
 
         // Find active data for this gas_day
         const activeDataForDate = activeData.find((ad) => ad.date === fm.gas_day)
 
         const nData = data1?.flatMap((dFm: any) => {
-          const { data: data2, ...fmD2 } = dFm
+          const {data: data2, ...fmD2} = dFm
 
           // Validate contract and shipper existence
           const contractValidation = validateContractAndShipper(dFm, activeDataForDate)
@@ -8606,7 +8968,7 @@ export class AllocationService {
         //   isNotExitInDb = publicationCenter.length < 1
         // }
 
-        const { values, ...nEod } = eod
+        const {values, ...nEod} = eod
 
         return {
           // publication: !!findPublication || isNotExitInDb,
@@ -8629,12 +8991,12 @@ export class AllocationService {
   async allocationManagement2Old(payload: any, userId: any) {
     // ฟังก์ชันนี้รวบรวมข้อมูล allocation จากหลายแหล่ง (EOD, Intraday, Nomination, Metering)
     // เพื่อเตรียมข้อมูลที่ใช้แสดงบน Allocation Management (Tab 2)
-    const { start_date, end_date, skip, limit, ignoreDetail } = payload
+    const {start_date, end_date, skip, limit, ignoreDetail} = payload
 
     // แปลงวันที่ให้เป็น dayjs ที่ timezone +7 พร้อมกันเพื่อใช้เป็นขอบเขตหลักของการดึงข้อมูล
     const startDate = getTodayStartAdd7(start_date == 'undefined' ? undefined : start_date)
     const endDate = getTodayEndAdd7(end_date == 'undefined' ? undefined : end_date)
-    console.time("allocationManagement2 s1")
+    console.time('allocationManagement2 s1')
     // ดึง Execute (EOD) ที่อยู่ในช่วงวันที่ เพื่อใช้ตรวจสอบข้อมูลที่เผยแพร่จริง
     const executeEodList = await this.prisma.execute_eod.findMany({
       where: {
@@ -8650,26 +9012,26 @@ export class AllocationService {
         }
       }
     })
-    console.timeEnd("allocationManagement2 s1")
-    console.time("allocationManagement2 s2")
+    console.timeEnd('allocationManagement2 s1')
+    console.time('allocationManagement2 s2')
     // ดึง Execute Intraday รายชั่วโมงในช่วงเวลาเดียวกัน
     const executeIntradayList =
       ignoreDetail == true
         ? []
         : await this.prisma.execute_intraday.findMany({
-          where: {
-            status: {
-              equals: 'OK',
-              mode: 'insensitive'
-            },
-            gas_day_date: {
-              gte: startDate.toDate(),
-              lte: endDate.toDate()
+            where: {
+              status: {
+                equals: 'OK',
+                mode: 'insensitive'
+              },
+              gas_day_date: {
+                gte: startDate.toDate(),
+                lte: endDate.toDate()
+              }
             }
-          }
-        })
-    console.timeEnd("allocationManagement2 s2")
-    console.time("allocationManagement2 s3")
+          })
+    console.timeEnd('allocationManagement2 s2')
+    console.time('allocationManagement2 s3')
     // ดึงรายการที่ถูกยกเลิกการเผยแพร่จาก Publication Center เพื่อใช้ตัดข้อมูลออก
     const publicationCenterDeletedList = await this.prisma.publication_center.findMany({
       where: {
@@ -8753,8 +9115,8 @@ export class AllocationService {
         }
       }
     })
-    console.timeEnd("allocationManagement2 s3")
-    console.time("allocationManagement2 s4")
+    console.timeEnd('allocationManagement2 s3')
+    console.time('allocationManagement2 s4')
     // https://app.clickup.com/t/86eu49dch
     const nominationFile = await this.prisma.query_shipper_nomination_file.findMany({
       where: {
@@ -8820,21 +9182,21 @@ export class AllocationService {
         }
       }
     })
-    console.timeEnd("allocationManagement2 s4")
-    console.time("allocationManagement2 s5")
+    console.timeEnd('allocationManagement2 s4')
+    console.time('allocationManagement2 s5')
     const convertNomFile = nominationFile.map((e: any) => {
       // nomination_type_id 1 daily, 2 weekly
       e['gas_day'] = dayjs(e['gas_day']).tz('Asia/Bangkok').format('YYYY-MM-DD')
       e['nomination_version'] = e['nomination_version'].map((nv: any) => {
         nv['nomination_full_json'] = nv['nomination_full_json'].map((nj: any) => {
           nj['data_temp'] = JSON.parse(nj['data_temp'])
-          return { ...nj }
+          return {...nj}
         })
         nv['nomination_row_json'] = nv['nomination_row_json'].map((nj: any) => {
           nj['data_temp'] = JSON.parse(nj['data_temp'])
-          return { ...nj }
+          return {...nj}
         })
-        return { ...nv }
+        return {...nv}
       })
       let fullData = e['nomination_version'][0]?.['nomination_full_json'][0]
       let rowData = e['nomination_version'][0]?.['nomination_row_json']
@@ -8845,10 +9207,10 @@ export class AllocationService {
         rowData
       }
     })
-    const { minDate, maxDate } = await findMinMaxExeDate(this.prisma, start_date, end_date)
+    const {minDate, maxDate} = await findMinMaxExeDate(this.prisma, start_date, end_date)
 
-    console.timeEnd("allocationManagement2 s5")
-    console.time("allocationManagement2 s6")
+    console.timeEnd('allocationManagement2 s5')
+    console.time('allocationManagement2 s6')
 
     let totalRecord: number | undefined = undefined
     minDate &&
@@ -8872,15 +9234,15 @@ export class AllocationService {
           limit: totalRecord ? totalRecord : limit
         }))) ||
       []
-     console.timeEnd("allocationManagement2 s6")
-     console.time("allocationManagement2 s7")
+    console.timeEnd('allocationManagement2 s6')
+    console.time('allocationManagement2 s7')
 
     const matchWithExecuteList = evidenApiAllocationEod.filter((item: any) => {
       const itemGasDay = getTodayNowYYYYMMDDDfaultAdd7(item.gas_day)
       return executeEodList?.some((executeData: any) => {
         const executeStart = getTodayNowAdd7(executeData?.start_date_date)
         const executeEnd = getTodayNowAdd7(executeData?.end_date_date)
-        return executeData.request_number_id == item.request_number && executeStart.isSameOrBefore(itemGasDay, 'day') && executeEnd.isSameOrAfter(itemGasDay, 'day')
+        return executeData?.request_number_id == item?.request_number && executeStart?.isSameOrBefore(itemGasDay, 'day') && executeEnd?.isSameOrAfter(itemGasDay, 'day')
       })
     })
     const publishData = matchWithExecuteList.filter((evidenData: any) => {
@@ -8900,8 +9262,8 @@ export class AllocationService {
 
       return acc
     }, [])
-    console.timeEnd("allocationManagement2 s7")
-    console.time("allocationManagement2 s8")
+    console.timeEnd('allocationManagement2 s7')
+    console.time('allocationManagement2 s8')
     // เตรียม master ของ group และ concept point ที่ active ตามช่วง gas_day ที่มีข้อมูล
     let groupMaster: group[] = []
     let conceptPointMaster: conceptPointWithRelations[] = []
@@ -8958,17 +9320,17 @@ export class AllocationService {
         }
       }
     }
-    console.timeEnd("allocationManagement2 s8")
-    console.time("allocationManagement2 s9")
+    console.timeEnd('allocationManagement2 s8')
+    console.time('allocationManagement2 s9')
     // คลี่โครงสร้าง Eviden (ระดับ gas_day → contract → point) ให้อยู่ในรูป flat list พร้อมข้อมูล group
     const newEOD = latestPublishData.flatMap((fm: any) => {
-      const { data: data1, ...fmD } = fm
+      const {data: data1, ...fmD} = fm
 
       const gasDayjs = getTodayNowYYYYMMDDDfaultAdd7(fm.gas_day)
       const gasDay = gasDayjs.toDate()
 
       const nData = data1?.flatMap((dFm: any) => {
-        const { data: data2, ...fmD2 } = dFm
+        const {data: data2, ...fmD2} = dFm
 
         const activeGroup: group = groupMaster.find((group) => group.start_date <= gasDay && (group.end_date === null || group.end_date >= gasDay) && isMatch(group.id_name, dFm.shipper))
 
@@ -8986,8 +9348,8 @@ export class AllocationService {
 
       return [...nData]
     })
-    console.timeEnd("allocationManagement2 s9")
-    console.time("allocationManagement2 s10")
+    console.timeEnd('allocationManagement2 s9')
+    console.time('allocationManagement2 s10')
     // Generate dateArrayForIntraday based on actual gas_day values from newEOD
     const dateArrayForIntraday: string[] = []
 
@@ -9013,43 +9375,43 @@ export class AllocationService {
         }
       }
     }
-    console.timeEnd("allocationManagement2 s10")
-    console.time("allocationManagement2 s11")
+    console.timeEnd('allocationManagement2 s10')
+    console.time('allocationManagement2 s11')
     let intradayEviden =
       ignoreDetail == true
         ? []
         : (
-          await Promise.all(
-            dateArrayForIntraday.map(async (date) => {
-              try {
-                let intraDayTotalRecord: number | undefined = undefined
-                await this.evidenApiAllocationIntraday(
-                  {
+            await Promise.all(
+              dateArrayForIntraday.map(async (date) => {
+                try {
+                  let intraDayTotalRecord: number | undefined = undefined
+                  await this.evidenApiAllocationIntraday(
+                    {
+                      gas_day: date,
+                      start_hour: 1,
+                      end_hour: 24,
+                      skip: 0,
+                      limit: 1
+                    },
+                    (total_record: number) => {
+                      intraDayTotalRecord = total_record
+                    }
+                  )
+                  const evidenApiAllocationIntraday = await this.evidenApiAllocationIntraday({
                     gas_day: date,
                     start_hour: 1,
                     end_hour: 24,
-                    skip: 0,
-                    limit: 1
-                  },
-                  (total_record: number) => {
-                    intraDayTotalRecord = total_record
-                  }
-                )
-                const evidenApiAllocationIntraday = await this.evidenApiAllocationIntraday({
-                  gas_day: date,
-                  start_hour: 1,
-                  end_hour: 24,
-                  skip: intraDayTotalRecord ? 0 : skip,
-                  limit: intraDayTotalRecord ? intraDayTotalRecord : limit
-                })
-                return evidenApiAllocationIntraday
-              } catch (error) {
-                return []
-              }
-            })
-          )
-        ).flat()
-    
+                    skip: intraDayTotalRecord ? 0 : skip,
+                    limit: intraDayTotalRecord ? intraDayTotalRecord : limit
+                  })
+                  return evidenApiAllocationIntraday
+                } catch (error) {
+                  return []
+                }
+              })
+            )
+          ).flat()
+
     const matchWithExecuteIntradayList = intradayEviden.filter((item: any) => {
       const itemGasDay = getTodayNowYYYYMMDDDfaultAdd7(item.gas_day)
       return executeIntradayList?.some((executeData: any) => {
@@ -9060,11 +9422,11 @@ export class AllocationService {
 
     const publishIntradayData = matchWithExecuteIntradayList.filter((evidenData: any) => {
       return !publicationCenterDeletedList?.some((unpublishData: any) => {
-        return unpublishData?.execute_timestamp === evidenData.execute_timestamp && unpublishData?.gas_day_text === evidenData.gas_day && unpublishData?.gas_hour === evidenData?.gas_hour
+        return unpublishData?.execute_timestamp === evidenData?.execute_timestamp && unpublishData?.gas_day_text === evidenData?.gas_day && unpublishData?.gas_hour === evidenData?.gas_hour
       })
     })
-    console.timeEnd("allocationManagement2 s11")
-    console.time("allocationManagement2 s12")
+    console.timeEnd('allocationManagement2 s11')
+    console.time('allocationManagement2 s12')
     // Get the latest execute_timestamp for each unique combination of gas_day
     const latestPublishIntradayData = publishIntradayData.reduce((acc: any[], current: any) => {
       const existingIndex = acc.findIndex((item) => item.gas_day === current.gas_day)
@@ -9079,8 +9441,8 @@ export class AllocationService {
 
       return acc
     }, [])
-    console.timeEnd("allocationManagement2 s12")
-    console.time("allocationManagement2 s13")
+    console.timeEnd('allocationManagement2 s12')
+    console.time('allocationManagement2 s13')
     let allocationMaster = await this.prisma.allocation_management.findMany({
       where: {
         gas_day: {
@@ -9121,8 +9483,8 @@ export class AllocationService {
         allocation_status: true
       }
     })
-    console.timeEnd("allocationManagement2 s13")
-    console.time("allocationManagement2 s14")
+    console.timeEnd('allocationManagement2 s13')
+    console.time('allocationManagement2 s14')
     let newAllocation = []
     const resultEodLast: any = Object.values(
       newEOD.reduce((acc, curr) => {
@@ -9164,8 +9526,8 @@ export class AllocationService {
         })
       }
     }
-    console.timeEnd("allocationManagement2 s14")
-    console.time("allocationManagement2 s15")
+    console.timeEnd('allocationManagement2 s14')
+    console.time('allocationManagement2 s15')
     if (newAllocation.length > 0) {
       // create
       try {
@@ -9217,8 +9579,8 @@ export class AllocationService {
         }
       })
     }
-    console.timeEnd("allocationManagement2 s15")
-    console.time("allocationManagement2 s16")
+    console.timeEnd('allocationManagement2 s15')
+    console.time('allocationManagement2 s16')
     const nEodPorp = resultEodLast.map((eod: any) => {
       // หา nomination ประจำวัน/สัปดาห์ที่ตรงกับ shipper/contract/point
       const dailyNominationList = convertNomFile?.filter((f: any) => {
@@ -9237,36 +9599,36 @@ export class AllocationService {
 
       const dayOfWeek = Number(getTodayStartAdd7(eod['gas_day']).format('d')) // The day of the week, with Sunday as 0
       let nominationValue: number | null = null
-        // รวมค่าจาก nomination ที่ตรงกับเงื่อนไขเพื่อนำไปเทียบกับ allocation
-        ;[...dailyNominationList, ...weeklyNominationList].map((nominationFile) => {
-          nominationFile.rowData?.map((rowDataItem: any) => {
-            if (isMatch(rowDataItem?.data_temp['3'], eod['point']) && isMatch(rowDataItem?.data_temp['9'], 'MMBTU/D') && isMatch(rowDataItem?.area_text, eod['area']) && isMatch(rowDataItem?.zone_text, eod['zone'])) {
-              let newNominationValue: number | null = null
-              if (nominationFile?.nomination_type_id === 1) {
-                newNominationValue = parseToNumber(rowDataItem?.data_temp['38'])
-              } else {
-                newNominationValue = parseToNumber(rowDataItem?.data_temp[`${14 + dayOfWeek}`])
-              }
-
-              if (nominationValue) {
-                if (newNominationValue || newNominationValue == 0) {
-                  nominationValue += newNominationValue
-                }
-              } else {
-                nominationValue = newNominationValue
-              }
+      // รวมค่าจาก nomination ที่ตรงกับเงื่อนไขเพื่อนำไปเทียบกับ allocation
+      ;[...dailyNominationList, ...weeklyNominationList].map((nominationFile) => {
+        nominationFile.rowData?.map((rowDataItem: any) => {
+          if (isMatch(rowDataItem?.data_temp['3'], eod['point']) && isMatch(rowDataItem?.data_temp['9'], 'MMBTU/D') && isMatch(rowDataItem?.area_text, eod['area']) && isMatch(rowDataItem?.zone_text, eod['zone'])) {
+            let newNominationValue: number | null = null
+            if (nominationFile?.nomination_type_id === 1) {
+              newNominationValue = parseToNumber(rowDataItem?.data_temp['38'])
+            } else {
+              newNominationValue = parseToNumber(rowDataItem?.data_temp[`${14 + dayOfWeek}`])
             }
-          })
+
+            if (nominationValue) {
+              if (newNominationValue || newNominationValue == 0) {
+                nominationValue += newNominationValue
+              }
+            } else {
+              nominationValue = newNominationValue
+            }
+          }
         })
+      })
 
       const systemAllocation = eod['value']
       const previousAllocationTPAforReview = eod['previous_value']
 
       // หา intraday ที่ตรงกับ gas_day เดียวกันเพื่อแสดงค่า system รายชั่วโมง
       const intradayDataByGasDay = latestPublishIntradayData.find((f: any) => {
-        return (f?.gasday ?? f.gas_day) === eod['gas_day']
+        return (f?.gasday ?? f?.gas_day) === eod?.['gas_day']
       })
-      const { data: intraFil = [], ...intradayByGasDay } = intradayDataByGasDay ?? {}
+      const {data: intraFil = [], ...intradayByGasDay} = intradayDataByGasDay ?? {}
 
       const intraFilValue = intraFil
         .filter((f: any) => f?.data?.some((ff: any) => ff?.point === eod?.['point']) && f?.contract === eod['contract'] && f?.shipper === eod['shipper'])
@@ -9280,7 +9642,7 @@ export class AllocationService {
             data: data
           }
         })
-      const { data: dataIntraDay = null, ...nIntraDay } = intraFilValue.at(-1) ?? {}
+      const {data: dataIntraDay = null, ...nIntraDay} = intraFilValue.at(-1) ?? {}
 
       const intradayUse = {
         ...nIntraDay,
@@ -9340,8 +9702,8 @@ export class AllocationService {
         area_obj
       }
     })
-    console.timeEnd("allocationManagement2 s16")
-    console.time("allocationManagement2 s17")
+    console.timeEnd('allocationManagement2 s16')
+    console.time('allocationManagement2 s17')
     let meterArr = []
     for (let i = 0; i < nEodPorp.length; i++) {
       if (nEodPorp[i]?.meterName.length > 0) {
@@ -9354,26 +9716,26 @@ export class AllocationService {
         meterArr = [...new Set([...meterArr, ...formateMeterG])]
       }
     }
-    console.timeEnd("allocationManagement2 s17")
+    console.timeEnd('allocationManagement2 s17')
 
-    console.time("allocationManagement2 s18") // 1/5/2026-31/5/2026 42s
+    console.time('allocationManagement2 s18') // 1/5/2026-31/5/2026 42s
     // ดึงข้อมูล metering ตามช่วงวันที่และ list meter ที่เกี่ยวข้อง
     const meterUse =
       ignoreDetail == true
         ? []
         : await this.meteringManagementService.getDataLogic2(
-          {
-            share: 'off',
-            start_date: start_date ?? dayjs().format('YYYY-MM-DD'),
-            end_date: end_date ?? dayjs().format('YYYY-MM-DD')
-          },
-          true,
-          meterMaster
-        )
-    console.timeEnd("allocationManagement2 s18")
-    
+            {
+              share: 'off',
+              start_date: start_date ?? dayjs().format('YYYY-MM-DD'),
+              end_date: end_date ?? dayjs().format('YYYY-MM-DD')
+            },
+            true,
+            meterMaster,
+            userId
+          )
+    console.timeEnd('allocationManagement2 s18')
 
-    console.time("allocationManagement2 s19") // 11s
+    console.time('allocationManagement2 s19') // 11s
     let nEodPorpRes = []
     for (let iMt = 0; iMt < nEodPorp.length; iMt++) {
       const formateMeterG = nEodPorp[iMt]['meterName'].map((e: any) => ({
@@ -9418,21 +9780,20 @@ export class AllocationService {
         // aMaster,
       })
     }
-    console.timeEnd("allocationManagement2 s19")
+    console.timeEnd('allocationManagement2 s19')
 
-   
     return nEodPorpRes
   }
 
   async allocationManagement2(payload: any, userId: any) {
     // ฟังก์ชันนี้รวบรวมข้อมูล allocation จากหลายแหล่ง (EOD, Intraday, Nomination, Metering)
     // เพื่อเตรียมข้อมูลที่ใช้แสดงบน Allocation Management (Tab 2)
-    const { start_date, end_date, skip, limit, ignoreDetail, share } = payload
+    const {start_date, end_date, skip, limit, ignoreDetail, share} = payload
 
     // แปลงวันที่ให้เป็น dayjs ที่ timezone +7 พร้อมกันเพื่อใช้เป็นขอบเขตหลักของการดึงข้อมูล
     const startDate = getTodayStartAdd7(start_date == 'undefined' ? undefined : start_date)
     const endDate = getTodayEndAdd7(end_date == 'undefined' ? undefined : end_date)
-    console.time("allocationManagement2 s1")
+    console.time('allocationManagement2 s1')
     // ดึง Execute (EOD) ที่อยู่ในช่วงวันที่ เพื่อใช้ตรวจสอบข้อมูลที่เผยแพร่จริง
     const executeEodList = await this.prisma.execute_eod.findMany({
       where: {
@@ -9448,26 +9809,26 @@ export class AllocationService {
         }
       }
     })
-    console.timeEnd("allocationManagement2 s1")
-    console.time("allocationManagement2 s2")
+    console.timeEnd('allocationManagement2 s1')
+    console.time('allocationManagement2 s2')
     // ดึง Execute Intraday รายชั่วโมงในช่วงเวลาเดียวกัน
     const executeIntradayList =
       ignoreDetail == true
         ? []
         : await this.prisma.execute_intraday.findMany({
-          where: {
-            status: {
-              equals: 'OK',
-              mode: 'insensitive'
-            },
-            gas_day_date: {
-              gte: startDate.toDate(),
-              lte: endDate.toDate()
+            where: {
+              status: {
+                equals: 'OK',
+                mode: 'insensitive'
+              },
+              gas_day_date: {
+                gte: startDate.toDate(),
+                lte: endDate.toDate()
+              }
             }
-          }
-        })
-    console.timeEnd("allocationManagement2 s2")
-    console.time("allocationManagement2 s3")
+          })
+    console.timeEnd('allocationManagement2 s2')
+    console.time('allocationManagement2 s3')
     // ดึงรายการที่ถูกยกเลิกการเผยแพร่จาก Publication Center เพื่อใช้ตัดข้อมูลออก
     const publicationCenterDeletedList = await this.prisma.publication_center.findMany({
       where: {
@@ -9524,15 +9885,15 @@ export class AllocationService {
       ...meteringPointPopulate
     })
 
-    const meteringPointList = (share === 'on' || share == true) ? await shareShipper(meterMaster, this.prisma, startDate, endDate.endOf('day')) : meterMaster
-    console.timeEnd("allocationManagement2 s3")
-    console.time("allocationManagement2 s4")
+    const meteringPointList = share === 'on' || share == true ? await shareShipper(meterMaster, this.prisma, startDate, endDate.endOf('day')) : meterMaster
+    console.timeEnd('allocationManagement2 s3')
+    console.time('allocationManagement2 s4')
     // https://app.clickup.com/t/86eu49dch
     const nominationFile = await this.prisma.query_shipper_nomination_file.findMany({
       where: {
-        NOT: {
-          contract_code_id: null
-        }, // revers bal ไม่แสดง effect
+        // NOT: {
+        //   contract_code_id: null
+        // }, // revers bal ไม่แสดง effect
         AND: [
           {
             OR: [
@@ -9592,21 +9953,21 @@ export class AllocationService {
         }
       }
     })
-    console.timeEnd("allocationManagement2 s4")
-    console.time("allocationManagement2 s5")
+    console.timeEnd('allocationManagement2 s4')
+    console.time('allocationManagement2 s5')
     const convertNomFile = nominationFile.map((e: any) => {
       // nomination_type_id 1 daily, 2 weekly
       e['gas_day'] = dayjs(e['gas_day']).tz('Asia/Bangkok').format('YYYY-MM-DD')
       e['nomination_version'] = e['nomination_version'].map((nv: any) => {
         nv['nomination_full_json'] = nv['nomination_full_json'].map((nj: any) => {
           nj['data_temp'] = JSON.parse(nj['data_temp'])
-          return { ...nj }
+          return {...nj}
         })
         nv['nomination_row_json'] = nv['nomination_row_json'].map((nj: any) => {
           nj['data_temp'] = JSON.parse(nj['data_temp'])
-          return { ...nj }
+          return {...nj}
         })
-        return { ...nv }
+        return {...nv}
       })
       let fullData = e['nomination_version'][0]?.['nomination_full_json'][0]
       let rowData = e['nomination_version'][0]?.['nomination_row_json']
@@ -9617,11 +9978,11 @@ export class AllocationService {
         rowData
       }
     })
-    const { minDate, maxDate } = await findMinMaxExeDate(this.prisma, start_date, end_date)
+    const {minDate, maxDate} = await findMinMaxExeDate(this.prisma, start_date, end_date)
 
-    console.timeEnd("allocationManagement2 s5")
+    console.timeEnd('allocationManagement2 s5')
 
-    console.time("allocationManagement2 s6")  // 1/5/2026-31/5/2026 13s -> 0.463s
+    console.time('allocationManagement2 s6') // 1/5/2026-31/5/2026 13s -> 0.463s
 
     let totalRecord: number | undefined = undefined
     minDate &&
@@ -9637,86 +9998,66 @@ export class AllocationService {
         }
       ))
 
-    let evidenApiAllocationEod: any[] = [];
+    let evidenApiAllocationEod: any[] = []
 
     if (minDate && maxDate) {
-      const dateList: string[] = [];
+      const dateList: string[] = []
 
-      let currentDate = minDate.startOf("day");
-      const endDate = maxDate.startOf("day");
+      let currentDate = minDate.startOf('day')
+      const endDate = maxDate.startOf('day')
 
-      while (
-        currentDate.isBefore(endDate, "day") ||
-        currentDate.isSame(endDate, "day")
-      ) {
-        dateList.push(currentDate.format("YYYY-MM-DD"));
-        currentDate = currentDate.add(1, "day");
+      while (currentDate.isBefore(endDate, 'day') || currentDate.isSame(endDate, 'day')) {
+        dateList.push(currentDate.format('YYYY-MM-DD'))
+        currentDate = currentDate.add(1, 'day')
       }
 
       // เรียกพร้อมกันครั้งละ 5 วัน
-      const concurrency = 5;
+      const concurrency = 5
 
-      for (
-        let index = 0;
-        index < dateList.length;
-        index += concurrency
-      ) {
-        const dateChunk = dateList.slice(
-          index,
-          index + concurrency
-        );
+      for (let index = 0; index < dateList.length; index += concurrency) {
+        const dateChunk = dateList.slice(index, index + concurrency)
 
         const chunkResult = await Promise.all(
           dateChunk.map(async (date) => {
             try {
-              const result =
-                await this.evidenApiAllocationEod({
-                  start_date: date,
-                  end_date: date,
+              const result = await this.evidenApiAllocationEod({
+                start_date: date,
+                end_date: date,
 
-                  /*
-                  * เมื่อแยกเรียกทีละวัน
-                  * ควรเริ่ม skip ที่ 0 ของทุกวัน
-                  */
-                  skip: 0,
+                /*
+                 * เมื่อแยกเรียกทีละวัน
+                 * ควรเริ่ม skip ที่ 0 ของทุกวัน
+                 */
+                skip: 0,
 
-                  /*
-                  * ต้องกำหนด limit ให้ครอบคลุมข้อมูลของหนึ่งวัน
-                  */
-                  limit: totalRecord
-                    ? totalRecord
-                    : limit
-                });
+                /*
+                 * ต้องกำหนด limit ให้ครอบคลุมข้อมูลของหนึ่งวัน
+                 */
+                limit: totalRecord ? totalRecord : limit
+              })
 
-              return Array.isArray(result)
-                ? result
-                : [];
+              return Array.isArray(result) ? result : []
             } catch (error) {
-              console.error(
-                `evidenApiAllocationEod error วันที่ ${date}:`,
-                error
-              );
+              console.error(`evidenApiAllocationEod error วันที่ ${date}:`, error)
 
-              return [];
+              return []
             }
           })
-        );
+        )
 
-        evidenApiAllocationEod.push(
-          ...chunkResult.flat()
-        );
+        evidenApiAllocationEod.push(...chunkResult.flat())
       }
     }
 
-     console.timeEnd("allocationManagement2 s6")
+    console.timeEnd('allocationManagement2 s6')
     //  console.log('evidenApiAllocationEod : ', evidenApiAllocationEod);
-     console.time("allocationManagement2 s7")
+    console.time('allocationManagement2 s7')
     const matchWithExecuteList = evidenApiAllocationEod.filter((item: any) => {
       const itemGasDay = getTodayNowYYYYMMDDDfaultAdd7(item.gas_day)
       return executeEodList?.some((executeData: any) => {
         const executeStart = getTodayNowAdd7(executeData?.start_date_date)
         const executeEnd = getTodayNowAdd7(executeData?.end_date_date)
-        return executeData.request_number_id == item.request_number && executeStart.isSameOrBefore(itemGasDay, 'day') && executeEnd.isSameOrAfter(itemGasDay, 'day')
+        return executeData?.request_number_id == item?.request_number && executeStart?.isSameOrBefore(itemGasDay, 'day') && executeEnd?.isSameOrAfter(itemGasDay, 'day')
       })
     })
     const publishData = matchWithExecuteList.filter((evidenData: any) => {
@@ -9736,8 +10077,1208 @@ export class AllocationService {
 
       return acc
     }, [])
-    console.timeEnd("allocationManagement2 s7")
-    console.time("allocationManagement2 s8")
+    console.timeEnd('allocationManagement2 s7')
+    console.time('allocationManagement2 s8')
+    // เตรียม master ของ group และ concept point ที่ active ตามช่วง gas_day ที่มีข้อมูล
+    let groupMaster: group[] = []
+    let conceptPointMaster: conceptPointWithRelations[] = []
+    if (latestPublishData && latestPublishData.length > 0) {
+      // Extract all unique gas_day values and convert to dayjs objects for proper date comparison
+      const gasDays = [...new Set(latestPublishData.map((item: any) => item.gas_day))]
+
+      if (gasDays.length > 0) {
+        // Convert to dayjs objects for proper date comparison
+        const gasDayObjects = gasDays.map((date) => getTodayStartAdd7(date))
+
+        // Find min and max gas_day using dayjs comparison
+        const minGasDayObj = gasDayObjects.reduce((min, current) => (current.isBefore(min) ? current : min))
+        const maxGasDayObj = gasDayObjects.reduce((max, current) => (current.isAfter(max) ? current : max))
+
+        if (minGasDayObj.isValid() && maxGasDayObj.isValid()) {
+          groupMaster = await this.prisma.group.findMany({
+            where: {
+              user_type_id: 3,
+              OR: [
+                {
+                  end_date: null
+                },
+                {
+                  end_date: {
+                    gt: minGasDayObj.toDate()
+                  }
+                }
+              ],
+              start_date: {
+                lte: maxGasDayObj.toDate()
+              }
+            }
+          })
+
+          const conceptPointAndInWhere: Prisma.concept_pointWhereInput[] = [
+            {
+              OR: [
+                {
+                  end_date: null
+                },
+                {
+                  end_date: {
+                    gt: minGasDayObj.toDate()
+                  }
+                }
+              ]
+            },
+            { 
+              start_date: {
+                lte: maxGasDayObj.toDate()
+              }
+            }
+          ]
+        
+          // if (userId) {
+          //   const userType = await this.prisma.user_type.findFirst({
+          //     where: {
+          //       account_manage: {
+          //         some: {
+          //           account_id: Number(userId)
+          //         }
+          //       }
+          //     }
+          //   })
+        
+          //   if (userType?.id === 3) {
+          //     const group_ = await this.prisma.group.findFirst({
+          //       where: {
+          //         account_manage: {
+          //           some: {
+          //             account_id: Number(userId)
+          //           }
+          //         }
+          //       },
+          //       include: {
+          //         shipper_contract_point: {
+          //           include: {
+          //             contract_point: {
+          //               include: {
+          //                 nomination_point_list: {
+          //                   include: {
+          //                     metering_point: true
+          //                   }
+          //                 }
+          //               }
+          //             }
+          //           }
+          //         }
+          //       }
+          //     })
+        
+          //     if (group_) {
+          //       conceptPointAndInWhere.push({
+          //         limit_concept_point_history: {
+          //           some: {
+          //             group_id: group_.id,
+          //             create_date: { lte: maxGasDayObj.toDate() },
+          //             OR: [
+          //               { deleted_date: null },
+          //               { deleted_date: { gte: minGasDayObj.toDate() } }
+          //             ]
+          //           }
+          //         }
+          //       })
+          //     }
+          //   }
+          // }
+
+          conceptPointMaster = await this.prisma.concept_point.findMany({
+            where: {
+              AND: conceptPointAndInWhere
+            },
+            ...conceptPointPopulate
+          })
+        }
+      }
+    }
+    console.timeEnd('allocationManagement2 s8')
+    console.time('allocationManagement2 s9')
+    // คลี่โครงสร้าง Eviden (ระดับ gas_day → contract → point) ให้อยู่ในรูป flat list พร้อมข้อมูล group
+    const newEOD = latestPublishData.flatMap((fm: any) => {
+      const {data: data1, ...fmD} = fm
+
+      const gasDayjs = getTodayNowYYYYMMDDDfaultAdd7(fm.gas_day)
+      const gasDay = gasDayjs.toDate()
+
+      const nData = data1?.flatMap((dFm: any) => {
+        const {data: data2, ...fmD2} = dFm
+
+        const activeGroup: group = groupMaster.find((group) => group.start_date <= gasDay && (group.end_date === null || group.end_date >= gasDay) && isMatch(group.id_name, dFm.shipper))
+
+        const nData2 = data2.map((dFm2: any) => {
+          return {
+            ...fmD,
+            ...fmD2,
+            ...dFm2,
+            group: activeGroup
+          }
+        })
+
+        return [...nData2]
+      })
+
+      return [...nData]
+    })
+    console.timeEnd('allocationManagement2 s9')
+    console.time('allocationManagement2 s10')
+    // Generate dateArrayForIntraday based on actual gas_day values from newEOD
+    const dateArrayForIntraday: string[] = []
+
+    if (newEOD && newEOD.length > 0) {
+      // Extract all unique gas_day values and convert to dayjs objects for proper date comparison
+      const gasDays = [...new Set(newEOD.map((item: any) => item.gas_day))]
+
+      if (gasDays.length > 0) {
+        // Convert to dayjs objects for proper date comparison
+        const gasDayObjects = gasDays.map((date) => getTodayStartAdd7(date))
+
+        // Find min and max gas_day using dayjs comparison
+        const minGasDayObj = gasDayObjects.reduce((min, current) => (current.isBefore(min) ? current : min))
+        const maxGasDayObj = gasDayObjects.reduce((max, current) => (current.isAfter(max) ? current : max))
+
+        if (minGasDayObj.isValid() && maxGasDayObj.isValid()) {
+          let current = minGasDayObj
+
+          while (current.isSameOrBefore(maxGasDayObj)) {
+            dateArrayForIntraday.push(current.format('YYYY-MM-DD'))
+            current = current.add(1, 'day')
+          }
+        }
+      }
+    }
+    console.timeEnd('allocationManagement2 s10')
+
+    console.time('allocationManagement2 s11') // 1/5/2026-31/5/2026 5s
+    let intradayEviden =
+      ignoreDetail == true
+        ? []
+        : (
+            await Promise.all(
+              dateArrayForIntraday.map(async (date) => {
+                try {
+                  let intraDayTotalRecord: number | undefined = undefined
+                  await this.evidenApiAllocationIntraday(
+                    {
+                      gas_day: date,
+                      start_hour: 1,
+                      end_hour: 24,
+                      skip: 0,
+                      limit: 1
+                    },
+                    (total_record: number) => {
+                      intraDayTotalRecord = total_record
+                    }
+                  )
+                  const evidenApiAllocationIntraday = await this.evidenApiAllocationIntraday({
+                    gas_day: date,
+                    start_hour: 1,
+                    end_hour: 24,
+                    skip: intraDayTotalRecord ? 0 : skip,
+                    limit: intraDayTotalRecord ? intraDayTotalRecord : limit
+                  })
+                  return evidenApiAllocationIntraday
+                } catch (error) {
+                  return []
+                }
+              })
+            )
+          ).flat()
+
+    const matchWithExecuteIntradayList = intradayEviden.filter((item: any) => {
+      const itemGasDay = getTodayNowYYYYMMDDDfaultAdd7(item.gas_day)
+      return executeIntradayList?.some((executeData: any) => {
+        const executeGasDay = getTodayNowAdd7(executeData.gas_day)
+        return executeData.request_number_id == item.request_number && executeData.gas_hour == item.gas_hour && executeGasDay.isSame(itemGasDay, 'day')
+      })
+    })
+
+    const publishIntradayData = matchWithExecuteIntradayList.filter((evidenData: any) => {
+      return !publicationCenterDeletedList?.some((unpublishData: any) => {
+        return unpublishData?.execute_timestamp === evidenData?.execute_timestamp && unpublishData?.gas_day_text === evidenData?.gas_day && unpublishData?.gas_hour === evidenData?.gas_hour
+      })
+    })
+    console.timeEnd('allocationManagement2 s11')
+    console.time('allocationManagement2 s12')
+    // Get the latest execute_timestamp for each unique combination of gas_day
+    const latestPublishIntradayData = publishIntradayData.reduce((acc: any[], current: any) => {
+      const existingIndex = acc.findIndex((item) => item.gas_day === current.gas_day)
+
+      if (existingIndex < 0) {
+        acc.push(current)
+      } else if (current.gas_hour > acc[existingIndex].gas_hour) {
+        acc[existingIndex] = current
+      } else if (current.gas_hour == acc[existingIndex].gas_hour && current.execute_timestamp > acc[existingIndex].execute_timestamp) {
+        acc[existingIndex] = current
+      }
+
+      return acc
+    }, [])
+    console.timeEnd('allocationManagement2 s12')
+    console.time('allocationManagement2 s13')
+    let allocationMaster = await this.prisma.allocation_management.findMany({
+      where: {
+        gas_day: {
+          gte: startDate.toDate(),
+          lte: endDate.toDate()
+        }
+      },
+      include: {
+        allocation_management_comment: {
+          include: {
+            allocation_status: true,
+            create_by_account: {
+              select: {
+                id: true,
+                email: true,
+                first_name: true,
+                last_name: true
+              }
+            },
+            update_by_account: {
+              select: {
+                id: true,
+                email: true,
+                first_name: true,
+                last_name: true
+              }
+            }
+          }
+          // orderBy: { id: "desc" }
+        },
+        allocation_management_shipper_review: {
+          include: {},
+          take: 1,
+          orderBy: {
+            create_date: 'desc'
+          }
+        },
+        allocation_status: true
+      }
+    })
+    console.timeEnd('allocationManagement2 s13')
+    console.time('allocationManagement2 s14')
+    let newAllocation = []
+    const resultEodLast: any = Object.values(
+      newEOD.reduce((acc, curr) => {
+        const key = `${curr.gas_day}|${curr.shipper}|${curr.contract}|${curr.point}|${curr.entry_exit}|${curr.area}|${curr.zone}`
+        if (!acc[key] || acc[key].execute_timestamp < curr.execute_timestamp) {
+          acc[key] = curr
+        }
+        return acc
+      }, {})
+    )
+
+    for (let i = 0; i < resultEodLast.length; i++) {
+      const findAllocationMaster = allocationMaster.find((f: any) => {
+        return (
+          f?.gas_day_text === resultEodLast[i]?.gas_day &&
+          f?.shipper_name_text === resultEodLast[i]?.shipper &&
+          f?.contract_code_text === resultEodLast[i]?.contract &&
+          f?.point_text === resultEodLast[i]?.point &&
+          f?.entry_exit_text === resultEodLast[i]?.entry_exit &&
+          f?.area_text === resultEodLast[i]?.area &&
+          f?.zone_text === resultEodLast[i]?.zone
+        )
+      })
+
+      if (!!!findAllocationMaster) {
+        newAllocation.push({
+          allocation_status_id: 1,
+          shipper_name_text: resultEodLast[i]?.shipper,
+          gas_day_text: resultEodLast[i]?.gas_day,
+          contract_code_text: resultEodLast[i]?.contract,
+          point_text: resultEodLast[i]?.point,
+          entry_exit_text: resultEodLast[i]?.entry_exit,
+          area_text: resultEodLast[i]?.area,
+          zone_text: resultEodLast[i]?.zone,
+          gas_day: getTodayNowYYYYMMDDDfaultAdd7(resultEodLast[i]?.gas_day + 'T00:00:00Z').toDate(),
+          create_date: getTodayNowAdd7().toDate(),
+          create_date_num: getTodayNowAdd7().unix(),
+          create_by: Number(userId)
+        })
+      }
+    }
+    console.timeEnd('allocationManagement2 s14')
+    console.time('allocationManagement2 s15')
+    if (newAllocation.length > 0) {
+      // create
+      try {
+        await this.prisma.allocation_management.createMany({
+          data: newAllocation
+        })
+      } catch (error) {
+        console.log('Create log for allocation management error: ', error)
+      }
+
+      allocationMaster = await this.prisma.allocation_management.findMany({
+        where: {
+          gas_day: {
+            gte: startDate.toDate(),
+            lte: endDate.toDate()
+          }
+        },
+        include: {
+          allocation_management_comment: {
+            include: {
+              allocation_status: true,
+              create_by_account: {
+                select: {
+                  id: true,
+                  email: true,
+                  first_name: true,
+                  last_name: true
+                }
+              },
+              update_by_account: {
+                select: {
+                  id: true,
+                  email: true,
+                  first_name: true,
+                  last_name: true
+                }
+              }
+            }
+            // orderBy: { id: "desc" }
+          },
+          allocation_management_shipper_review: {
+            include: {},
+            take: 1,
+            orderBy: {
+              create_date: 'desc'
+            }
+          },
+          allocation_status: true
+        }
+      })
+    }
+    console.timeEnd('allocationManagement2 s15')
+
+    /**
+     * ใช้ JSON.stringify ป้องกัน key ชนกัน
+     * กรณีข้อมูลมีเครื่องหมาย | หรือเครื่องหมายพิเศษ
+     */
+    const createKey = (...values: any[]) => JSON.stringify(values)
+    console.time('allocationManagement2 s16') // 1/5/2026-31/5/2026 11s -> 0.463s
+
+    const pushToArrayMap = (map: Map<string, any[]>, key: string, value: any) => {
+      const current = map.get(key)
+
+      if (current) {
+        current.push(value)
+      } else {
+        map.set(key, [value])
+      }
+    }
+
+    /**
+     * ============================================================
+     * 1. สร้าง index สำหรับ Nomination
+     * ============================================================
+     */
+
+    const dailyNominationMap = new Map<string, any[]>()
+    const weeklyNominationMap = new Map<string, any[]>()
+
+    const getWeekKey = (date: any) => {
+      return getTodayNowYYYYMMDDDfaultAdd7(date).startOf('week').format('YYYY-MM-DD')
+    }
+
+    for (const nomination of convertNomFile ?? []) {
+      const nominationTypeId = Number(nomination?.nomination_type_id)
+
+      if (nominationTypeId !== 1 && nominationTypeId !== 2) {
+        continue
+      }
+
+      const shipper = nomination?.group?.id_name
+
+      const contractCode = nomination?.contract_code?.contract_code
+
+      const reserveContract = nomination?.reserve_balancing_gas_contract?.res_bal_gas_contract
+
+      /**
+       * Nomination หนึ่งตัวอาจตรงได้ทั้ง contract ปกติ
+       * และ reserve balancing contract
+       */
+      const contracts = [...new Set([contractCode, reserveContract].filter((contract) => contract !== null && contract !== undefined))]
+
+      for (const contract of contracts) {
+        if (nominationTypeId === 1) {
+          const key = createKey(nomination?.gas_day, shipper, contract)
+
+          pushToArrayMap(dailyNominationMap, key, nomination)
+        } else {
+          const key = createKey(getWeekKey(nomination?.gas_day), shipper, contract)
+
+          pushToArrayMap(weeklyNominationMap, key, nomination)
+        }
+      }
+    }
+
+    /**
+     * ============================================================
+     * 2. สร้าง index สำหรับ Intraday
+     * ============================================================
+     *
+     * โค้ดเดิมใช้ .find() หา gas day
+     * ดังนั้นถ้ามี gas day ซ้ำ ต้องใช้ข้อมูลตัวแรกเท่านั้น
+     */
+
+    const intradayGasDayMap = new Map<string, any>()
+
+    for (const intraday of latestPublishIntradayData ?? []) {
+      const gasDay = intraday?.gasday ?? intraday?.gas_day
+
+      if (!intradayGasDayMap.has(gasDay)) {
+        intradayGasDayMap.set(gasDay, intraday)
+      }
+    }
+
+    /**
+     * เก็บ intraday record ตัวสุดท้ายตามเงื่อนไข
+     *
+     * เพราะโค้ดเดิม:
+     * filter(...).map(...).at(-1)
+     *
+     * จึงต้องใช้ตัวสุดท้ายที่ตรงกับ:
+     * gasDay + contract + shipper + point
+     */
+    const intradayLastRecordMap = new Map<string, any>()
+
+    for (const [gasDay, intraday] of intradayGasDayMap) {
+      for (const intraItem of intraday?.data ?? []) {
+        const pointSet = new Set<any>()
+
+        for (const dataItem of intraItem?.data ?? []) {
+          pointSet.add(dataItem?.point)
+        }
+
+        for (const point of pointSet) {
+          const key = createKey(gasDay, intraItem?.contract, intraItem?.shipper, point)
+
+          /**
+           * set ทับได้เลย เพราะต้องการตัวสุดท้าย
+           * ให้เหมือน .at(-1)
+           */
+          intradayLastRecordMap.set(key, intraItem)
+        }
+      }
+    }
+
+    /**
+     * ============================================================
+     * 3. สร้าง index สำหรับ Area
+     * ============================================================
+     *
+     * areaMaster เดิมใช้ find แบบ ===
+     * ถ้ามีชื่อซ้ำ ต้องเก็บตัวแรก
+     */
+
+    const areaMasterMap = new Map<string, any>()
+
+    for (const area of areaMaster ?? []) {
+      const key = area?.name
+
+      if (!areaMasterMap.has(key)) {
+        areaMasterMap.set(key, area)
+      }
+    }
+
+    /**
+     * ============================================================
+     * 4. Cache สำหรับข้อมูลที่ใช้ isMatch
+     * ============================================================
+     *
+     * เนื่องจาก isMatch อาจไม่ใช่การเปรียบเทียบแบบ ===
+     * จึงใช้ cache ตาม point ที่เคยค้นหาแล้ว
+     */
+
+    const meterNameCache = new Map<string, string[]>()
+    const entryExitCache = new Map<string, any>()
+    const nominationValueCache = new Map<string, number | null>()
+
+    const getMeterNames = (pointType: any, point: any): string[] => {
+      const cacheKey = createKey(pointType, point)
+
+      const cached = meterNameCache.get(cacheKey)
+
+      if (cached !== undefined) {
+        return cached
+      }
+
+      let meterName: string[] = []
+
+      if (meterMaster && isMatch(pointType, 'NOM')) {
+        meterName = (meterMaster ?? []).filter((meteringPoint: any) => isMatch(meteringPoint?.nomination_point?.nomination_point, point)).map((meteringPoint: any) => meteringPoint?.metered_point_name)
+      } else if (conceptPointMaster && isMatch(pointType, 'CONCEPT')) {
+        let conceptPointName = point
+
+        if (isMatch(point, 'East_to_BVW10')) {
+          conceptPointName = 'BVW10 East'
+        } else if (isMatch(point, 'West_to_BVW10')) {
+          conceptPointName = 'BVW10 West'
+        } else if (isMatch(point, 'East_to_RA6')) {
+          conceptPointName = 'RA6 EAST'
+        } else if (isMatch(point, 'West_to_RA6')) {
+          conceptPointName = 'RA6 WEST'
+        }
+
+        meterName = (conceptPointMaster ?? [])
+          .filter((conceptPoint: any) => {
+            return conceptPoint?.type_concept_point?.name?.toUpperCase()?.includes('METER') && (isMatch(conceptPoint?.concept_point, point) || isMatch(conceptPoint?.concept_point, conceptPointName))
+          })
+          .map((conceptPoint: any) => conceptPoint?.concept_point)
+      } else if (meterMaster && isMatch(pointType, 'NONTPA')) {
+        meterName = (meterMaster ?? []).filter((meteringPoint: any) => isMatch(meteringPoint?.non_tpa_point?.non_tpa_point_name, point)).map((meteringPoint: any) => meteringPoint?.metered_point_name)
+      } else {
+        const meterSet = new Set<string>()
+
+        for (const meteringPoint of meterMaster ?? []) {
+          if (meteringPoint?.nomination_point?.nomination_point === point) {
+            meterSet.add(meteringPoint?.metered_point_name)
+          }
+        }
+
+        meterName = [...meterSet]
+      }
+
+      meterNameCache.set(cacheKey, meterName)
+
+      return meterName
+    }
+
+    const getEntryExitObject = (entryExit: any) => {
+      if (entryExitCache.has(entryExit)) {
+        return entryExitCache.get(entryExit)
+      }
+
+      const result = (entryExitMaster ?? []).find((item: any) => isMatch(item?.name, entryExit))
+
+      entryExitCache.set(entryExit, result)
+
+      return result
+    }
+
+    /**
+     * ============================================================
+     * 5. ฟังก์ชันคำนวณ Nomination
+     * ============================================================
+     */
+
+    const getNominationValue = (eod: any): number | null => {
+      /**
+       * nominationValue ไม่ได้ใช้ entry_exit และ point_type
+       * จึง cache ด้วย field ที่เกี่ยวข้องจริงเท่านั้น
+       */
+      const cacheKey = createKey(eod?.gas_day, eod?.shipper, eod?.contract, eod?.point, eod?.area, eod?.zone)
+
+      if (nominationValueCache.has(cacheKey)) {
+        return nominationValueCache.get(cacheKey) ?? null
+      }
+
+      const dailyKey = createKey(eod?.gas_day, eod?.shipper, eod?.contract)
+
+      const weeklyKey = createKey(getWeekKey(eod?.gas_day), eod?.shipper, eod?.contract)
+
+      const dailyNominationList = dailyNominationMap.get(dailyKey) ?? []
+
+      const weeklyCandidates = weeklyNominationMap.get(weeklyKey) ?? []
+
+      /**
+       * รักษาเงื่อนไขเดิม:
+       *
+       * !dailyNominationList.some(
+       *   daily.contract_code_id == weekly.contract_code_id
+       * )
+       */
+      const weeklyNominationList = weeklyCandidates.filter((weekly: any) => {
+        return !dailyNominationList.some((daily: any) => daily?.contract_code_id == weekly?.contract_code_id || daily?.reserve_balancing_gas_contract_id == weekly?.reserve_balancing_gas_contract_id)
+      })
+
+      const dayOfWeek = Number(getTodayStartAdd7(eod?.gas_day).format('d'))
+
+      let nominationValue: number | null = null
+
+      const nominationList = [...dailyNominationList, ...weeklyNominationList]
+
+      for (const nominationFile of nominationList) {
+        for (const rowDataItem of nominationFile?.rowData ?? []) {
+          const isMatched = isMatch(rowDataItem?.data_temp?.['3'], eod?.point) && isMatch(rowDataItem?.data_temp?.['9'], 'MMBTU/D') && isMatch(rowDataItem?.area_text, eod?.area) && isMatch(rowDataItem?.zone_text, eod?.zone)
+
+          if (!isMatched) {
+            continue
+          }
+
+          let newNominationValue: number | null = null
+
+          if (Number(nominationFile?.nomination_type_id) === 1) {
+            newNominationValue = parseToNumber3Decimal(rowDataItem?.data_temp?.['38'])
+          } else {
+            newNominationValue = parseToNumber3Decimal(rowDataItem?.data_temp?.[`${14 + dayOfWeek}`])
+          }
+
+          /**
+           * รักษาพฤติกรรมเดิมทุกกรณี
+           *
+           * เดิมใช้:
+           * if (nominationValue) {
+           *   ...
+           * } else {
+           *   nominationValue = newNominationValue
+           * }
+           *
+           * ดังนั้นกรณี nominationValue เป็น 0
+           * จะเข้า else เหมือนเดิม
+           */
+          if (nominationValue) {
+            if (newNominationValue || newNominationValue === 0) {
+              nominationValue = parseToNumber6Decimal(nominationValue + newNominationValue)
+            }
+          } else {
+            nominationValue = newNominationValue
+          }
+        }
+      }
+
+      nominationValueCache.set(cacheKey, nominationValue)
+
+      return nominationValue
+    }
+
+    /**
+     * ============================================================
+     * 6. สร้าง nEodPorp
+     * ============================================================
+     */
+
+    const eodPorp = resultEodLast && (resultEodLast ?? []).map((eod: any) => {
+      const nominationValue = getNominationValue(eod)
+
+      const systemAllocation = eod?.value
+
+      const previousAllocationTPAforReview = eod?.previous_value
+
+      /**
+       * หา intraday ตัวสุดท้ายที่ตรงกับ
+       * gasDay + contract + shipper + point
+       */
+      const intradayKey = createKey(eod?.gas_day, eod?.contract, eod?.shipper, eod?.point)
+
+      const lastIntradayRecord = intradayLastRecordMap.get(intradayKey)
+
+      /**
+       * ใน record ตัวสุดท้าย หา data ที่ตรงรายละเอียดทั้งหมด
+       */
+      const dataIntraDay =
+        lastIntradayRecord?.data?.find((dataItem: any) => {
+          return dataItem?.point === eod?.point && dataItem?.point_type === eod?.point_type && dataItem?.area === eod?.area && dataItem?.zone === eod?.zone && dataItem?.entry_exit === eod?.entry_exit
+        }) ?? null
+
+      const intradaySystem = dataIntraDay?.value
+
+      const meterName = getMeterNames(eod?.point_type, eod?.point)
+
+      const entry_exit_obj = getEntryExitObject(eod?.entry_exit)
+
+      const area_obj = areaMasterMap.get(eod?.area)
+
+      return {
+        ...eod,
+        nominationValue,
+        systemAllocation,
+        previousAllocationTPAforReview,
+        intradaySystem,
+        meterName,
+        entry_exit_obj,
+        area_obj
+      }
+    }) || []
+    const nEodPorp = share === 'on' || share == true ? eodPorp.filter((item: any) => meteringPointList.some((meteringPoint) => item.meterName.includes(meteringPoint.metered_point_name) || item.meterName.includes(meteringPoint.metered_point_name))) : eodPorp
+
+    console.timeEnd('allocationManagement2 s16')
+
+    console.time('allocationManagement2 s18') // 1/5/2026-31/5/2026 42s -> 17s
+
+    let meterUse: any[] = []
+
+    if (ignoreDetail !== true && ignoreDetail != 'true') {
+      const startDate = dayjs(start_date ?? dayjs().format('YYYY-MM-DD')).startOf('day')
+
+      const endDate = dayjs(end_date ?? dayjs().format('YYYY-MM-DD')).startOf('day')
+
+      // สร้าง array วันที่ เช่น
+      // ["2026-06-01", "2026-06-02", ..., "2026-06-30"]
+      const dateList: string[] = []
+
+      let currentDate = startDate
+
+      while (currentDate.isBefore(endDate, 'day') || currentDate.isSame(endDate, 'day')) {
+        dateList.push(currentDate.format('YYYY-MM-DD'))
+        currentDate = currentDate.add(1, 'day')
+      }
+
+      // console.log("dateList:", dateList);
+
+      // เรียกทุกวันพร้อมกัน
+      const meterUseByDate = await Promise.all(
+        dateList.map(async (date) => {
+          try {
+            const result = await this.meteringManagementService.getDataLogic2(
+              {
+                share: share === 'on' || share == true ? 'on' : 'off',
+                start_date: date,
+                end_date: date
+              },
+              true,
+              meteringPointList,
+              userId
+            )
+
+            return Array.isArray(result) ? result : []
+          } catch (error) {
+            // console.error(`getDataLogic2 error วันที่ ${date}:`, error);
+            return []
+          }
+        })
+      )
+
+      // รวม array ของทุกวันให้เป็น array เดียว
+      meterUse = meterUseByDate.flat()
+    }
+
+    console.timeEnd('allocationManagement2 s18')
+
+    console.time('allocationManagement2 s19') // 1/5/2026-31/5/2026 11s -> 0.095s
+
+    /**
+     * ============================================================
+     * 1. สรุป Energy จาก meterUse ตาม gasDay + meteringPointId
+     * ============================================================
+     *
+     * จากเดิม:
+     * meterUse.filter(...) ทุกครั้งที่วน nEodPorp
+     *
+     * เปลี่ยนเป็น:
+     * สรุปผลไว้ใน Map เพียงครั้งเดียว
+     */
+    const meterEnergyMap = new Map<string, number>()
+
+    for (const meter of meterUse ?? []) {
+      const key = createKey(meter?.gasDay, meter?.meteringPointId)
+
+      const energy = parseToNumber(meter?.energy) ?? 0
+      const currentEnergy = meterEnergyMap.get(key) ?? 0
+
+      meterEnergyMap.set(key, currentEnergy + energy)
+    }
+
+    /**
+     * ============================================================
+     * 2. สร้าง Map สำหรับ allocationMaster
+     * ============================================================
+     *
+     * ต้องใช้ 7 field ในการจับคู่:
+     * - gas_day_text
+     * - shipper_name_text
+     * - contract_code_text
+     * - point_text
+     * - entry_exit_text
+     * - area_text
+     * - zone_text
+     */
+    const allocationMasterMap = new Map<string, any>()
+
+    for (const allocation of allocationMaster ?? []) {
+      const key = createKey(allocation?.gas_day_text, allocation?.shipper_name_text, allocation?.contract_code_text, allocation?.point_text, allocation?.entry_exit_text, allocation?.area_text, allocation?.zone_text)
+
+      /**
+       * ใช้เฉพาะข้อมูลตัวแรก เพื่อให้พฤติกรรมเหมือน Array.find()
+       *
+       * ถ้ามี key ซ้ำกัน Array.find() เดิมจะคืนตัวแรก
+       */
+      if (!allocationMasterMap.has(key)) {
+        allocationMasterMap.set(key, allocation)
+      }
+    }
+
+    /**
+     * ============================================================
+     * 3. สร้างผลลัพธ์ nEodPorpRes
+     * ============================================================
+     */
+    const nEodPorpRes = (nEodPorp ?? []).map((item: any) => {
+      /**
+       * รวมค่าพลังงานจาก Meter ทุกตัวใน item.meterName
+       *
+       * ยังคงวน meterName ตามเดิม ดังนั้นถ้า meterName มีค่าซ้ำ
+       * ผลลัพธ์ก็จะบวกซ้ำเหมือนโค้ดเดิม
+       */
+      let meteringValue = 0
+      let meterNameSubValue = []
+      for (const meterPointId of item?.meterName ?? []) {
+        const meterKey = createKey(item?.gas_day, meterPointId)
+        meterNameSubValue.push(meterEnergyMap.get(meterKey) ?? 0)
+        meteringValue += meterEnergyMap.get(meterKey) ?? 0
+      }
+
+      const allocationKey = createKey(item?.gas_day, item?.shipper, item?.contract, item?.point, item?.entry_exit, item?.area, item?.zone)
+
+      const aMaster = allocationMasterMap.get(allocationKey)
+
+      return {
+        ...item,
+        id: aMaster?.id || null,
+        allocation_status: aMaster?.allocation_status || null,
+        review_code: aMaster?.review_code || null,
+        allocation_management_comment: aMaster?.allocation_management_comment || [],
+        allocation_management_shipper_review: aMaster?.allocation_management_shipper_review || [],
+        meteringValue,
+        meterNameSubValue
+      }
+    })
+    console.timeEnd('allocationManagement2 s19')
+
+    return nEodPorpRes
+  }
+
+  async allocationManagementFromAllocationReport(payload: any, userId: any) {
+    // ฟังก์ชันนี้รวบรวมข้อมูล allocation จากหลายแหล่ง (EOD, Intraday, Nomination, Metering)
+    // เพื่อเตรียมข้อมูลที่ใช้แสดงบน Allocation Management (Tab 2)
+    const {start_date, end_date, skip, limit, ignoreDetail, share} = payload
+
+    // แปลงวันที่ให้เป็น dayjs ที่ timezone +7 พร้อมกันเพื่อใช้เป็นขอบเขตหลักของการดึงข้อมูล
+    const startDate = getTodayStartAdd7(start_date == 'undefined' ? undefined : start_date)
+    const endDate = getTodayEndAdd7(end_date == 'undefined' ? undefined : end_date)
+    console.time('allocationManagementFromAllocationReport s1')
+    // ดึง Execute (EOD) ที่อยู่ในช่วงวันที่ เพื่อใช้ตรวจสอบข้อมูลที่เผยแพร่จริง
+    const executeEodList = await this.prisma.execute_eod.findMany({
+      where: {
+        status: {
+          equals: 'OK',
+          mode: 'insensitive'
+        },
+        start_date_date: {
+          lte: endDate.toDate()
+        },
+        end_date_date: {
+          gte: startDate.toDate()
+        }
+      }
+    })
+    console.timeEnd('allocationManagementFromAllocationReport s1')
+    console.time('allocationManagementFromAllocationReport s2')
+    // ดึง Execute Intraday รายชั่วโมงในช่วงเวลาเดียวกัน
+    const executeIntradayList =
+      ignoreDetail == true
+        ? []
+        : await this.prisma.execute_intraday.findMany({
+            where: {
+              status: {
+                equals: 'OK',
+                mode: 'insensitive'
+              },
+              gas_day_date: {
+                gte: startDate.toDate(),
+                lte: endDate.toDate()
+              }
+            }
+          })
+    console.timeEnd('allocationManagementFromAllocationReport s2')
+    console.time('allocationManagementFromAllocationReport s3')
+    // ดึงรายการที่ถูกยกเลิกการเผยแพร่จาก Publication Center เพื่อใช้ตัดข้อมูลออก
+    const publicationCenterDeletedList = await this.prisma.publication_center.findMany({
+      where: {
+        AND: [
+          {
+            gas_day: {
+              gte: startDate.toDate()
+            }
+          },
+          {
+            gas_day: {
+              lte: endDate.toDate()
+            }
+          },
+          {
+            del_flag: true
+          }
+        ]
+      }
+    })
+
+    // เตรียมข้อมูล master สำหรับ entry_exit ทั้งหมด
+    const entryExitMaster = await this.prisma.entry_exit.findMany({
+      where: {}
+    })
+
+    const areaMaster = await this.prisma.area.findMany({
+      where: {}
+    })
+
+    // ดึง master metering point ที่ active ภายในช่วงวันที่
+    const meterMaster: meteringPointWithRelations[] = await this.prisma.metering_point.findMany({
+      where: {
+        AND: [
+          {
+            start_date: {
+              lte: endDate.toDate() // start_date ต้องก่อนหรือเท่ากับสิ้นสุดวันนี้
+            }
+          },
+          {
+            OR: [
+              {
+                end_date: null
+              }, // ถ้า end_date เป็น null
+              {
+                end_date: {
+                  gt: startDate.toDate()
+                }
+              } // ถ้า end_date ไม่เป็น null ต้องหลังหรือเท่ากับเริ่มต้นวันนี้
+            ]
+          }
+        ]
+      },
+      ...meteringPointPopulate
+    })
+
+    const meteringPointList = share === 'on' || share == true ? await shareShipper(meterMaster, this.prisma, startDate, endDate.endOf('day')) : meterMaster
+    console.timeEnd('allocationManagementFromAllocationReport s3')
+
+    console.time('allocationManagementFromAllocationReport s3.1')
+    // *Query Necessary Data
+    const lastestAllocationModeBeforeStartDate: allocationModeRecord = await this.prisma.allocation_mode.findFirst({
+      where: {
+        start_date: {
+          lt: startDate.toDate()
+        }
+      },
+      orderBy: [{start_date: 'desc'}, {create_date: 'desc'}],
+      select: {
+        start_date: true,
+        create_date: true,
+        allocation_mode_type: {
+          select: {
+            mode: true
+          }
+        }
+      }
+    })
+    const allocationModesRaw: allocationModeRecord[] = await this.prisma.allocation_mode.findMany({
+      where: {
+        start_date: {
+          gte: startDate.toDate(),
+          lte: endDate.toDate()
+        }
+      },
+      orderBy: [{start_date: 'asc'}, {create_date: 'desc'}],
+      select: {
+        start_date: true,
+        create_date: true,
+        allocation_mode_type: {
+          select: {
+            mode: true
+          }
+        }
+      }
+    })
+    const allocationModes: allocationModeRecord[] = deduplicateAllocationModesByStartDate(allocationModesRaw)
+    const intradayAllocationGasDays: string[] = getIntradayAllocationGasDays([lastestAllocationModeBeforeStartDate, ...allocationModes], startDate, endDate)
+    // โหลดไฟล์ nomination (daily/weekly) ที่ status อยู่ในสถานะใช้งาน
+    const nominationFile: queryShipperNominationFileWithRelationsForCal[] = await this.prisma.query_shipper_nomination_file.findMany({
+      where: {
+        query_shipper_nomination_status: {
+          id: {
+            in: [2, 5]
+          }
+        },
+        OR: [
+          // Daily nominations: exact date match
+          {
+            nomination_type: {
+              id: 1
+            },
+            gas_day: {
+              gte: startDate.toDate(),
+              lte: endDate.toDate()
+            }
+          },
+          // Weekly nominations: same week
+          {
+            nomination_type: {
+              id: 2
+            },
+            gas_day: {
+              gte: startDate.startOf('week').toDate(),
+              lte: endDate.endOf('week').toDate()
+            }
+          }
+        ]
+      },
+      ...queryShipperNominationFilePopulateForCal
+    })
+    // แปลง nomination JSON ให้อยู่ในรูปแบบใช้งานง่าย (parse data_temp)
+    const convertNomFile = nominationFile.map((e: any) => {
+      // nomination_type_id 1 daily, 2 weekly
+      e['gas_day'] = dayjs(e['gas_day']).format('YYYY-MM-DD')
+      e['nomination_version'] = e['nomination_version'].map((nv: any) => {
+        nv['nomination_full_json'] = nv['nomination_full_json'].map((nj: any) => {
+          nj['data_temp'] = JSON.parse(nj['data_temp'])
+          return {...nj}
+        })
+        nv['nomination_row_json'] = nv['nomination_row_json'].map((nj: any) => {
+          nj['data_temp'] = JSON.parse(nj['data_temp'])
+          return {...nj}
+        })
+        return {...nv}
+      })
+      let fullData = e['nomination_version'][0]?.['nomination_full_json'][0]
+      let rowData = e['nomination_version'][0]?.['nomination_row_json']
+      delete e['nomination_version']
+      return {
+        ...e,
+        fullData,
+        rowData
+      }
+    })
+    const nomAdjust = []
+    const concurrency = 5
+    for (let index = 0; index < intradayAllocationGasDays.length; index += concurrency) {
+      const dateChunk = intradayAllocationGasDays.slice(index, index + concurrency)
+
+      const chunkResult = await Promise.all(
+        dateChunk.map(async (date) => {
+          try {
+            const result = await getAdjustNom2({
+              prisma: this.prisma,
+              startDate: date,
+              endDate: date
+            })
+
+            return Array.isArray(result) ? result : []
+          } catch (error) {
+            console.error(`getAdjustNom error วันที่ ${date}:`, error)
+            return []
+          }
+        })
+      )
+
+      nomAdjust.push(...chunkResult.flat())
+    }
+    const adjustedNominationContext = intradayAllocationGasDays.length < 1 ? null : createAdjustedNominationContext(nomAdjust ?? [], convertNomFile ?? [])
+    console.timeEnd('allocationManagementFromAllocationReport s3.1')
+
+    console.time('allocationManagementFromAllocationReport s4')
+    const {minDate, maxDate} = await findMinMaxExeDate(this.prisma, start_date, end_date)
+
+    console.timeEnd('allocationManagementFromAllocationReport s4')
+
+    console.time('allocationManagementFromAllocationReport s5') // 1/5/2026-31/5/2026 13s -> 0.463s
+
+    let totalRecord: number | undefined = undefined
+    minDate &&
+      (await this.evidenApiAllocationEod(
+        {
+          start_date: minDate.format('YYYY-MM-DD'),
+          end_date: maxDate.format('YYYY-MM-DD'),
+          skip: 0,
+          limit: 1
+        },
+        (total_record: number) => {
+          totalRecord = total_record
+        }
+      ))
+
+    let evidenApiAllocationEod: any[] = []
+    let evidenApiAllocationReport = []
+
+    if (minDate && maxDate) {
+      const dateList: string[] = []
+
+      let currentDate = minDate.startOf('day')
+      const endDate = maxDate.startOf('day')
+
+
+      // ไม่มี concept "East_to_RA6", "East_to_BVW10", "West_to_RA6", "West_to_BVW10" ไม่ return มา
+      evidenApiAllocationReport = await this.repo.getEvidenApiAllocationReportNom(minDate, maxDate, true)
+
+      while (currentDate.isBefore(endDate, 'day') || currentDate.isSame(endDate, 'day')) {
+        dateList.push(currentDate.format('YYYY-MM-DD'))
+        currentDate = currentDate.add(1, 'day')
+      }
+
+      // เรียกพร้อมกันครั้งละ 5 วัน
+      const concurrency = 5
+
+      for (let index = 0; index < dateList.length; index += concurrency) {
+        const dateChunk = dateList.slice(index, index + concurrency)
+
+        const chunkResult = await Promise.all(
+          dateChunk.map(async (date) => {
+            try {
+              const result = await this.evidenApiAllocationEod({
+                start_date: date,
+                end_date: date,
+
+                /*
+                 * เมื่อแยกเรียกทีละวัน
+                 * ควรเริ่ม skip ที่ 0 ของทุกวัน
+                 */
+                skip: 0,
+
+                /*
+                 * ต้องกำหนด limit ให้ครอบคลุมข้อมูลของหนึ่งวัน
+                 */
+                limit: totalRecord ? totalRecord : limit
+              })
+
+              return Array.isArray(result) ? result : []
+            } catch (error) {
+              console.error(`evidenApiAllocationEod error วันที่ ${date}:`, error)
+
+              return []
+            }
+          })
+        )
+
+        evidenApiAllocationEod.push(...chunkResult.flat())
+      }
+    }
+
+    console.timeEnd('allocationManagementFromAllocationReport s5')
+    console.time('allocationManagementFromAllocationReport s6')
+    const matchWithExecuteList = evidenApiAllocationEod.filter((item: any) => {
+      const itemGasDay = getTodayNowYYYYMMDDDfaultAdd7(item.gas_day)
+      return executeEodList?.some((executeData: any) => {
+        const executeStart = getTodayNowAdd7(executeData?.start_date_date)
+        const executeEnd = getTodayNowAdd7(executeData?.end_date_date)
+        return executeData?.request_number_id == item?.request_number && executeStart?.isSameOrBefore(itemGasDay, 'day') && executeEnd?.isSameOrAfter(itemGasDay, 'day')
+      })
+    })
+    const publishData = matchWithExecuteList.filter((evidenData: any) => {
+      return !publicationCenterDeletedList?.some((unpublishData: any) => {
+        return unpublishData?.execute_timestamp === evidenData.execute_timestamp && unpublishData?.gas_day_text === evidenData.gas_day
+      })
+    })
+    // Get the latest execute_timestamp for each unique combination of gas_day
+    const latestPublishData = publishData.reduce((acc: any[], current: any) => {
+      const existingIndex = acc.findIndex((item) => item.gas_day === current.gas_day)
+
+      if (existingIndex < 0) {
+        acc.push(current)
+      } else if (current.execute_timestamp > acc[existingIndex].execute_timestamp) {
+        acc[existingIndex] = current
+      }
+
+      return acc
+    }, [])
+    console.timeEnd('allocationManagementFromAllocationReport s6')
+    console.time('allocationManagementFromAllocationReport s7')
     // เตรียม master ของ group และ concept point ที่ active ตามช่วง gas_day ที่มีข้อมูล
     let groupMaster: group[] = []
     let conceptPointMaster: conceptPointWithRelations[] = []
@@ -9794,17 +11335,17 @@ export class AllocationService {
         }
       }
     }
-    console.timeEnd("allocationManagement2 s8")
-    console.time("allocationManagement2 s9")
+    console.timeEnd('allocationManagementFromAllocationReport s7')
+    console.time('allocationManagementFromAllocationReport s8')
     // คลี่โครงสร้าง Eviden (ระดับ gas_day → contract → point) ให้อยู่ในรูป flat list พร้อมข้อมูล group
     const newEOD = latestPublishData.flatMap((fm: any) => {
-      const { data: data1, ...fmD } = fm
+      const {data: data1, ...fmD} = fm
 
       const gasDayjs = getTodayNowYYYYMMDDDfaultAdd7(fm.gas_day)
       const gasDay = gasDayjs.toDate()
 
       const nData = data1?.flatMap((dFm: any) => {
-        const { data: data2, ...fmD2 } = dFm
+        const {data: data2, ...fmD2} = dFm
 
         const activeGroup: group = groupMaster.find((group) => group.start_date <= gasDay && (group.end_date === null || group.end_date >= gasDay) && isMatch(group.id_name, dFm.shipper))
 
@@ -9822,8 +11363,8 @@ export class AllocationService {
 
       return [...nData]
     })
-    console.timeEnd("allocationManagement2 s9")
-    console.time("allocationManagement2 s10")
+    console.timeEnd('allocationManagementFromAllocationReport s8')
+    console.time('allocationManagementFromAllocationReport s9')
     // Generate dateArrayForIntraday based on actual gas_day values from newEOD
     const dateArrayForIntraday: string[] = []
 
@@ -9849,44 +11390,44 @@ export class AllocationService {
         }
       }
     }
-    console.timeEnd("allocationManagement2 s10")
-    
-    console.time("allocationManagement2 s11") // 1/5/2026-31/5/2026 5s
+    console.timeEnd('allocationManagementFromAllocationReport s9')
+
+    console.time('allocationManagementFromAllocationReport s10') // 1/5/2026-31/5/2026 5s
     let intradayEviden =
       ignoreDetail == true
         ? []
         : (
-          await Promise.all(
-            dateArrayForIntraday.map(async (date) => {
-              try {
-                let intraDayTotalRecord: number | undefined = undefined
-                await this.evidenApiAllocationIntraday(
-                  {
+            await Promise.all(
+              dateArrayForIntraday.map(async (date) => {
+                try {
+                  let intraDayTotalRecord: number | undefined = undefined
+                  await this.evidenApiAllocationIntraday(
+                    {
+                      gas_day: date,
+                      start_hour: 1,
+                      end_hour: 24,
+                      skip: 0,
+                      limit: 1
+                    },
+                    (total_record: number) => {
+                      intraDayTotalRecord = total_record
+                    }
+                  )
+                  const evidenApiAllocationIntraday = await this.evidenApiAllocationIntraday({
                     gas_day: date,
                     start_hour: 1,
                     end_hour: 24,
-                    skip: 0,
-                    limit: 1
-                  },
-                  (total_record: number) => {
-                    intraDayTotalRecord = total_record
-                  }
-                )
-                const evidenApiAllocationIntraday = await this.evidenApiAllocationIntraday({
-                  gas_day: date,
-                  start_hour: 1,
-                  end_hour: 24,
-                  skip: intraDayTotalRecord ? 0 : skip,
-                  limit: intraDayTotalRecord ? intraDayTotalRecord : limit
-                })
-                return evidenApiAllocationIntraday
-              } catch (error) {
-                return []
-              }
-            })
-          )
-        ).flat()
-    
+                    skip: intraDayTotalRecord ? 0 : skip,
+                    limit: intraDayTotalRecord ? intraDayTotalRecord : limit
+                  })
+                  return evidenApiAllocationIntraday
+                } catch (error) {
+                  return []
+                }
+              })
+            )
+          ).flat()
+
     const matchWithExecuteIntradayList = intradayEviden.filter((item: any) => {
       const itemGasDay = getTodayNowYYYYMMDDDfaultAdd7(item.gas_day)
       return executeIntradayList?.some((executeData: any) => {
@@ -9897,11 +11438,11 @@ export class AllocationService {
 
     const publishIntradayData = matchWithExecuteIntradayList.filter((evidenData: any) => {
       return !publicationCenterDeletedList?.some((unpublishData: any) => {
-        return unpublishData?.execute_timestamp === evidenData.execute_timestamp && unpublishData?.gas_day_text === evidenData.gas_day && unpublishData?.gas_hour === evidenData?.gas_hour
+        return unpublishData?.execute_timestamp === evidenData?.execute_timestamp && unpublishData?.gas_day_text === evidenData?.gas_day && unpublishData?.gas_hour === evidenData?.gas_hour
       })
     })
-    console.timeEnd("allocationManagement2 s11")
-    console.time("allocationManagement2 s12")
+    console.timeEnd('allocationManagementFromAllocationReport s10')
+    console.time('allocationManagementFromAllocationReport s11')
     // Get the latest execute_timestamp for each unique combination of gas_day
     const latestPublishIntradayData = publishIntradayData.reduce((acc: any[], current: any) => {
       const existingIndex = acc.findIndex((item) => item.gas_day === current.gas_day)
@@ -9916,8 +11457,8 @@ export class AllocationService {
 
       return acc
     }, [])
-    console.timeEnd("allocationManagement2 s12")
-    console.time("allocationManagement2 s13")
+    console.timeEnd('allocationManagementFromAllocationReport s11')
+    console.time('allocationManagementFromAllocationReport s12')
     let allocationMaster = await this.prisma.allocation_management.findMany({
       where: {
         gas_day: {
@@ -9958,8 +11499,8 @@ export class AllocationService {
         allocation_status: true
       }
     })
-    console.timeEnd("allocationManagement2 s13")
-    console.time("allocationManagement2 s14")
+    console.timeEnd('allocationManagementFromAllocationReport s12')
+    console.time('allocationManagementFromAllocationReport s13')
     let newAllocation = []
     const resultEodLast: any = Object.values(
       newEOD.reduce((acc, curr) => {
@@ -10001,8 +11542,8 @@ export class AllocationService {
         })
       }
     }
-    console.timeEnd("allocationManagement2 s14")
-    console.time("allocationManagement2 s15")
+    console.timeEnd('allocationManagementFromAllocationReport s13')
+    console.time('allocationManagementFromAllocationReport s14')
     if (newAllocation.length > 0) {
       // create
       try {
@@ -10054,120 +11595,31 @@ export class AllocationService {
         }
       })
     }
-    console.timeEnd("allocationManagement2 s15")
-   
+    console.timeEnd('allocationManagementFromAllocationReport s14')
+
     /**
      * ใช้ JSON.stringify ป้องกัน key ชนกัน
      * กรณีข้อมูลมีเครื่องหมาย | หรือเครื่องหมายพิเศษ
      */
-    const createKey = (...values: any[]) => JSON.stringify(values);
-    console.time("allocationManagement2 s16");  // 1/5/2026-31/5/2026 11s -> 0.463s
-
-    const pushToArrayMap = (
-      map: Map<string, any[]>,
-      key: string,
-      value: any
-    ) => {
-      const current = map.get(key);
-
-      if (current) {
-        current.push(value);
-      } else {
-        map.set(key, [value]);
-      }
-    };
+    const createKey = (...values: any[]) => JSON.stringify(values)
+    console.time('allocationManagementFromAllocationReport s15') // 1/5/2026-31/5/2026 11s -> 0.463s
 
     /**
      * ============================================================
-     * 1. สร้าง index สำหรับ Nomination
-     * ============================================================
-     */
-
-    const dailyNominationMap = new Map<string, any[]>();
-    const weeklyNominationMap = new Map<string, any[]>();
-
-    const getWeekKey = (date: any) => {
-      return getTodayNowYYYYMMDDDfaultAdd7(date)
-        .startOf("week")
-        .format("YYYY-MM-DD");
-    };
-
-    for (const nomination of convertNomFile ?? []) {
-      const nominationTypeId = Number(nomination?.nomination_type_id);
-
-      if (nominationTypeId !== 1 && nominationTypeId !== 2) {
-        continue;
-      }
-
-      const shipper = nomination?.group?.id_name;
-
-      const contractCode =
-        nomination?.contract_code?.contract_code;
-
-      const reserveContract =
-        nomination?.reserve_balancing_gas_contract
-          ?.res_bal_gas_contract;
-
-      /**
-       * Nomination หนึ่งตัวอาจตรงได้ทั้ง contract ปกติ
-       * และ reserve balancing contract
-       */
-      const contracts = [
-        ...new Set(
-          [contractCode, reserveContract].filter(
-            (contract) =>
-              contract !== null &&
-              contract !== undefined
-          )
-        )
-      ];
-
-      for (const contract of contracts) {
-        if (nominationTypeId === 1) {
-          const key = createKey(
-            nomination?.gas_day,
-            shipper,
-            contract
-          );
-
-          pushToArrayMap(
-            dailyNominationMap,
-            key,
-            nomination
-          );
-        } else {
-          const key = createKey(
-            getWeekKey(nomination?.gas_day),
-            shipper,
-            contract
-          );
-
-          pushToArrayMap(
-            weeklyNominationMap,
-            key,
-            nomination
-          );
-        }
-      }
-    }
-
-    /**
-     * ============================================================
-     * 2. สร้าง index สำหรับ Intraday
+     * 1. สร้าง index สำหรับ Intraday
      * ============================================================
      *
      * โค้ดเดิมใช้ .find() หา gas day
      * ดังนั้นถ้ามี gas day ซ้ำ ต้องใช้ข้อมูลตัวแรกเท่านั้น
      */
 
-    const intradayGasDayMap = new Map<string, any>();
+    const intradayGasDayMap = new Map<string, any>()
 
     for (const intraday of latestPublishIntradayData ?? []) {
-      const gasDay =
-        intraday?.gasday ?? intraday?.gas_day;
+      const gasDay = intraday?.gasday ?? intraday?.gas_day
 
       if (!intradayGasDayMap.has(gasDay)) {
-        intradayGasDayMap.set(gasDay, intraday);
+        intradayGasDayMap.set(gasDay, intraday)
       }
     }
 
@@ -10180,474 +11632,300 @@ export class AllocationService {
      * จึงต้องใช้ตัวสุดท้ายที่ตรงกับ:
      * gasDay + contract + shipper + point
      */
-    const intradayLastRecordMap = new Map<string, any>();
+    const intradayLastRecordMap = new Map<string, any>()
 
     for (const [gasDay, intraday] of intradayGasDayMap) {
       for (const intraItem of intraday?.data ?? []) {
-        const pointSet = new Set<any>();
+        const pointSet = new Set<any>()
 
         for (const dataItem of intraItem?.data ?? []) {
-          pointSet.add(dataItem?.point);
+          pointSet.add(dataItem?.point)
         }
 
         for (const point of pointSet) {
-          const key = createKey(
-            gasDay,
-            intraItem?.contract,
-            intraItem?.shipper,
-            point
-          );
+          const key = createKey(gasDay, intraItem?.contract, intraItem?.shipper, point)
 
           /**
            * set ทับได้เลย เพราะต้องการตัวสุดท้าย
            * ให้เหมือน .at(-1)
            */
-          intradayLastRecordMap.set(key, intraItem);
+          intradayLastRecordMap.set(key, intraItem)
         }
       }
     }
 
     /**
      * ============================================================
-     * 3. สร้าง index สำหรับ Area
+     * 2. สร้าง index สำหรับ Area
      * ============================================================
      *
      * areaMaster เดิมใช้ find แบบ ===
      * ถ้ามีชื่อซ้ำ ต้องเก็บตัวแรก
      */
 
-    const areaMasterMap = new Map<string, any>();
+    const areaMasterMap = new Map<string, any>()
 
     for (const area of areaMaster ?? []) {
-      const key = area?.name;
+      const key = area?.name
 
       if (!areaMasterMap.has(key)) {
-        areaMasterMap.set(key, area);
+        areaMasterMap.set(key, area)
       }
     }
 
     /**
      * ============================================================
-     * 4. Cache สำหรับข้อมูลที่ใช้ isMatch
+     * 3. Cache สำหรับข้อมูลที่ใช้ isMatch
      * ============================================================
      *
      * เนื่องจาก isMatch อาจไม่ใช่การเปรียบเทียบแบบ ===
      * จึงใช้ cache ตาม point ที่เคยค้นหาแล้ว
      */
 
-    const meterNameCache = new Map<string, string[]>();
-    const entryExitCache = new Map<string, any>();
-    const nominationValueCache = new Map<string, number | null>();
+    const meterNameCache = new Map<string, string[]>()
+    const entryExitCache = new Map<string, any>()
+    const nominationValueCache = new Map<string, number | null>()
 
-    const getMeterNames = (
-      pointType: any,
-      point: any
-    ): string[] => {
-      const cacheKey = createKey(pointType, point);
+    const getMeterNames = (pointType: any, point: any): string[] => {
+      const cacheKey = createKey(pointType, point)
 
-      const cached = meterNameCache.get(cacheKey);
+      const cached = meterNameCache.get(cacheKey)
 
       if (cached !== undefined) {
-        return cached;
+        return cached
       }
 
-      let meterName: string[] = [];
+      let meterName: string[] = []
 
-      if (
-        meterMaster &&
-        isMatch(pointType, "NOM")
-      ) {
-        meterName = (meterMaster ?? [])
-          .filter((meteringPoint: any) =>
-            isMatch(
-              meteringPoint?.nomination_point
-                ?.nomination_point,
-              point
-            )
-          )
-          .map(
-            (meteringPoint: any) =>
-              meteringPoint?.metered_point_name
-          );
-      } else if (
-        conceptPointMaster &&
-        isMatch(pointType, "CONCEPT")
-      ) {
-        let conceptPointName = point;
+      if (meterMaster && isMatch(pointType, 'NOM')) {
+        meterName = (meterMaster ?? []).filter((meteringPoint: any) => isMatch(meteringPoint?.nomination_point?.nomination_point, point)).map((meteringPoint: any) => meteringPoint?.metered_point_name)
+      } else if (conceptPointMaster && isMatch(pointType, 'CONCEPT')) {
+        let conceptPointName = point
 
-        if (isMatch(point, "East_to_BVW10")) {
-          conceptPointName = "BVW10 East";
-        } else if (isMatch(point, "West_to_BVW10")) {
-          conceptPointName = "BVW10 West";
-        } else if (isMatch(point, "East_to_RA6")) {
-          conceptPointName = "RA6 EAST";
-        } else if (isMatch(point, "West_to_RA6")) {
-          conceptPointName = "RA6 WEST";
+        if (isMatch(point, 'East_to_BVW10')) {
+          conceptPointName = 'BVW10 East'
+        } else if (isMatch(point, 'West_to_BVW10')) {
+          conceptPointName = 'BVW10 West'
+        } else if (isMatch(point, 'East_to_RA6')) {
+          conceptPointName = 'RA6 EAST'
+        } else if (isMatch(point, 'West_to_RA6')) {
+          conceptPointName = 'RA6 WEST'
         }
 
         meterName = (conceptPointMaster ?? [])
           .filter((conceptPoint: any) => {
-            return (
-              conceptPoint?.type_concept_point?.name
-                ?.toUpperCase()
-                ?.includes("METER") &&
-              (
-                isMatch(
-                  conceptPoint?.concept_point,
-                  point
-                ) ||
-                isMatch(
-                  conceptPoint?.concept_point,
-                  conceptPointName
-                )
-              )
-            );
+            return conceptPoint?.type_concept_point?.name?.toUpperCase()?.includes('METER') && (isMatch(conceptPoint?.concept_point, point) || isMatch(conceptPoint?.concept_point, conceptPointName))
           })
-          .map(
-            (conceptPoint: any) =>
-              conceptPoint?.concept_point
-          );
-      } else if (
-        meterMaster &&
-        isMatch(pointType, "NONTPA")
-      ) {
-        meterName = (meterMaster ?? [])
-          .filter((meteringPoint: any) =>
-            isMatch(
-              meteringPoint?.non_tpa_point
-                ?.non_tpa_point_name,
-              point
-            )
-          )
-          .map(
-            (meteringPoint: any) =>
-              meteringPoint?.metered_point_name
-          );
+          .map((conceptPoint: any) => conceptPoint?.concept_point)
+      } else if (meterMaster && isMatch(pointType, 'NONTPA')) {
+        meterName = (meterMaster ?? []).filter((meteringPoint: any) => isMatch(meteringPoint?.non_tpa_point?.non_tpa_point_name, point)).map((meteringPoint: any) => meteringPoint?.metered_point_name)
       } else {
-        const meterSet = new Set<string>();
+        const meterSet = new Set<string>()
 
         for (const meteringPoint of meterMaster ?? []) {
-          if (
-            meteringPoint?.nomination_point
-              ?.nomination_point === point
-          ) {
-            meterSet.add(
-              meteringPoint?.metered_point_name
-            );
+          if (meteringPoint?.nomination_point?.nomination_point === point) {
+            meterSet.add(meteringPoint?.metered_point_name)
           }
         }
 
-        meterName = [...meterSet];
+        meterName = [...meterSet]
       }
 
-      meterNameCache.set(cacheKey, meterName);
+      meterNameCache.set(cacheKey, meterName)
 
-      return meterName;
-    };
+      return meterName
+    }
 
     const getEntryExitObject = (entryExit: any) => {
       if (entryExitCache.has(entryExit)) {
-        return entryExitCache.get(entryExit);
+        return entryExitCache.get(entryExit)
       }
 
-      const result = (entryExitMaster ?? []).find(
-        (item: any) =>
-          isMatch(item?.name, entryExit)
-      );
+      const result = (entryExitMaster ?? []).find((item: any) => isMatch(item?.name, entryExit))
 
-      entryExitCache.set(entryExit, result);
+      entryExitCache.set(entryExit, result)
 
-      return result;
-    };
+      return result
+    }
 
     /**
      * ============================================================
-     * 5. ฟังก์ชันคำนวณ Nomination
+     * 4. ฟังก์ชันคำนวณ Nomination
      * ============================================================
      */
 
-    const getNominationValue = (
-      eod: any
-    ): number | null => {
+    const getNominationValue = (eod: any): number | null => {
       /**
        * nominationValue ไม่ได้ใช้ entry_exit และ point_type
        * จึง cache ด้วย field ที่เกี่ยวข้องจริงเท่านั้น
        */
-      const cacheKey = createKey(
-        eod?.gas_day,
-        eod?.shipper,
-        eod?.contract,
-        eod?.point,
-        eod?.area,
-        eod?.zone
-      );
+      const cacheKey = createKey(eod?.gas_day, eod?.shipper, eod?.contract, eod?.point, eod?.area, eod?.zone)
 
       if (nominationValueCache.has(cacheKey)) {
-        return nominationValueCache.get(cacheKey) ?? null;
+        return nominationValueCache.get(cacheKey) ?? null
       }
 
-      const dailyKey = createKey(
-        eod?.gas_day,
-        eod?.shipper,
-        eod?.contract
-      );
+      let nominationValue: number | null = null
 
-      const weeklyKey = createKey(
-        getWeekKey(eod?.gas_day),
-        eod?.shipper,
-        eod?.contract
-      );
-
-      const dailyNominationList =
-        dailyNominationMap.get(dailyKey) ?? [];
-
-      const weeklyCandidates =
-        weeklyNominationMap.get(weeklyKey) ?? [];
-
-      /**
-       * รักษาเงื่อนไขเดิม:
-       *
-       * !dailyNominationList.some(
-       *   daily.contract_code_id == weekly.contract_code_id
-       * )
-       */
-      const weeklyNominationList =
-        weeklyCandidates.filter((weekly: any) => {
-          return !dailyNominationList.some(
-            (daily: any) =>
-              daily?.contract_code_id ==
-              weekly?.contract_code_id
-          );
-        });
-
-      const dayOfWeek = Number(
-        getTodayStartAdd7(eod?.gas_day).format("d")
-      );
-
-      let nominationValue: number | null = null;
-
-      const nominationList = [
-        ...dailyNominationList,
-        ...weeklyNominationList
-      ];
-
-      for (const nominationFile of nominationList) {
-        for (
-          const rowDataItem of nominationFile?.rowData ?? []
-        ) {
-          const isMatched =
-            isMatch(
-              rowDataItem?.data_temp?.["3"],
-              eod?.point
-            ) &&
-            isMatch(
-              rowDataItem?.data_temp?.["9"],
-              "MMBTU/D"
-            ) &&
-            isMatch(
-              rowDataItem?.area_text,
-              eod?.area
-            ) &&
-            isMatch(
-              rowDataItem?.zone_text,
-              eod?.zone
-            );
-
-          if (!isMatched) {
-            continue;
-          }
-
-          let newNominationValue: number | null = null;
-
-          if (
-            Number(nominationFile?.nomination_type_id) === 1
-          ) {
-            newNominationValue = parseToNumber3Decimal(
-              rowDataItem?.data_temp?.["38"]
-            );
-          } else {
-            newNominationValue = parseToNumber3Decimal(
-              rowDataItem?.data_temp?.[
-                `${14 + dayOfWeek}`
-              ]
-            );
-          }
-
-          /**
-           * รักษาพฤติกรรมเดิมทุกกรณี
-           *
-           * เดิมใช้:
-           * if (nominationValue) {
-           *   ...
-           * } else {
-           *   nominationValue = newNominationValue
-           * }
-           *
-           * ดังนั้นกรณี nominationValue เป็น 0
-           * จะเข้า else เหมือนเดิม
-           */
-          if (nominationValue) {
-            if (
-              newNominationValue ||
-              newNominationValue === 0
-            ) {
-              nominationValue = parseToNumber6Decimal(nominationValue + newNominationValue);
-            }
-          } else {
-            nominationValue = newNominationValue;
-          }
-        }
+      let alloReportList = evidenApiAllocationReport.filter((alloReport) => alloReport?.execute_timestamp == eod?.execute_timestamp && alloReport?.gas_day == eod?.gas_day)
+      if(alloReportList.length > 1){
+        alloReportList = alloReportList.filter((alloReport) => alloReport?.request_number == eod?.request_number)
       }
+      alloReportList.map((alloReport) => {
+        const sameContractAlloReportDataList = alloReport.data.filter((alloReportData: any) => alloReportData?.contract == eod?.contract && alloReportData?.shipper == eod?.shipper)
+        sameContractAlloReportDataList.map((alloReportData: any) => {
+          const samePointAlloReportDataItemList = alloReportData.data.filter(
+            (alloReportDataItem: any) =>
+              alloReportDataItem?.point == eod?.point &&
+              alloReportDataItem?.zone == eod?.zone &&
+              alloReportDataItem?.area == eod?.area &&
+              alloReportDataItem?.customer_type == eod?.customer_type &&
+              alloReportDataItem?.point_type == eod?.point_type &&
+              alloReportDataItem?.relation_point == eod?.relation_point &&
+              alloReportDataItem?.relation_point_type == eod?.relation_point_type &&
+              alloReportDataItem?.entry_exit == eod?.entry_exit
+          )
+          samePointAlloReportDataItemList.map((alloReportDataItem: any) => {
+            const nominatedValueList = alloReportDataItem.values.filter((value: any) => value.tag == 'nominatedValue')
 
-      nominationValueCache.set(
-        cacheKey,
-        nominationValue
-      );
+            nominatedValueList.map((valueItem: any) => {
+              if (valueItem.value || valueItem.value == 0) {
+                if (nominationValue) {
+                  nominationValue = parseToNumber6Decimal(nominationValue + valueItem.value)
+                } else {
+                  nominationValue = valueItem.value
+                }
+              }
+            })
+          })
+        })
+      })
 
-      return nominationValue;
-    };
+      // if(!nominationValue && nominationValue != 0 && isMatch(eod.point_type, 'CONCEPT')){
+      //   if (intradayAllocationGasDays.includes(dayjs(eod?.gas_day, 'YYYY-MM-DD').format('DD/MM/YYYY'))) {
+      //     nominationValue = getAdjustedNomValueFast({
+      //       context: adjustedNominationContext!,
+      //       convertNomFile,
+      //       evidenItem: eod,
+      //       allocationMode: 'eod'
+      //     })
+      //   } else {
+      //     nominationValue = getNomValue(convertNomFile, eod)
+      //   }
+      // }
+
+      nominationValueCache.set(cacheKey, nominationValue)
+
+      return nominationValue
+    }
 
     /**
      * ============================================================
-     * 6. สร้าง nEodPorp
+     * 5. สร้าง nEodPorp
      * ============================================================
      */
 
-    const eodPorp = (resultEodLast ?? []).map(
-      (eod: any) => {
-        const nominationValue =
-          getNominationValue(eod);
+    const eodPorp = resultEodLast && (resultEodLast ?? []).map((eod: any) => {
+      const nominationValue = getNominationValue(eod)
 
-        const systemAllocation = eod?.value;
+      const systemAllocation = eod?.value
 
-        const previousAllocationTPAforReview =
-          eod?.previous_value;
+      const previousAllocationTPAforReview = eod?.previous_value
 
-        /**
-         * หา intraday ตัวสุดท้ายที่ตรงกับ
-         * gasDay + contract + shipper + point
-         */
-        const intradayKey = createKey(
-          eod?.gas_day,
-          eod?.contract,
-          eod?.shipper,
-          eod?.point
-        );
+      /**
+       * หา intraday ตัวสุดท้ายที่ตรงกับ
+       * gasDay + contract + shipper + point
+       */
+      const intradayKey = createKey(eod?.gas_day, eod?.contract, eod?.shipper, eod?.point)
 
-        const lastIntradayRecord =
-          intradayLastRecordMap.get(intradayKey);
+      const lastIntradayRecord = intradayLastRecordMap.get(intradayKey)
 
-        /**
-         * ใน record ตัวสุดท้าย หา data ที่ตรงรายละเอียดทั้งหมด
-         */
-        const dataIntraDay =
-          lastIntradayRecord?.data?.find(
-            (dataItem: any) => {
-              return (
-                dataItem?.point === eod?.point &&
-                dataItem?.point_type ===
-                  eod?.point_type &&
-                dataItem?.area === eod?.area &&
-                dataItem?.zone === eod?.zone &&
-                dataItem?.entry_exit ===
-                  eod?.entry_exit
-              );
-            }
-          ) ?? null;
+      /**
+       * ใน record ตัวสุดท้าย หา data ที่ตรงรายละเอียดทั้งหมด
+       */
+      const dataIntraDay =
+        lastIntradayRecord?.data?.find((dataItem: any) => {
+          return dataItem?.point === eod?.point && dataItem?.point_type === eod?.point_type && dataItem?.area === eod?.area && dataItem?.zone === eod?.zone && dataItem?.entry_exit === eod?.entry_exit
+        }) ?? null
 
-        const intradaySystem =
-          dataIntraDay?.value;
+      const intradaySystem = dataIntraDay?.value
 
-        const meterName = getMeterNames(
-          eod?.point_type,
-          eod?.point
-        );
+      const meterName = getMeterNames(eod?.point_type, eod?.point)
 
-        const entry_exit_obj =
-          getEntryExitObject(eod?.entry_exit);
+      const entry_exit_obj = getEntryExitObject(eod?.entry_exit)
 
-        const area_obj =
-          areaMasterMap.get(eod?.area);
+      const area_obj = areaMasterMap.get(eod?.area)
 
-        return {
-          ...eod,
-          nominationValue,
-          systemAllocation,
-          previousAllocationTPAforReview,
-          intradaySystem,
-          meterName,
-          entry_exit_obj,
-          area_obj
-        };
+      return {
+        ...eod,
+        nominationValue,
+        systemAllocation,
+        previousAllocationTPAforReview,
+        intradaySystem,
+        meterName,
+        entry_exit_obj,
+        area_obj
       }
-    );
-    const nEodPorp = (share === 'on' || share == true) ? eodPorp.filter((item: any) => meteringPointList.some(meteringPoint => item.meterName.includes(meteringPoint.metered_point_name) || item.meterName.includes(meteringPoint.metered_point_name))) : eodPorp
+    }) || []
+    const nEodPorp = share === 'on' || share == true ? eodPorp.filter((item: any) => meteringPointList.some((meteringPoint) => item.meterName.includes(meteringPoint.metered_point_name) || item.meterName.includes(meteringPoint.metered_point_name))) : eodPorp
 
-    console.timeEnd("allocationManagement2 s16");
+    console.timeEnd('allocationManagementFromAllocationReport s15')
 
-    console.time("allocationManagement2 s18"); // 1/5/2026-31/5/2026 42s -> 17s
+    console.time('allocationManagementFromAllocationReport s16') // 1/5/2026-31/5/2026 42s -> 17s
 
-    let meterUse: any[] = [];
+    let meterUse: any[] = []
 
     if (ignoreDetail !== true && ignoreDetail != 'true') {
-      const startDate = dayjs(
-        start_date ?? dayjs().format("YYYY-MM-DD")
-      ).startOf("day");
+      const startDate = dayjs(start_date ?? dayjs().format('YYYY-MM-DD')).startOf('day')
 
-      const endDate = dayjs(
-        end_date ?? dayjs().format("YYYY-MM-DD")
-      ).startOf("day");
+      const endDate = dayjs(end_date ?? dayjs().format('YYYY-MM-DD')).startOf('day')
 
       // สร้าง array วันที่ เช่น
       // ["2026-06-01", "2026-06-02", ..., "2026-06-30"]
-      const dateList: string[] = [];
+      const dateList: string[] = []
 
-      let currentDate = startDate;
+      let currentDate = startDate
 
-      while (
-        currentDate.isBefore(endDate, "day") ||
-        currentDate.isSame(endDate, "day")
-      ) {
-        dateList.push(currentDate.format("YYYY-MM-DD"));
-        currentDate = currentDate.add(1, "day");
+      while (currentDate.isBefore(endDate, 'day') || currentDate.isSame(endDate, 'day')) {
+        dateList.push(currentDate.format('YYYY-MM-DD'))
+        currentDate = currentDate.add(1, 'day')
       }
 
-      // console.log("dateList:", dateList);
 
       // เรียกทุกวันพร้อมกัน
       const meterUseByDate = await Promise.all(
         dateList.map(async (date) => {
           try {
-            const result =
-              await this.meteringManagementService.getDataLogic2(
-                {
-                  share: (share === 'on' || share == true) ?  'on' : "off",
-                  start_date: date,
-                  end_date: date,
-                },
-                true,
-                meteringPointList
-              );
+            const result = await this.meteringManagementService.getDataLogic2(
+              {
+                share: share === 'on' || share == true ? 'on' : 'off',
+                start_date: date,
+                end_date: date
+              },
+              true,
+              meteringPointList,
+              userId
+            )
 
-            return Array.isArray(result) ? result : [];
+            return Array.isArray(result) ? result : []
           } catch (error) {
             // console.error(`getDataLogic2 error วันที่ ${date}:`, error);
-            return [];
+            return []
           }
         })
-      );
+      )
 
       // รวม array ของทุกวันให้เป็น array เดียว
-      meterUse = meterUseByDate.flat();
+      meterUse = meterUseByDate.flat()
     }
 
-    console.timeEnd("allocationManagement2 s18");
+    console.timeEnd('allocationManagementFromAllocationReport s16')
 
-    console.time("allocationManagement2 s19"); // 1/5/2026-31/5/2026 11s -> 0.095s
+    console.time('allocationManagementFromAllocationReport s17') // 1/5/2026-31/5/2026 11s -> 0.095s
 
     /**
      * ============================================================
-     * 1. สรุป Energy จาก meterUse ตาม gasDay + meteringPointId
+     * 6. สรุป Energy จาก meterUse ตาม gasDay + meteringPointId
      * ============================================================
      *
      * จากเดิม:
@@ -10656,26 +11934,20 @@ export class AllocationService {
      * เปลี่ยนเป็น:
      * สรุปผลไว้ใน Map เพียงครั้งเดียว
      */
-    const meterEnergyMap = new Map<string, number>();
+    const meterEnergyMap = new Map<string, number>()
 
     for (const meter of meterUse ?? []) {
-      const key = createKey(
-        meter?.gasDay,
-        meter?.meteringPointId
-      );
+      const key = createKey(meter?.gasDay, meter?.meteringPointId)
 
-      const energy = parseToNumber(meter?.energy) ?? 0;
-      const currentEnergy = meterEnergyMap.get(key) ?? 0;
+      const energy = parseToNumber(meter?.energy) ?? 0
+      const currentEnergy = meterEnergyMap.get(key) ?? 0
 
-      meterEnergyMap.set(
-        key,
-        currentEnergy + energy
-      );
+      meterEnergyMap.set(key, currentEnergy + energy)
     }
 
     /**
      * ============================================================
-     * 2. สร้าง Map สำหรับ allocationMaster
+     * 7. สร้าง Map สำหรับ allocationMaster
      * ============================================================
      *
      * ต้องใช้ 7 field ในการจับคู่:
@@ -10687,18 +11959,10 @@ export class AllocationService {
      * - area_text
      * - zone_text
      */
-    const allocationMasterMap = new Map<string, any>();
+    const allocationMasterMap = new Map<string, any>()
 
     for (const allocation of allocationMaster ?? []) {
-      const key = createKey(
-        allocation?.gas_day_text,
-        allocation?.shipper_name_text,
-        allocation?.contract_code_text,
-        allocation?.point_text,
-        allocation?.entry_exit_text,
-        allocation?.area_text,
-        allocation?.zone_text
-      );
+      const key = createKey(allocation?.gas_day_text, allocation?.shipper_name_text, allocation?.contract_code_text, allocation?.point_text, allocation?.entry_exit_text, allocation?.area_text, allocation?.zone_text)
 
       /**
        * ใช้เฉพาะข้อมูลตัวแรก เพื่อให้พฤติกรรมเหมือน Array.find()
@@ -10706,13 +11970,13 @@ export class AllocationService {
        * ถ้ามี key ซ้ำกัน Array.find() เดิมจะคืนตัวแรก
        */
       if (!allocationMasterMap.has(key)) {
-        allocationMasterMap.set(key, allocation);
+        allocationMasterMap.set(key, allocation)
       }
     }
 
     /**
      * ============================================================
-     * 3. สร้างผลลัพธ์ nEodPorpRes
+     * 8. สร้างผลลัพธ์ nEodPorpRes
      * ============================================================
      */
     const nEodPorpRes = (nEodPorp ?? []).map((item: any) => {
@@ -10722,44 +11986,31 @@ export class AllocationService {
        * ยังคงวน meterName ตามเดิม ดังนั้นถ้า meterName มีค่าซ้ำ
        * ผลลัพธ์ก็จะบวกซ้ำเหมือนโค้ดเดิม
        */
-      let meteringValue = 0;
+      let meteringValue = 0
       let meterNameSubValue = []
       for (const meterPointId of item?.meterName ?? []) {
-        const meterKey = createKey(
-          item?.gas_day,
-          meterPointId
-        );
+        const meterKey = createKey(item?.gas_day, meterPointId)
         meterNameSubValue.push(meterEnergyMap.get(meterKey) ?? 0)
-        meteringValue += meterEnergyMap.get(meterKey) ?? 0;
+        meteringValue += meterEnergyMap.get(meterKey) ?? 0
       }
 
-      const allocationKey = createKey(
-        item?.gas_day,
-        item?.shipper,
-        item?.contract,
-        item?.point,
-        item?.entry_exit,
-        item?.area,
-        item?.zone
-      );
+      const allocationKey = createKey(item?.gas_day, item?.shipper, item?.contract, item?.point, item?.entry_exit, item?.area, item?.zone)
 
-      const aMaster = allocationMasterMap.get(allocationKey);
-      
+      const aMaster = allocationMasterMap.get(allocationKey)
+
       return {
         ...item,
         id: aMaster?.id || null,
         allocation_status: aMaster?.allocation_status || null,
         review_code: aMaster?.review_code || null,
-        allocation_management_comment:
-          aMaster?.allocation_management_comment || [],
-        allocation_management_shipper_review:
-          aMaster?.allocation_management_shipper_review || [],
+        allocation_management_comment: aMaster?.allocation_management_comment || [],
+        allocation_management_shipper_review: aMaster?.allocation_management_shipper_review || [],
         meteringValue,
-        meterNameSubValue: meterNameSubValue || []
-      };
-    });
-    console.timeEnd("allocationManagement2 s19");
-    
+        meterNameSubValue
+      }
+    })
+    console.timeEnd('allocationManagementFromAllocationReport s17')
+
     return nEodPorpRes
   }
 
@@ -10767,7 +12018,7 @@ export class AllocationService {
   async allocationQuery(payload: any, userId: any) {
     // ฟังก์ชันนี้ใช้ดึงข้อมูล allocation สำหรับหน้า(Daily/Intraday) (Tab 1/2)
     // โดยรวมข้อมูลจาก Eviden (EOD/Intraday), Nomination และ Allocation ในระบบ
-    const { start_date, end_date, is_last_version, version, skip, limit, tab } = payload
+    const {start_date, end_date, is_last_version, version, skip, limit, tab} = payload
     console.time('[RUNTIME] allocationQuery')
 
     // *Input validation
@@ -10778,63 +12029,53 @@ export class AllocationService {
       throw new Error('⛔ Invalid date format')
     }
 
-    if (endDate.isBefore(startDate)) {
+    if (endDate && endDate.isBefore(startDate)) {
       throw new Error('⛔ End date must be after or equal to start date')
     }
 
-    console.time("allocationQuery s1")
+    console.time('allocationQuery s1')
     // *Query Necessary Data
     // เตรียม master entry_exit ไว้ใช้แม็ปข้อมูลในภายหลัง
     const entryExitMaster = await this.repo.getEntryExit()
     const lastestAllocationModeBeforeStartDate: allocationModeRecord = await this.prisma.allocation_mode.findFirst({
       where: {
         start_date: {
-          lt: startDate.toDate(),
-        },
+          lt: startDate.toDate()
+        }
       },
-      orderBy: [
-        { start_date: 'desc' },
-        { create_date: 'desc' },
-      ],
+      orderBy: [{start_date: 'desc'}, {create_date: 'desc'}],
       select: {
         start_date: true,
         create_date: true,
         allocation_mode_type: {
           select: {
-            mode: true,
-          },
-        },
-      },
-    });
+            mode: true
+          }
+        }
+      }
+    })
     const allocationModesRaw: allocationModeRecord[] = await this.prisma.allocation_mode.findMany({
       where: {
         start_date: {
           gte: startDate.toDate(),
-          lte: endDate.toDate(),
-        },
+          lte: endDate.toDate()
+        }
       },
-      orderBy: [
-        { start_date: 'asc' },
-        { create_date: 'desc' },
-      ],
+      orderBy: [{start_date: 'asc'}, {create_date: 'desc'}],
       select: {
         start_date: true,
         create_date: true,
         allocation_mode_type: {
           select: {
-            mode: true,
-          },
-        },
-      },
-    });
-    const allocationModes: allocationModeRecord[] = deduplicateAllocationModesByStartDate(allocationModesRaw);
-    const intradayAllocationGasDays: string[] = getIntradayAllocationGasDays(
-      [lastestAllocationModeBeforeStartDate,...allocationModes],
-      startDate,
-      endDate,
-    )
-    console.timeEnd("allocationQuery s1")
-    console.time("allocationQuery s2")
+            mode: true
+          }
+        }
+      }
+    })
+    const allocationModes: allocationModeRecord[] = deduplicateAllocationModesByStartDate(allocationModesRaw)
+    const intradayAllocationGasDays: string[] = getIntradayAllocationGasDays([lastestAllocationModeBeforeStartDate, ...allocationModes], startDate, endDate)
+    console.timeEnd('allocationQuery s1')
+    console.time('allocationQuery s2')
     // โหลดไฟล์ nomination (daily/weekly) ที่ status อยู่ในสถานะใช้งาน
     const nominationFile: queryShipperNominationFileWithRelationsForCal[] = await this.prisma.query_shipper_nomination_file.findMany({
       where: {
@@ -10871,8 +12112,8 @@ export class AllocationService {
       },
       ...queryShipperNominationFilePopulateForCal
     })
-    console.timeEnd("allocationQuery s2")
-    console.time("allocationQuery s2.1")
+    console.timeEnd('allocationQuery s2')
+    console.time('allocationQuery s2.1')
     // แปลง nomination JSON ให้อยู่ในรูปแบบใช้งานง่าย (parse data_temp)
     const convertNomFile = nominationFile.map((e: any) => {
       // nomination_type_id 1 daily, 2 weekly
@@ -10880,13 +12121,13 @@ export class AllocationService {
       e['nomination_version'] = e['nomination_version'].map((nv: any) => {
         nv['nomination_full_json'] = nv['nomination_full_json'].map((nj: any) => {
           nj['data_temp'] = JSON.parse(nj['data_temp'])
-          return { ...nj }
+          return {...nj}
         })
         nv['nomination_row_json'] = nv['nomination_row_json'].map((nj: any) => {
           nj['data_temp'] = JSON.parse(nj['data_temp'])
-          return { ...nj }
+          return {...nj}
         })
-        return { ...nv }
+        return {...nv}
       })
       let fullData = e['nomination_version'][0]?.['nomination_full_json'][0]
       let rowData = e['nomination_version'][0]?.['nomination_row_json']
@@ -10898,8 +12139,8 @@ export class AllocationService {
       }
     })
 
-    console.timeEnd("allocationQuery s2.1")
-    console.time("allocationQuery s3")
+    console.timeEnd('allocationQuery s2.1')
+    console.time('allocationQuery s3')
 
     // ใช้สำหรับตอนทำค่าสะสมรายชั่วโมงหลังจาก adjust แล้ว
     // const nominationFile : queryShipperNominationFileWithRelationsForCal[] =  []
@@ -10912,12 +12153,12 @@ export class AllocationService {
     let evidenApiAllocation = []
     let intradayEviden = []
     let nomAdjust = []
-    const concurrency = 5;
+    const concurrency = 5
     if (tab === '2') {
       // intraday
-      console.time("allocationQuery s3.1")
+      console.time('allocationQuery s3.1')
       const intradayList = await this.repo.getEvidenApiAllocationIntraday(startDate, endDate)
-      console.timeEnd("allocationQuery s3.1")
+      console.timeEnd('allocationQuery s3.1')
       intradayEviden = intradayList
       evidenApiAllocation = intradayList
       // console.time("allocationQuery s3.2")
@@ -10928,32 +12169,22 @@ export class AllocationService {
       // })
       // console.timeEnd("allocationQuery s3.2")
 
-      console.time("allocationQuery s3.2");
+      console.time('allocationQuery s3.2')
 
       // let nomAdjust: any[] = [];
 
-      const dateList: string[] = [];
+      const dateList: string[] = []
 
-      let currentDate = startDate.startOf("day");
-      const lastDate = endDate.startOf("day");
+      let currentDate = startDate.startOf('day')
+      const lastDate = endDate.startOf('day')
 
-      while (
-        currentDate.isBefore(lastDate, "day") ||
-        currentDate.isSame(lastDate, "day")
-      ) {
-        dateList.push(currentDate.format("DD/MM/YYYY"));
-        currentDate = currentDate.add(1, "day");
+      while (currentDate.isBefore(lastDate, 'day') || currentDate.isSame(lastDate, 'day')) {
+        dateList.push(currentDate.format('DD/MM/YYYY'))
+        currentDate = currentDate.add(1, 'day')
       }
 
-      for (
-        let index = 0;
-        index < dateList.length;
-        index += concurrency
-      ) {
-        const dateChunk = dateList.slice(
-          index,
-          index + concurrency
-        );
+      for (let index = 0; index < dateList.length; index += concurrency) {
+        const dateChunk = dateList.slice(index, index + concurrency)
 
         const chunkResult = await Promise.all(
           dateChunk.map(async (date) => {
@@ -10962,31 +12193,27 @@ export class AllocationService {
                 prisma: this.prisma,
                 startDate: date,
                 endDate: date
-              });
+              })
 
-              return Array.isArray(result) ? result : [];
+              return Array.isArray(result) ? result : []
             } catch (error) {
-              console.error(
-                `getAdjustNom error วันที่ ${date}:`,
-                error
-              );
+              console.error(`getAdjustNom error วันที่ ${date}:`, error)
 
-              return [];
+              return []
             }
           })
-        );
+        )
 
-        nomAdjust.push(...chunkResult.flat());
+        nomAdjust.push(...chunkResult.flat())
       }
 
-      console.timeEnd("allocationQuery s3.2");
-
+      console.timeEnd('allocationQuery s3.2')
     } else if (tab === '1') {
       // Daily (EOD)
       evidenApiAllocation = await this.repo.getEvidenApiAllocationEod(startDate, endDate)
-      
+
       for (let index = 0; index < intradayAllocationGasDays.length; index += concurrency) {
-        const dateChunk = intradayAllocationGasDays.slice(index, index + concurrency);
+        const dateChunk = intradayAllocationGasDays.slice(index, index + concurrency)
 
         const chunkResult = await Promise.all(
           dateChunk.map(async (date) => {
@@ -10995,253 +12222,64 @@ export class AllocationService {
                 prisma: this.prisma,
                 startDate: date,
                 endDate: date
-              });
+              })
 
-              return Array.isArray(result) ? result : [];
+              return Array.isArray(result) ? result : []
             } catch (error) {
-              console.error(`getAdjustNom error วันที่ ${date}:`, error);
-              return [];
+              console.error(`getAdjustNom error วันที่ ${date}:`, error)
+              return []
             }
           })
-        );
+        )
 
-        nomAdjust.push(...chunkResult.flat());
+        nomAdjust.push(...chunkResult.flat())
       }
     }
-    console.timeEnd("allocationQuery s3")
-    console.time("allocationQuery s4")
+    console.timeEnd('allocationQuery s3')
+    console.time('allocationQuery s4')
     console.log('[INFO] allocationQuery: evidenApiAllocation (FINAL) count =', evidenApiAllocation?.length || 0)
     // *Process Response Eviden
-    evidenApiAllocation = version ? evidenApiAllocation.filter((item: any) => version.includes(item?.execute_timestamp)) : evidenApiAllocation
+    evidenApiAllocation = version && Array.isArray(evidenApiAllocation) ? evidenApiAllocation.filter((item: any) => version.includes(item?.execute_timestamp)) : (evidenApiAllocation || [])
 
     // คลี่โครงสร้าง Eviden ให้อยู่ในรูป flat list พร้อมแนบข้อมูล shipper/group
     evidenApiAllocation = await flatEvidenApiResponse(evidenApiAllocation, this.prisma)
 
-    console.timeEnd("allocationQuery s4")
-    console.time("allocationQuery s5")
+    console.timeEnd('allocationQuery s4')
+    console.time('allocationQuery s5')
 
     // โหลด allocation ในระบบระหว่างช่วงวันที่มาเตรียมประกอบผลลัพธ์
     let allocationMaster = await this.repo.getAllocationManagement(startDate.toDate(), endDate.toDate())
-    console.timeEnd("allocationQuery s5")
-    console.time("allocationQuery s6")
+    console.timeEnd('allocationQuery s5')
+    console.time('allocationQuery s6')
     // ถ้าเลือก is_last_version จะเลือกเฉพาะ execute ล่าสุดต่อ key หลัก
     const allowConceptPoints = ['East_to_BVW10', 'West_to_BVW10', 'East_to_RA6', 'West_to_RA6']
     const result: any = is_last_version
       ? Object.values(
-        evidenApiAllocation.reduce((acc, curr) => {
-          if (curr.point_type === 'CONCEPT' && !allowConceptPoints.includes(curr.point)) return acc
-          const gas_hour = curr?.gas_hour || 24
-          const key = `${curr.gas_day}|${gas_hour}|${curr.shipper}|${curr.contract}|${curr.point}|${curr.entry_exit}|${curr.area}|${curr.zone}`
-          if (!acc[key] || acc[key].execute_timestamp < curr.execute_timestamp) {
-            acc[key] = curr
-          }
-          return acc
-        }, {})
-      )
+          evidenApiAllocation.reduce((acc, curr) => {
+            if (curr.point_type === 'CONCEPT' && !allowConceptPoints.includes(curr.point)) return acc
+            const gas_hour = curr && curr?.gas_hour || 24
+            const key = `${curr.gas_day}|${gas_hour}|${curr.shipper}|${curr.contract}|${curr.point}|${curr.entry_exit}|${curr.area}|${curr.zone}`
+            if (!acc[key] || acc[key].execute_timestamp < curr.execute_timestamp) {
+              acc[key] = curr
+            }
+            return acc
+          }, {})
+        )
       : Object.values(
-        evidenApiAllocation.reduce((acc, curr) => {
-          if (curr.point_type === 'CONCEPT' && !allowConceptPoints.includes(curr.point)) return acc
-          const gas_hour = curr?.gas_hour || 24
-          const key = `${curr.gas_day}|${gas_hour}|${curr.shipper}|${curr.contract}|${curr.point}|${curr.entry_exit}|${curr.area}|${curr.zone}|${curr.execute_timestamp}`
-          if (!acc[key]) {
-            acc[key] = curr
-          }
-          return acc
-        }, {})
-      )
-    console.timeEnd("allocationQuery s6")
-    console.log('[INFO] allocationQuery: result count =', result?.length || 0)
-    // console.time("allocationQuery s7") // ช้ามากๆ หลายนาทีถ้าดึง 1 เดือน ไปใช้โค้ดล่าง
-    // // สร้างข้อมูลรายแถว per point พร้อมคำนวณ Nomination และ Intraday ที่เกี่ยวข้อง
-    // const resultPorp = result.map((allo: any) => {
-    //   let nominationValue: number | null = null
-    //   if (tab === '1') {
-    //     // nominationValue = getNomValue(convertNomFile, allo);
-    //     const dailyNominationList = convertNomFile?.filter((f: any) => {
-    //       return f?.gas_day === allo['gas_day'] && f?.group?.id_name === allo['shipper'] && f?.contract_code?.contract_code === allo['contract'] && f?.nomination_type_id == 1
-    //     })
+          evidenApiAllocation.reduce((acc, curr) => {
+            if (curr.point_type === 'CONCEPT' && !allowConceptPoints.includes(curr.point)) return acc
+            const gas_hour = curr && curr?.gas_hour || 24
+            const key = `${curr.gas_day}|${gas_hour}|${curr.shipper}|${curr.contract}|${curr.point}|${curr.entry_exit}|${curr.area}|${curr.zone}|${curr.execute_timestamp}`
+            if (!acc[key]) {
+              acc[key] = curr
+            }
+            return acc
+          }, {})
+        )
+    console.timeEnd('allocationQuery s6')
+   
 
-    //     const weeklyNominationList = convertNomFile?.filter((f: any) => {
-    //       return (
-    //         getTodayNowYYYYMMDDDfaultAdd7(f?.gas_day).isSame(getTodayNowYYYYMMDDDfaultAdd7(allo['gas_day']), 'week') &&
-    //         f?.group?.id_name === allo['shipper'] &&
-    //         f?.contract_code?.contract_code === allo['contract'] &&
-    //         f?.nomination_type_id == 2 &&
-    //         !dailyNominationList.some((daily: any) => daily.contract_code_id == f?.contract_code_id)
-    //       )
-    //     })
-
-    //     const dayOfWeek = Number(getTodayStartAdd7(allo['gas_day']).format('d')) // The day of the week, with Sunday as 0
-    //       ;[...dailyNominationList, ...weeklyNominationList].map((nominationFile) => {
-    //         nominationFile.rowData?.map((rowDataItem: any) => {
-    //           if (allo.point_type == 'CONCEPT' && isMatch(rowDataItem?.data_temp['3'], allo['point']) && isMatch(rowDataItem?.data_temp['9'], 'MMBTU/D') && isMatch(rowDataItem?.zone_text, allo['zone'])) {
-    //             let newNominationValue: number | null = null
-    //             if (nominationFile?.nomination_type_id === 1) {
-    //               newNominationValue = parseToNumber(rowDataItem?.data_temp['38'])
-    //               if (allo?.gas_hour) {
-    //                 let i = 0
-    //                 let acc: number | null = null
-    //                 do {
-    //                   const valuePerHour: number | null = parseToNumber(rowDataItem['data_temp'][`${14 + i}`])
-    //                   if (acc) {
-    //                     if (valuePerHour) {
-    //                       acc = acc + valuePerHour
-    //                     }
-    //                   } else {
-    //                     acc = valuePerHour
-    //                   }
-    //                   i++
-    //                 } while (i < allo?.gas_hour)
-    //                 newNominationValue = acc
-    //               }
-    //             } else {
-    //               newNominationValue = parseToNumber(rowDataItem?.data_temp[`${14 + dayOfWeek}`])
-    //               if (allo?.gas_hour) {
-    //                 newNominationValue = (newNominationValue / 24) * allo?.gas_hour
-    //               }
-    //             }
-
-    //             if (nominationValue) {
-    //               if (newNominationValue || newNominationValue == 0) {
-    //                 nominationValue += newNominationValue
-    //               }
-    //             } else {
-    //               nominationValue = newNominationValue
-    //             }
-    //           }
-
-    //           if (isMatch(rowDataItem?.data_temp['3'], allo['point']) && isMatch(rowDataItem?.data_temp['9'], 'MMBTU/D') && isMatch(rowDataItem?.area_text, allo['area']) && isMatch(rowDataItem?.zone_text, allo['zone'])) {
-    //             let newNominationValue: number | null = null
-    //             if (nominationFile?.nomination_type_id === 1) {
-    //               newNominationValue = parseToNumber(rowDataItem?.data_temp['38'])
-    //               if (allo?.gas_hour) {
-    //                 let i = 0
-    //                 let acc: number | null = null
-    //                 do {
-    //                   const valuePerHour: number | null = parseToNumber(rowDataItem['data_temp'][`${14 + i}`])
-    //                   if (acc) {
-    //                     if (valuePerHour) {
-    //                       acc = acc + valuePerHour
-    //                     }
-    //                   } else {
-    //                     acc = valuePerHour
-    //                   }
-    //                   i++
-    //                 } while (i < allo?.gas_hour)
-    //                 newNominationValue = acc
-    //               }
-    //             } else {
-    //               newNominationValue = parseToNumber(rowDataItem?.data_temp[`${14 + dayOfWeek}`])
-    //               if (allo?.gas_hour) {
-    //                 newNominationValue = (newNominationValue / 24) * allo?.gas_hour
-    //               }
-    //             }
-    //             if (nominationValue) {
-    //               if (newNominationValue || newNominationValue == 0) {
-    //                 nominationValue += newNominationValue
-    //               }
-    //             } else {
-    //               nominationValue = newNominationValue
-    //             }
-    //           }
-    //         })
-
-    //         if (!nominationValue && nominationValue != 0 && nominationFile?.nomination_type_id == 1) {
-    //           try {
-    //             const weeklyThatHaveDailyNomination = convertNomFile?.find((f: any) => {
-    //               return (
-    //                 getTodayNowYYYYMMDDDfaultAdd7(f?.gas_day).isSame(getTodayNowYYYYMMDDDfaultAdd7(allo['gas_day']), 'week') &&
-    //                 f?.group?.id_name === nominationFile?.group?.id_name &&
-    //                 f?.contract_code?.contract_code === nominationFile?.contract_code?.contract_code &&
-    //                 f?.nomination_type_id == 2 &&
-    //                 dailyNominationList.some((daily: any) => daily.contract_code_id == f?.contract_code_id)
-    //               )
-    //             })
-
-    //             if (weeklyThatHaveDailyNomination) {
-    //               const weeklyRowDataItem = weeklyThatHaveDailyNomination.rowData?.find(
-    //                 (weeklyRowDataItem: any) =>
-    //                   isMatch(weeklyRowDataItem?.data_temp['3'], allo['point']) && isMatch(weeklyRowDataItem?.data_temp['9'], 'MMBTU/D') && (isMatch(weeklyRowDataItem?.area_text, allo['area']) || isMatch('CONCEPT', allo['point_type'])) && isMatch(weeklyRowDataItem?.zone_text, allo['zone'])
-    //               )
-
-    //               if (weeklyRowDataItem?.data_temp) {
-    //                 let newNominationValue: number | null = null
-    //                 newNominationValue = parseToNumber(weeklyRowDataItem?.data_temp[`${14 + dayOfWeek}`])
-    //                 if (allo?.gas_hour) {
-    //                   newNominationValue = (newNominationValue / 24) * allo?.gas_hour
-    //                 }
-    //                 if (nominationValue) {
-    //                   if (newNominationValue || newNominationValue == 0) {
-    //                     nominationValue += newNominationValue
-    //                   }
-    //                 } else {
-    //                   nominationValue = newNominationValue
-    //                 }
-    //               }
-    //             }
-    //           } catch (error) { }
-    //         }
-    //       })
-    //   } else {
-    //     nominationValue = getAdjustedNomValue({
-    //       nomAdjust: nomAdjust,
-    //       convertNomFile: convertNomFile,
-    //       evidenItem: allo
-    //     })
-    //   }
-
-    //   const systemAllocation = allo['value']
-    //   const previousAllocationTPAforReview = allo['previous_value']
-
-    //   const intraFil =
-    //     intradayEviden.find((f: any) => {
-    //       return f?.gasday === allo['gas_day']
-    //     })?.data || []
-
-    //   const intraFilValue = intraFil.filter((f: any) => {
-    //     return f?.data?.filter((ff: any) => {
-    //       return (
-    //         ff?.contract === allo['contract'] &&
-    //         ff?.shipper === allo['shipper'] &&
-    //         ff?.data?.filter((fff: any) => {
-    //           return fff?.point === allo['data']?.['point']
-    //         })
-    //       )
-    //     })
-    //   })
-
-    //   const { data: dataIntraDay = null, ...nIntraDay } = intraFilValue.at(-1) ?? {}
-    //   const intradayFind = dataIntraDay?.find((f: any) => {
-    //     return f?.contract === allo['contract'] && f?.shipper === allo['shipper']
-    //   })
-    //   const { data: dataIntradayFind, ...nIntradayFind } = intradayFind ?? {}
-    //   const intradayData = dataIntradayFind?.find((f: any) => {
-    //     return f?.point === allo['point']
-    //   })
-    //   const intradayUse = {
-    //     ...nIntraDay,
-    //     ...nIntradayFind,
-    //     data: intradayData
-    //   }
-    //   const intradaySystem = intradayUse?.data?.value || null
-
-    //   // แนบข้อมูล entry/exit ที่เกี่ยวข้องเพื่อให้ฝั่ง UI ใช้แสดงรายละเอียด
-    //   const entry_exit_obj = entryExitMaster.find((f: any) => {
-    //     return f?.name?.toUpperCase() === allo['entry_exit']?.toUpperCase()
-    //   })
-
-    //   return {
-    //     ...allo,
-    //     nominationValue,
-    //     systemAllocation,
-    //     previousAllocationTPAforReview,
-    //     intradaySystem,
-    //     entry_exit_obj
-    //   }
-    // })
-    // console.timeEnd("allocationQuery s7")
-
-    console.time("allocationQuery s7"); // 1.13m -> 689.253ms
+    console.time('allocationQuery s7') // 1.13m -> 689.253ms
 
     /**
      * ============================================================
@@ -11249,32 +12287,19 @@ export class AllocationService {
      * ============================================================
      */
 
-    const S7_KEY_SEPARATOR = "\u001F";
+    const S7_KEY_SEPARATOR = '\u001F'
 
     const s7KeyValue = (value: any): string => {
       if (value === null || value === undefined) {
-        return "";
+        return ''
       }
 
-      return String(value);
-    };
+      return String(value)
+    }
 
-    const createIntradayKey = (
-      gasDay: any,
-      contract: any,
-      shipper: any,
-      point: any
-    ): string => {
-      return (
-        s7KeyValue(gasDay) +
-        S7_KEY_SEPARATOR +
-        s7KeyValue(contract) +
-        S7_KEY_SEPARATOR +
-        s7KeyValue(shipper) +
-        S7_KEY_SEPARATOR +
-        s7KeyValue(point)
-      );
-    };
+    const createIntradayKey = (gasDay: any, contract: any, shipper: any, point: any): string => {
+      return s7KeyValue(gasDay) + S7_KEY_SEPARATOR + s7KeyValue(contract) + S7_KEY_SEPARATOR + s7KeyValue(shipper) + S7_KEY_SEPARATOR + s7KeyValue(point)
+    }
 
     /**
      * ============================================================
@@ -11284,13 +12309,7 @@ export class AllocationService {
      * สร้างครั้งเดียวก่อนวน result
      */
 
-    const adjustedNominationContext =
-      (tab === "1" && intradayAllocationGasDays.length < 1)
-        ? null
-        : createAdjustedNominationContext(
-            nomAdjust ?? [],
-            convertNomFile ?? []
-          );
+    const adjustedNominationContext = tab === '1' && intradayAllocationGasDays.length < 1 ? null : createAdjustedNominationContext(nomAdjust ?? [], convertNomFile ?? [])
 
     /**
      * ============================================================
@@ -11301,15 +12320,13 @@ export class AllocationService {
      * หากชื่อซ้ำจึงต้องเก็บข้อมูลตัวแรก
      */
 
-    const entryExitMap = new Map<string, any>();
+    const entryExitMap = new Map<string, any>()
 
     for (const entryExit of entryExitMaster ?? []) {
-      const entryExitKey = String(
-        entryExit?.name ?? ""
-      ).toUpperCase();
+      const entryExitKey = String(entryExit?.name ?? '').toUpperCase()
 
       if (!entryExitMap.has(entryExitKey)) {
-        entryExitMap.set(entryExitKey, entryExit);
+        entryExitMap.set(entryExitKey, entryExit)
       }
     }
 
@@ -11334,48 +12351,39 @@ export class AllocationService {
      * จึงเท่ากับเลือก outer item ตัวสุดท้ายที่มี data
      */
 
-    const intradaySystemMap = new Map<string, any>();
+    const intradaySystemMap = new Map<string, any>()
 
-    const processedIntradayGasDay =
-      new Set<string>();
+    const processedIntradayGasDay = new Set<string>()
 
     for (const intradayRecord of intradayEviden ?? []) {
-      const gasDay = s7KeyValue(
-        intradayRecord?.gasday
-      );
+      const gasDay = s7KeyValue(intradayRecord?.gasday)
 
       /**
        * เดิมใช้ Array.find()
        * จึงใช้ record แรกของแต่ละ gasday
        */
       if (processedIntradayGasDay.has(gasDay)) {
-        continue;
+        continue
       }
 
-      processedIntradayGasDay.add(gasDay);
+      processedIntradayGasDay.add(gasDay)
 
-      const intraFil =
-        intradayRecord?.data ?? [];
+      const intraFil = intradayRecord?.data ?? []
 
-      let lastIntraItem: any = undefined;
+      let lastIntraItem: any = undefined
 
       /**
        * เลือก outer item ตัวสุดท้ายที่มี data
        */
-      for (
-        let outerIndex = 0;
-        outerIndex < intraFil.length;
-        outerIndex++
-      ) {
-        const outerItem = intraFil[outerIndex];
+      for (let outerIndex = 0; outerIndex < intraFil.length; outerIndex++) {
+        const outerItem = intraFil[outerIndex]
 
         if (outerItem?.data) {
-          lastIntraItem = outerItem;
+          lastIntraItem = outerItem
         }
       }
 
-      const dataIntraDay =
-        lastIntraItem?.data ?? [];
+      const dataIntraDay = lastIntraItem?.data ?? []
 
       /**
        * โค้ดเดิมใช้:
@@ -11388,42 +12396,24 @@ export class AllocationService {
        *
        * จึงต้องเก็บ contract + shipper ตัวแรก
        */
-      const processedContractShipper =
-        new Set<string>();
+      const processedContractShipper = new Set<string>()
 
-      for (
-        let contractIndex = 0;
-        contractIndex < dataIntraDay.length;
-        contractIndex++
-      ) {
-        const contractShipperItem =
-          dataIntraDay[contractIndex];
+      for (let contractIndex = 0; contractIndex < dataIntraDay.length; contractIndex++) {
+        const contractShipperItem = dataIntraDay[contractIndex]
 
-        const contract =
-          contractShipperItem?.contract;
+        const contract = contractShipperItem?.contract
 
-        const shipper =
-          contractShipperItem?.shipper;
+        const shipper = contractShipperItem?.shipper
 
-        const contractShipperKey =
-          s7KeyValue(contract) +
-          S7_KEY_SEPARATOR +
-          s7KeyValue(shipper);
+        const contractShipperKey = s7KeyValue(contract) + S7_KEY_SEPARATOR + s7KeyValue(shipper)
 
-        if (
-          processedContractShipper.has(
-            contractShipperKey
-          )
-        ) {
-          continue;
+        if (processedContractShipper.has(contractShipperKey)) {
+          continue
         }
 
-        processedContractShipper.add(
-          contractShipperKey
-        );
+        processedContractShipper.add(contractShipperKey)
 
-        const pointList =
-          contractShipperItem?.data ?? [];
+        const pointList = contractShipperItem?.data ?? []
 
         /**
          * โค้ดเดิมใช้:
@@ -11434,33 +12424,20 @@ export class AllocationService {
          *
          * จึงต้องเก็บ point ตัวแรก
          */
-        const processedPoint =
-          new Set<string>();
+        const processedPoint = new Set<string>()
 
-        for (
-          let pointIndex = 0;
-          pointIndex < pointList.length;
-          pointIndex++
-        ) {
-          const pointItem =
-            pointList[pointIndex];
+        for (let pointIndex = 0; pointIndex < pointList.length; pointIndex++) {
+          const pointItem = pointList[pointIndex]
 
-          const pointKey =
-            s7KeyValue(pointItem?.point);
+          const pointKey = s7KeyValue(pointItem?.point)
 
           if (processedPoint.has(pointKey)) {
-            continue;
+            continue
           }
 
-          processedPoint.add(pointKey);
+          processedPoint.add(pointKey)
 
-          const intradayKey =
-            createIntradayKey(
-              gasDay,
-              contract,
-              shipper,
-              pointItem?.point
-            );
+          const intradayKey = createIntradayKey(gasDay, contract, shipper, pointItem?.point)
 
           /**
            * รักษาพฤติกรรมเดิม:
@@ -11470,10 +12447,7 @@ export class AllocationService {
            *
            * ค่า 0 จึงกลายเป็น null เหมือนเดิม
            */
-          intradaySystemMap.set(
-            intradayKey,
-            pointItem?.value || null
-          );
+          intradaySystemMap.set(intradayKey, pointItem?.value || null)
         }
       }
     }
@@ -11484,83 +12458,56 @@ export class AllocationService {
      * ============================================================
      */
 
-    const resultLength =
-      result?.length ?? 0;
+    const resultLength = result?.length ?? 0
 
-    const resultPorp =
-      new Array(resultLength);
+    const resultPorp = new Array(resultLength)
 
-    for (
-      let index = 0;
-      index < resultLength;
-      index++
-    ) {
-      const allo = result[index];
+    for (let index = 0; index < resultLength; index++) {
+      const allo = result[index]
 
-      let nominationValue:
-        | number
-        | null = null;
+      let nominationValue: number | null = null
 
-      if (tab === "1") {
+      if (tab === '1') {
         /**
          * Tab 1 ใช้ฟังก์ชันเดิมก่อน
          */
-        if(intradayAllocationGasDays.includes(dayjs(allo?.gas_day, 'YYYY-MM-DD').format('DD/MM/YYYY'))) {
+        if (intradayAllocationGasDays.includes(dayjs(allo?.gas_day, 'YYYY-MM-DD').format('DD/MM/YYYY'))) {
           nominationValue = getAdjustedNomValueFast({
             context: adjustedNominationContext!,
             convertNomFile,
             evidenItem: allo,
             allocationMode: 'eod'
-          });
-        }
-        else {
-        nominationValue = getNomValue(
-          convertNomFile,
-          allo
-        );
+          })
+        } else {
+          nominationValue = getNomValue(convertNomFile, allo)
         }
       } else {
         /**
          * Tab 2 ใช้ context/index ที่สร้างครั้งเดียว
          */
-        nominationValue =
-          getAdjustedNomValueFast({
-            context:
-              adjustedNominationContext!,
-            convertNomFile,
-            evidenItem: allo
-          });
+        nominationValue = getAdjustedNomValueFast({
+          context: adjustedNominationContext!,
+          convertNomFile,
+          evidenItem: allo
+        })
       }
 
-      const intradayKey =
-        createIntradayKey(
-          allo?.gas_day,
-          allo?.contract,
-          allo?.shipper,
-          allo?.point
-        );
+      const intradayKey = createIntradayKey(allo?.gas_day, allo?.contract, allo?.shipper, allo?.point)
 
-      const intradaySystem =
-        intradaySystemMap.has(intradayKey)
-          ? intradaySystemMap.get(intradayKey)
-          : null;
+      const intradaySystem = intradaySystemMap.has(intradayKey) ? intradaySystemMap.get(intradayKey) : null
 
-      const entryExitKey = String(
-        allo?.entry_exit ?? ""
-      ).toUpperCase();
+      const entryExitKey = String(allo?.entry_exit ?? '').toUpperCase()
 
-      const entry_exit_obj =
-        entryExitMap.get(entryExitKey);
+      const entry_exit_obj = entryExitMap.get(entryExitKey)
 
       resultPorp[index] = {
         ...allo,
         nominationValue,
         systemAllocation: allo?.value,
-        previousAllocationTPAforReview:
-          allo?.previous_value,
+        previousAllocationTPAforReview: allo?.previous_value,
         intradaySystem,
         entry_exit_obj
-      };
+      }
     }
 
     /**
@@ -11569,45 +12516,27 @@ export class AllocationService {
      * ============================================================
      */
 
-    console.log(
-      "allocationQuery s7 performance:",
-      {
-        tab,
-        totalRows: resultLength,
+    console.log('allocationQuery s7 performance:', {
+      tab,
+      totalRows: resultLength,
 
-        adjustedBaseCache:
-          adjustedNominationContext
-            ?.targetCache.size ?? 0,
+      adjustedBaseCache: adjustedNominationContext?.targetCache.size ?? 0,
 
-        nomAdjustGasDayIndex:
-          adjustedNominationContext
-            ?.nomAdjustByGasDay.size ?? 0,
+      nomAdjustGasDayIndex: adjustedNominationContext?.nomAdjustByGasDay.size ?? 0,
 
-        nomValueBaseCache:
-          adjustedNominationContext
-            ?.nomValueContext
-            ?.baseCache.size ?? 0,
+      nomValueBaseCache: adjustedNominationContext?.nomValueContext?.baseCache.size ?? 0,
 
-        dailyNominationIndex:
-          adjustedNominationContext
-            ?.nomValueContext
-            ?.dailyNominationMap.size ?? 0,
+      dailyNominationIndex: adjustedNominationContext?.nomValueContext?.dailyNominationMap.size ?? 0,
 
-        weeklyNominationIndex:
-          adjustedNominationContext
-            ?.nomValueContext
-            ?.weeklyNominationMap.size ?? 0,
+      weeklyNominationIndex: adjustedNominationContext?.nomValueContext?.weeklyNominationMap.size ?? 0,
 
-        intradayIndex:
-          intradaySystemMap.size,
+      intradayIndex: intradaySystemMap.size,
 
-        entryExitIndex:
-          entryExitMap.size
-      }
-    );
+      entryExitIndex: entryExitMap.size
+    })
 
-    console.timeEnd("allocationQuery s7");
-    
+    console.timeEnd('allocationQuery s7')
+
     // console.time("allocationQuery s8")
 
     // let response = []
@@ -11636,43 +12565,21 @@ export class AllocationService {
     // }
     // console.timeEnd("allocationQuery s8")
 
-    console.time("allocationQuery s8");
+    console.time('allocationQuery s8')
 
-    const S8_KEY_SEPARATOR = "\u001F";
+    const S8_KEY_SEPARATOR = '\u001F'
 
     const s8KeyValue = (value: any): string => {
       if (value === null || value === undefined) {
-        return "";
+        return ''
       }
 
-      return String(value);
-    };
+      return String(value)
+    }
 
-    const createAllocationMasterKey = (
-      gasDay: any,
-      shipper: any,
-      contract: any,
-      point: any,
-      entryExit: any,
-      area: any,
-      zone: any
-    ): string => {
-      return (
-        s8KeyValue(gasDay) +
-        S8_KEY_SEPARATOR +
-        s8KeyValue(shipper) +
-        S8_KEY_SEPARATOR +
-        s8KeyValue(contract) +
-        S8_KEY_SEPARATOR +
-        s8KeyValue(point) +
-        S8_KEY_SEPARATOR +
-        s8KeyValue(entryExit) +
-        S8_KEY_SEPARATOR +
-        s8KeyValue(area) +
-        S8_KEY_SEPARATOR +
-        s8KeyValue(zone)
-      );
-    };
+    const createAllocationMasterKey = (gasDay: any, shipper: any, contract: any, point: any, entryExit: any, area: any, zone: any): string => {
+      return s8KeyValue(gasDay) + S8_KEY_SEPARATOR + s8KeyValue(shipper) + S8_KEY_SEPARATOR + s8KeyValue(contract) + S8_KEY_SEPARATOR + s8KeyValue(point) + S8_KEY_SEPARATOR + s8KeyValue(entryExit) + S8_KEY_SEPARATOR + s8KeyValue(area) + S8_KEY_SEPARATOR + s8KeyValue(zone)
+    }
 
     /**
      * ============================================================
@@ -11684,30 +12591,18 @@ export class AllocationService {
      *
      * ดังนั้นห้าม set ทับข้อมูลเดิม
      */
-    const allocationMasterMap = new Map<string, any>();
+    const allocationMasterMap = new Map<string, any>()
 
-    for (
-      let index = 0;
-      index < (allocationMaster?.length ?? 0);
-      index++
-    ) {
-      const master = allocationMaster[index];
+    for (let index = 0; index < (allocationMaster?.length ?? 0); index++) {
+      const master = allocationMaster[index]
 
-      const masterKey = createAllocationMasterKey(
-        master?.gas_day_text,
-        master?.shipper_name_text,
-        master?.contract_code_text,
-        master?.point_text,
-        master?.entry_exit_text,
-        master?.area_text,
-        master?.zone_text
-      );
+      const masterKey = createAllocationMasterKey(master?.gas_day_text, master?.shipper_name_text, master?.contract_code_text, master?.point_text, master?.entry_exit_text, master?.area_text, master?.zone_text)
 
       /**
        * เก็บตัวแรก เพื่อให้ผลเหมือน Array.find()
        */
       if (!allocationMasterMap.has(masterKey)) {
-        allocationMasterMap.set(masterKey, master);
+        allocationMasterMap.set(masterKey, master)
       }
     }
 
@@ -11717,52 +12612,33 @@ export class AllocationService {
      * ============================================================
      */
 
-    const resultPorpLength = resultPorp?.length ?? 0;
-    const response = new Array(resultPorpLength);
+    const resultPorpLength = resultPorp?.length ?? 0
+    const response = new Array(resultPorpLength)
 
-    for (
-      let index = 0;
-      index < resultPorpLength;
-      index++
-    ) {
-      const item = resultPorp[index];
+    for (let index = 0; index < resultPorpLength; index++) {
+      const item = resultPorp[index]
 
-      const itemKey = createAllocationMasterKey(
-        item?.gas_day,
-        item?.shipper,
-        item?.contract,
-        item?.point,
-        item?.entry_exit,
-        item?.area,
-        item?.zone
-      );
+      const itemKey = createAllocationMasterKey(item?.gas_day, item?.shipper, item?.contract, item?.point, item?.entry_exit, item?.area, item?.zone)
 
-      const aMaster =
-        allocationMasterMap.get(itemKey);
+      const aMaster = allocationMasterMap.get(itemKey)
 
       response[index] = {
         ...item,
         id: aMaster?.id || null,
-        allocation_status:
-          aMaster?.allocation_status || null,
-        review_code:
-          aMaster?.review_code || null,
-        allocation_management_comment:
-          aMaster?.allocation_management_comment || [],
-        allocation_management_shipper_review:
-          aMaster?.allocation_management_shipper_review || []
-      };
+        allocation_status: aMaster?.allocation_status || null,
+        review_code: aMaster?.review_code || null,
+        allocation_management_comment: aMaster?.allocation_management_comment || [],
+        allocation_management_shipper_review: aMaster?.allocation_management_shipper_review || []
+      }
     }
 
-    console.log("allocationQuery s8 performance:", {
+    console.log('allocationQuery s8 performance:', {
       resultPorpLength,
-      allocationMasterLength:
-        allocationMaster?.length ?? 0,
-      allocationMasterIndex:
-        allocationMasterMap.size
-    });
+      allocationMasterLength: allocationMaster?.length ?? 0,
+      allocationMasterIndex: allocationMasterMap.size
+    })
 
-    console.timeEnd("allocationQuery s8");
+    console.timeEnd('allocationQuery s8')
 
     console.timeEnd('[RUNTIME] allocationQuery')
     return response
@@ -11771,7 +12647,7 @@ export class AllocationService {
   async allocationQueryFromAllocationReport(payload: any, userId: any) {
     // ฟังก์ชันนี้ใช้ดึงข้อมูล allocation สำหรับหน้า(Daily/Intraday) (Tab 1/2)
     // โดยรวมข้อมูลจาก Eviden (EOD/Intraday), Nomination และ Allocation ในระบบ
-    const { start_date, end_date, is_last_version, version, skip, limit, tab } = payload
+    const {start_date, end_date, is_last_version, version, skip, limit, tab} = payload
     console.time('[RUNTIME] allocationQuery')
 
     // *Input validation
@@ -11782,63 +12658,118 @@ export class AllocationService {
       throw new Error('⛔ Invalid date format')
     }
 
-    if (endDate.isBefore(startDate)) {
+    if (endDate && endDate.isBefore(startDate)) {
       throw new Error('⛔ End date must be after or equal to start date')
     }
 
-    console.time("allocationQuery s1")
+    console.time('allocationQuery s1')
     // *Query Necessary Data
     // เตรียม master entry_exit ไว้ใช้แม็ปข้อมูลในภายหลัง
     const entryExitMaster = await this.repo.getEntryExit()
     const lastestAllocationModeBeforeStartDate: allocationModeRecord = await this.prisma.allocation_mode.findFirst({
       where: {
         start_date: {
-          lt: startDate.toDate(),
-        },
+          lt: startDate.toDate()
+        }
       },
-      orderBy: [
-        { start_date: 'desc' },
-        { create_date: 'desc' },
-      ],
+      orderBy: [{start_date: 'desc'}, {create_date: 'desc'}],
       select: {
         start_date: true,
         create_date: true,
         allocation_mode_type: {
           select: {
-            mode: true,
-          },
-        },
-      },
-    });
+            mode: true
+          }
+        }
+      }
+    })
     const allocationModesRaw: allocationModeRecord[] = await this.prisma.allocation_mode.findMany({
       where: {
         start_date: {
           gte: startDate.toDate(),
-          lte: endDate.toDate(),
-        },
+          lte: endDate.toDate()
+        }
       },
-      orderBy: [
-        { start_date: 'asc' },
-        { create_date: 'desc' },
-      ],
+      orderBy: [{start_date: 'asc'}, {create_date: 'desc'}],
       select: {
         start_date: true,
         create_date: true,
         allocation_mode_type: {
           select: {
-            mode: true,
-          },
+            mode: true
+          }
+        }
+      }
+    })
+    const allocationModes: allocationModeRecord[] = deduplicateAllocationModesByStartDate(allocationModesRaw)
+    const intradayAllocationGasDays: string[] = getIntradayAllocationGasDays([lastestAllocationModeBeforeStartDate, ...allocationModes], startDate, endDate)
+    console.timeEnd('allocationQuery s1')
+    console.time('allocationQuery s2')
+    // โหลดไฟล์ nomination (daily/weekly) ที่ status อยู่ในสถานะใช้งาน
+    const nominationFile: queryShipperNominationFileWithRelationsForCal[] = await this.prisma.query_shipper_nomination_file.findMany({
+      where: {
+        NOT: {
+          contract_code_id: null
+        }, // revers bal ไม่แสดง effect
+        query_shipper_nomination_status: {
+          id: {
+            in: [2, 5]
+          }
         },
+        OR: [
+          // Daily nominations: exact date match
+          {
+            nomination_type: {
+              id: 1
+            },
+            gas_day: {
+              gte: startDate.toDate(),
+              lte: endDate.toDate()
+            }
+          },
+          // Weekly nominations: same week
+          {
+            nomination_type: {
+              id: 2
+            },
+            gas_day: {
+              gte: startDate.startOf('week').toDate(),
+              lte: endDate.endOf('week').toDate()
+            }
+          }
+        ]
       },
-    });
-    const allocationModes: allocationModeRecord[] = deduplicateAllocationModesByStartDate(allocationModesRaw);
-    const intradayAllocationGasDays: string[] = getIntradayAllocationGasDays(
-      [lastestAllocationModeBeforeStartDate,...allocationModes],
-      startDate,
-      endDate,
-    )
-    console.timeEnd("allocationQuery s1")
-    console.time("allocationQuery s3")
+      ...queryShipperNominationFilePopulateForCal
+    })
+    console.timeEnd('allocationQuery s2')
+    console.time('allocationQuery s2.1')
+    // แปลง nomination JSON ให้อยู่ในรูปแบบใช้งานง่าย (parse data_temp)
+    const convertNomFile = nominationFile.map((e: any) => {
+      // nomination_type_id 1 daily, 2 weekly
+      e['gas_day'] = dayjs(e['gas_day']).format('YYYY-MM-DD')
+      e['nomination_version'] = e['nomination_version'].map((nv: any) => {
+        nv['nomination_full_json'] = nv['nomination_full_json'].map((nj: any) => {
+          nj['data_temp'] = JSON.parse(nj['data_temp'])
+          return {...nj}
+        })
+        nv['nomination_row_json'] = nv['nomination_row_json'].map((nj: any) => {
+          nj['data_temp'] = JSON.parse(nj['data_temp'])
+          return {...nj}
+        })
+        return {...nv}
+      })
+      let fullData = e['nomination_version'][0]?.['nomination_full_json'][0]
+      let rowData = e['nomination_version'][0]?.['nomination_row_json']
+      delete e['nomination_version']
+      return {
+        ...e,
+        fullData,
+        rowData
+      }
+    })
+
+    console.timeEnd('allocationQuery s2.1')
+    console.time('allocationQuery s3')
 
     // สร้างรายการวันภายในช่วงที่เลือก เพื่อใช้เรียก Eviden intraday เมื่อจำเป็น
 
@@ -11847,261 +12778,174 @@ export class AllocationService {
     let evidenApiAllocation = []
     let intradayEviden = []
     let evidenApiAllocationReport = []
-    const concurrency = 5;
+    let nomAdjust = []
+    const concurrency = 5
     if (tab === '2') {
       // intraday
-      console.time("allocationQuery s3.1")
+      console.time('allocationQuery s3.1')
       const intradayList = await this.repo.getEvidenApiAllocationIntraday(startDate, endDate)
-      console.timeEnd("allocationQuery s3.1")
-      intradayEviden = intradayList
-      evidenApiAllocation = intradayList
+      // ดึง Execute Intraday รายชั่วโมงในช่วงเวลาเดียวกัน
+      const executeIntradayList = await this.prisma.execute_intraday.findMany({
+        where: {
+          status: {
+            equals: 'OK',
+            mode: 'insensitive'
+          },
+          gas_day_date: {
+            gte: startDate.toDate(),
+            lte: endDate.toDate()
+          }
+        }
+      })
 
-      console.time("allocationQuery s3.2");
+      const matchWithExecuteIntradayList = intradayList.filter((item: any) => {
+        const itemGasDay = getTodayNowYYYYMMDDDfaultAdd7(item.gas_day)
+        return executeIntradayList?.some((executeData: any) => {
+          const executeGasDay = getTodayNowAdd7(executeData.gas_day)
+          return executeData.request_number_id == item.request_number && executeData.gas_hour == item.gas_hour && executeGasDay.isSame(itemGasDay, 'day')
+        })
+      })
+      console.timeEnd('allocationQuery s3.1')
+      intradayEviden = matchWithExecuteIntradayList
+      evidenApiAllocation = matchWithExecuteIntradayList
+
+      console.time('allocationQuery s3.2')
       evidenApiAllocationReport = await this.repo.getEvidenApiAllocationIntradayReportNom(startDate, endDate)
-      console.timeEnd("allocationQuery s3.2");
+      const dateList: string[] = []
 
+      let currentDate = startDate.startOf('day')
+      const lastDate = endDate.startOf('day')
+
+      while (currentDate.isBefore(lastDate, 'day') || currentDate.isSame(lastDate, 'day')) {
+        dateList.push(currentDate.format('DD/MM/YYYY'))
+        currentDate = currentDate.add(1, 'day')
+      }
+
+      for (let index = 0; index < dateList.length; index += concurrency) {
+        const dateChunk = dateList.slice(index, index + concurrency)
+
+        const chunkResult = await Promise.all(
+          dateChunk.map(async (date) => {
+            try {
+              const result = await getAdjustNom2({
+                prisma: this.prisma,
+                startDate: date,
+                endDate: date
+              })
+
+              return Array.isArray(result) ? result : []
+            } catch (error) {
+              console.error(`getAdjustNom error วันที่ ${date}:`, error)
+
+              return []
+            }
+          })
+        )
+
+        nomAdjust.push(...chunkResult.flat())
+      }
+      console.timeEnd('allocationQuery s3.2')
     } else if (tab === '1') {
       // Daily (EOD)
-      evidenApiAllocation = await this.repo.getEvidenApiAllocationEod(startDate, endDate)
-      console.time("allocationQuery s3.3");
-      evidenApiAllocationReport = await this.repo.getEvidenApiAllocationReportNom(startDate, endDate, true)
-      console.timeEnd("allocationQuery s3.3");
-      
+      const eodList = await this.repo.getEvidenApiAllocationEod(startDate, endDate)
+      // ดึง Execute (EOD) ที่อยู่ในช่วงวันที่ เพื่อใช้ตรวจสอบข้อมูลที่เผยแพร่จริง
+      const executeEodList = await this.prisma.execute_eod.findMany({
+        where: {
+          status: {
+            equals: 'OK',
+            mode: 'insensitive'
+          },
+          start_date_date: {
+            lte: endDate.toDate()
+          },
+          end_date_date: {
+            gte: startDate.toDate()
+          }
+        }
+      })
+      evidenApiAllocation = eodList.filter((item: any) => {
+        const itemGasDay = getTodayNowYYYYMMDDDfaultAdd7(item.gas_day)
+        return executeEodList?.some((executeData: any) => {
+          const executeStart = getTodayNowAdd7(executeData?.start_date_date)
+          const executeEnd = getTodayNowAdd7(executeData?.end_date_date)
+          return executeData?.request_number_id == item?.request_number && executeStart?.isSameOrBefore(itemGasDay, 'day') && executeEnd?.isSameOrAfter(itemGasDay, 'day')
+        })
+      })
+      console.time('allocationQuery s3.3')
+      // ไม่มี concept "East_to_RA6", "East_to_BVW10", "West_to_RA6", "West_to_BVW10" ไม่ return มา
+      evidenApiAllocationReport = await this.repo.getEvidenApiAllocationReportNom(startDate, endDate, is_last_version == true || is_last_version == 'true')
+
+      for (let index = 0; index < intradayAllocationGasDays.length; index += concurrency) {
+        const dateChunk = intradayAllocationGasDays.slice(index, index + concurrency)
+
+        const chunkResult = await Promise.all(
+          dateChunk.map(async (date) => {
+            try {
+              const result = await getAdjustNom2({
+                prisma: this.prisma,
+                startDate: date,
+                endDate: date
+              })
+
+              return Array.isArray(result) ? result : []
+            } catch (error) {
+              console.error(`getAdjustNom error วันที่ ${date}:`, error)
+              return []
+            }
+          })
+        )
+
+        nomAdjust.push(...chunkResult.flat())
+      }
+      console.timeEnd('allocationQuery s3.3')
     }
-    console.timeEnd("allocationQuery s3")
-    console.time("allocationQuery s4")
+    console.timeEnd('allocationQuery s3')
+    console.time('allocationQuery s4')
     console.log('[INFO] allocationQuery: evidenApiAllocation (FINAL) count =', evidenApiAllocation?.length || 0)
     // *Process Response Eviden
-    evidenApiAllocation = version ? evidenApiAllocation.filter((item: any) => version.includes(item?.execute_timestamp)) : evidenApiAllocation
+    evidenApiAllocation = version && Array.isArray(evidenApiAllocation) ? evidenApiAllocation.filter((item: any) => version.includes(item?.execute_timestamp)) : (evidenApiAllocation || [])
 
     // คลี่โครงสร้าง Eviden ให้อยู่ในรูป flat list พร้อมแนบข้อมูล shipper/group
     evidenApiAllocation = await flatEvidenApiResponse(evidenApiAllocation, this.prisma)
 
-    console.timeEnd("allocationQuery s4")
-    console.time("allocationQuery s5")
+    console.timeEnd('allocationQuery s4')
+    console.time('allocationQuery s5')
 
     // โหลด allocation ในระบบระหว่างช่วงวันที่มาเตรียมประกอบผลลัพธ์
     let allocationMaster = await this.repo.getAllocationManagement(startDate.toDate(), endDate.toDate())
-    console.timeEnd("allocationQuery s5")
-    console.time("allocationQuery s6")
+    console.timeEnd('allocationQuery s5')
+    console.time('allocationQuery s6')
     // ถ้าเลือก is_last_version จะเลือกเฉพาะ execute ล่าสุดต่อ key หลัก
     const allowConceptPoints = ['East_to_BVW10', 'West_to_BVW10', 'East_to_RA6', 'West_to_RA6']
     const result: any = is_last_version
       ? Object.values(
-        evidenApiAllocation.reduce((acc, curr) => {
-          if (curr.point_type === 'CONCEPT' && !allowConceptPoints.includes(curr.point)) return acc
-          const gas_hour = curr?.gas_hour || 24
-          const key = `${curr.gas_day}|${gas_hour}|${curr.shipper}|${curr.contract}|${curr.point}|${curr.entry_exit}|${curr.area}|${curr.zone}`
-          if (!acc[key] || acc[key].execute_timestamp < curr.execute_timestamp) {
-            acc[key] = curr
-          }
-          return acc
-        }, {})
-      )
+          evidenApiAllocation.reduce((acc, curr) => {
+            if (curr.point_type === 'CONCEPT' && !allowConceptPoints.includes(curr.point)) return acc
+            const gas_hour = curr && curr?.gas_hour || 24
+            const key = `${curr.gas_day}|${gas_hour}|${curr.shipper}|${curr.contract}|${curr.point}|${curr.entry_exit}|${curr.area}|${curr.zone}`
+            if (!acc[key] || acc[key].execute_timestamp < curr.execute_timestamp) {
+              acc[key] = curr
+            }
+            return acc
+          }, {})
+        )
       : Object.values(
-        evidenApiAllocation.reduce((acc, curr) => {
-          if (curr.point_type === 'CONCEPT' && !allowConceptPoints.includes(curr.point)) return acc
-          const gas_hour = curr?.gas_hour || 24
-          const key = `${curr.gas_day}|${gas_hour}|${curr.shipper}|${curr.contract}|${curr.point}|${curr.entry_exit}|${curr.area}|${curr.zone}|${curr.execute_timestamp}`
-          if (!acc[key]) {
-            acc[key] = curr
-          }
-          return acc
-        }, {})
-      )
-    console.timeEnd("allocationQuery s6")
+          evidenApiAllocation.reduce((acc, curr) => {
+            if (curr.point_type === 'CONCEPT' && !allowConceptPoints.includes(curr.point)) return acc
+            const gas_hour = curr && curr?.gas_hour || 24
+            const key = `${curr.gas_day}|${gas_hour}|${curr.shipper}|${curr.contract}|${curr.point}|${curr.entry_exit}|${curr.area}|${curr.zone}|${curr.execute_timestamp}`
+            if (!acc[key]) {
+              acc[key] = curr
+            }
+            return acc
+          }, {})
+        )
+    console.timeEnd('allocationQuery s6')
     console.log('[INFO] allocationQuery: result count =', result?.length || 0)
-    // console.time("allocationQuery s7") // ช้ามากๆ หลายนาทีถ้าดึง 1 เดือน ไปใช้โค้ดล่าง
-    // // สร้างข้อมูลรายแถว per point พร้อมคำนวณ Nomination และ Intraday ที่เกี่ยวข้อง
-    // const resultPorp = result.map((allo: any) => {
-    //   let nominationValue: number | null = null
-    //   if (tab === '1') {
-    //     // nominationValue = getNomValue(convertNomFile, allo);
-    //     const dailyNominationList = convertNomFile?.filter((f: any) => {
-    //       return f?.gas_day === allo['gas_day'] && f?.group?.id_name === allo['shipper'] && f?.contract_code?.contract_code === allo['contract'] && f?.nomination_type_id == 1
-    //     })
+   
 
-    //     const weeklyNominationList = convertNomFile?.filter((f: any) => {
-    //       return (
-    //         getTodayNowYYYYMMDDDfaultAdd7(f?.gas_day).isSame(getTodayNowYYYYMMDDDfaultAdd7(allo['gas_day']), 'week') &&
-    //         f?.group?.id_name === allo['shipper'] &&
-    //         f?.contract_code?.contract_code === allo['contract'] &&
-    //         f?.nomination_type_id == 2 &&
-    //         !dailyNominationList.some((daily: any) => daily.contract_code_id == f?.contract_code_id)
-    //       )
-    //     })
 
-    //     const dayOfWeek = Number(getTodayStartAdd7(allo['gas_day']).format('d')) // The day of the week, with Sunday as 0
-    //       ;[...dailyNominationList, ...weeklyNominationList].map((nominationFile) => {
-    //         nominationFile.rowData?.map((rowDataItem: any) => {
-    //           if (allo.point_type == 'CONCEPT' && isMatch(rowDataItem?.data_temp['3'], allo['point']) && isMatch(rowDataItem?.data_temp['9'], 'MMBTU/D') && isMatch(rowDataItem?.zone_text, allo['zone'])) {
-    //             let newNominationValue: number | null = null
-    //             if (nominationFile?.nomination_type_id === 1) {
-    //               newNominationValue = parseToNumber(rowDataItem?.data_temp['38'])
-    //               if (allo?.gas_hour) {
-    //                 let i = 0
-    //                 let acc: number | null = null
-    //                 do {
-    //                   const valuePerHour: number | null = parseToNumber(rowDataItem['data_temp'][`${14 + i}`])
-    //                   if (acc) {
-    //                     if (valuePerHour) {
-    //                       acc = acc + valuePerHour
-    //                     }
-    //                   } else {
-    //                     acc = valuePerHour
-    //                   }
-    //                   i++
-    //                 } while (i < allo?.gas_hour)
-    //                 newNominationValue = acc
-    //               }
-    //             } else {
-    //               newNominationValue = parseToNumber(rowDataItem?.data_temp[`${14 + dayOfWeek}`])
-    //               if (allo?.gas_hour) {
-    //                 newNominationValue = (newNominationValue / 24) * allo?.gas_hour
-    //               }
-    //             }
-
-    //             if (nominationValue) {
-    //               if (newNominationValue || newNominationValue == 0) {
-    //                 nominationValue += newNominationValue
-    //               }
-    //             } else {
-    //               nominationValue = newNominationValue
-    //             }
-    //           }
-
-    //           if (isMatch(rowDataItem?.data_temp['3'], allo['point']) && isMatch(rowDataItem?.data_temp['9'], 'MMBTU/D') && isMatch(rowDataItem?.area_text, allo['area']) && isMatch(rowDataItem?.zone_text, allo['zone'])) {
-    //             let newNominationValue: number | null = null
-    //             if (nominationFile?.nomination_type_id === 1) {
-    //               newNominationValue = parseToNumber(rowDataItem?.data_temp['38'])
-    //               if (allo?.gas_hour) {
-    //                 let i = 0
-    //                 let acc: number | null = null
-    //                 do {
-    //                   const valuePerHour: number | null = parseToNumber(rowDataItem['data_temp'][`${14 + i}`])
-    //                   if (acc) {
-    //                     if (valuePerHour) {
-    //                       acc = acc + valuePerHour
-    //                     }
-    //                   } else {
-    //                     acc = valuePerHour
-    //                   }
-    //                   i++
-    //                 } while (i < allo?.gas_hour)
-    //                 newNominationValue = acc
-    //               }
-    //             } else {
-    //               newNominationValue = parseToNumber(rowDataItem?.data_temp[`${14 + dayOfWeek}`])
-    //               if (allo?.gas_hour) {
-    //                 newNominationValue = (newNominationValue / 24) * allo?.gas_hour
-    //               }
-    //             }
-    //             if (nominationValue) {
-    //               if (newNominationValue || newNominationValue == 0) {
-    //                 nominationValue += newNominationValue
-    //               }
-    //             } else {
-    //               nominationValue = newNominationValue
-    //             }
-    //           }
-    //         })
-
-    //         if (!nominationValue && nominationValue != 0 && nominationFile?.nomination_type_id == 1) {
-    //           try {
-    //             const weeklyThatHaveDailyNomination = convertNomFile?.find((f: any) => {
-    //               return (
-    //                 getTodayNowYYYYMMDDDfaultAdd7(f?.gas_day).isSame(getTodayNowYYYYMMDDDfaultAdd7(allo['gas_day']), 'week') &&
-    //                 f?.group?.id_name === nominationFile?.group?.id_name &&
-    //                 f?.contract_code?.contract_code === nominationFile?.contract_code?.contract_code &&
-    //                 f?.nomination_type_id == 2 &&
-    //                 dailyNominationList.some((daily: any) => daily.contract_code_id == f?.contract_code_id)
-    //               )
-    //             })
-
-    //             if (weeklyThatHaveDailyNomination) {
-    //               const weeklyRowDataItem = weeklyThatHaveDailyNomination.rowData?.find(
-    //                 (weeklyRowDataItem: any) =>
-    //                   isMatch(weeklyRowDataItem?.data_temp['3'], allo['point']) && isMatch(weeklyRowDataItem?.data_temp['9'], 'MMBTU/D') && (isMatch(weeklyRowDataItem?.area_text, allo['area']) || isMatch('CONCEPT', allo['point_type'])) && isMatch(weeklyRowDataItem?.zone_text, allo['zone'])
-    //               )
-
-    //               if (weeklyRowDataItem?.data_temp) {
-    //                 let newNominationValue: number | null = null
-    //                 newNominationValue = parseToNumber(weeklyRowDataItem?.data_temp[`${14 + dayOfWeek}`])
-    //                 if (allo?.gas_hour) {
-    //                   newNominationValue = (newNominationValue / 24) * allo?.gas_hour
-    //                 }
-    //                 if (nominationValue) {
-    //                   if (newNominationValue || newNominationValue == 0) {
-    //                     nominationValue += newNominationValue
-    //                   }
-    //                 } else {
-    //                   nominationValue = newNominationValue
-    //                 }
-    //               }
-    //             }
-    //           } catch (error) { }
-    //         }
-    //       })
-    //   } else {
-    //     nominationValue = getAdjustedNomValue({
-    //       nomAdjust: nomAdjust,
-    //       convertNomFile: convertNomFile,
-    //       evidenItem: allo
-    //     })
-    //   }
-
-    //   const systemAllocation = allo['value']
-    //   const previousAllocationTPAforReview = allo['previous_value']
-
-    //   const intraFil =
-    //     intradayEviden.find((f: any) => {
-    //       return f?.gasday === allo['gas_day']
-    //     })?.data || []
-
-    //   const intraFilValue = intraFil.filter((f: any) => {
-    //     return f?.data?.filter((ff: any) => {
-    //       return (
-    //         ff?.contract === allo['contract'] &&
-    //         ff?.shipper === allo['shipper'] &&
-    //         ff?.data?.filter((fff: any) => {
-    //           return fff?.point === allo['data']?.['point']
-    //         })
-    //       )
-    //     })
-    //   })
-
-    //   const { data: dataIntraDay = null, ...nIntraDay } = intraFilValue.at(-1) ?? {}
-    //   const intradayFind = dataIntraDay?.find((f: any) => {
-    //     return f?.contract === allo['contract'] && f?.shipper === allo['shipper']
-    //   })
-    //   const { data: dataIntradayFind, ...nIntradayFind } = intradayFind ?? {}
-    //   const intradayData = dataIntradayFind?.find((f: any) => {
-    //     return f?.point === allo['point']
-    //   })
-    //   const intradayUse = {
-    //     ...nIntraDay,
-    //     ...nIntradayFind,
-    //     data: intradayData
-    //   }
-    //   const intradaySystem = intradayUse?.data?.value || null
-
-    //   // แนบข้อมูล entry/exit ที่เกี่ยวข้องเพื่อให้ฝั่ง UI ใช้แสดงรายละเอียด
-    //   const entry_exit_obj = entryExitMaster.find((f: any) => {
-    //     return f?.name?.toUpperCase() === allo['entry_exit']?.toUpperCase()
-    //   })
-
-    //   return {
-    //     ...allo,
-    //     nominationValue,
-    //     systemAllocation,
-    //     previousAllocationTPAforReview,
-    //     intradaySystem,
-    //     entry_exit_obj
-    //   }
-    // })
-    // console.timeEnd("allocationQuery s7")
-
-    console.time("allocationQuery s7"); // 1.13m -> 689.253ms
+    console.time('allocationQuery s7') // 1.13m -> 689.253ms
 
     /**
      * ============================================================
@@ -12109,32 +12953,19 @@ export class AllocationService {
      * ============================================================
      */
 
-    const S7_KEY_SEPARATOR = "\u001F";
+    const S7_KEY_SEPARATOR = '\u001F'
 
     const s7KeyValue = (value: any): string => {
       if (value === null || value === undefined) {
-        return "";
+        return ''
       }
 
-      return String(value);
-    };
+      return String(value)
+    }
 
-    const createIntradayKey = (
-      gasDay: any,
-      contract: any,
-      shipper: any,
-      point: any
-    ): string => {
-      return (
-        s7KeyValue(gasDay) +
-        S7_KEY_SEPARATOR +
-        s7KeyValue(contract) +
-        S7_KEY_SEPARATOR +
-        s7KeyValue(shipper) +
-        S7_KEY_SEPARATOR +
-        s7KeyValue(point)
-      );
-    };
+    const createIntradayKey = (gasDay: any, contract: any, shipper: any, point: any): string => {
+      return s7KeyValue(gasDay) + S7_KEY_SEPARATOR + s7KeyValue(contract) + S7_KEY_SEPARATOR + s7KeyValue(shipper) + S7_KEY_SEPARATOR + s7KeyValue(point)
+    }
 
     /**
      * ============================================================
@@ -12143,6 +12974,8 @@ export class AllocationService {
      *
      * สร้างครั้งเดียวก่อนวน result
      */
+
+    const adjustedNominationContext = tab === '1' && intradayAllocationGasDays.length < 1 ? null : createAdjustedNominationContext(nomAdjust ?? [], convertNomFile ?? [])
 
     /**
      * ============================================================
@@ -12153,15 +12986,13 @@ export class AllocationService {
      * หากชื่อซ้ำจึงต้องเก็บข้อมูลตัวแรก
      */
 
-    const entryExitMap = new Map<string, any>();
+    const entryExitMap = new Map<string, any>()
 
     for (const entryExit of entryExitMaster ?? []) {
-      const entryExitKey = String(
-        entryExit?.name ?? ""
-      ).toUpperCase();
+      const entryExitKey = String(entryExit?.name ?? '').toUpperCase()
 
       if (!entryExitMap.has(entryExitKey)) {
-        entryExitMap.set(entryExitKey, entryExit);
+        entryExitMap.set(entryExitKey, entryExit)
       }
     }
 
@@ -12186,48 +13017,39 @@ export class AllocationService {
      * จึงเท่ากับเลือก outer item ตัวสุดท้ายที่มี data
      */
 
-    const intradaySystemMap = new Map<string, any>();
+    const intradaySystemMap = new Map<string, any>()
 
-    const processedIntradayGasDay =
-      new Set<string>();
+    const processedIntradayGasDay = new Set<string>()
 
     for (const intradayRecord of intradayEviden ?? []) {
-      const gasDay = s7KeyValue(
-        intradayRecord?.gasday
-      );
+      const gasDay = s7KeyValue(intradayRecord?.gasday)
 
       /**
        * เดิมใช้ Array.find()
        * จึงใช้ record แรกของแต่ละ gasday
        */
       if (processedIntradayGasDay.has(gasDay)) {
-        continue;
+        continue
       }
 
-      processedIntradayGasDay.add(gasDay);
+      processedIntradayGasDay.add(gasDay)
 
-      const intraFil =
-        intradayRecord?.data ?? [];
+      const intraFil = intradayRecord?.data ?? []
 
-      let lastIntraItem: any = undefined;
+      let lastIntraItem: any = undefined
 
       /**
        * เลือก outer item ตัวสุดท้ายที่มี data
        */
-      for (
-        let outerIndex = 0;
-        outerIndex < intraFil.length;
-        outerIndex++
-      ) {
-        const outerItem = intraFil[outerIndex];
+      for (let outerIndex = 0; outerIndex < intraFil.length; outerIndex++) {
+        const outerItem = intraFil[outerIndex]
 
         if (outerItem?.data) {
-          lastIntraItem = outerItem;
+          lastIntraItem = outerItem
         }
       }
 
-      const dataIntraDay =
-        lastIntraItem?.data ?? [];
+      const dataIntraDay = lastIntraItem?.data ?? []
 
       /**
        * โค้ดเดิมใช้:
@@ -12240,42 +13062,24 @@ export class AllocationService {
        *
        * จึงต้องเก็บ contract + shipper ตัวแรก
        */
-      const processedContractShipper =
-        new Set<string>();
+      const processedContractShipper = new Set<string>()
 
-      for (
-        let contractIndex = 0;
-        contractIndex < dataIntraDay.length;
-        contractIndex++
-      ) {
-        const contractShipperItem =
-          dataIntraDay[contractIndex];
+      for (let contractIndex = 0; contractIndex < dataIntraDay.length; contractIndex++) {
+        const contractShipperItem = dataIntraDay[contractIndex]
 
-        const contract =
-          contractShipperItem?.contract;
+        const contract = contractShipperItem?.contract
 
-        const shipper =
-          contractShipperItem?.shipper;
+        const shipper = contractShipperItem?.shipper
 
-        const contractShipperKey =
-          s7KeyValue(contract) +
-          S7_KEY_SEPARATOR +
-          s7KeyValue(shipper);
+        const contractShipperKey = s7KeyValue(contract) + S7_KEY_SEPARATOR + s7KeyValue(shipper)
 
-        if (
-          processedContractShipper.has(
-            contractShipperKey
-          )
-        ) {
-          continue;
+        if (processedContractShipper.has(contractShipperKey)) {
+          continue
         }
 
-        processedContractShipper.add(
-          contractShipperKey
-        );
+        processedContractShipper.add(contractShipperKey)
 
-        const pointList =
-          contractShipperItem?.data ?? [];
+        const pointList = contractShipperItem?.data ?? []
 
         /**
          * โค้ดเดิมใช้:
@@ -12286,33 +13090,20 @@ export class AllocationService {
          *
          * จึงต้องเก็บ point ตัวแรก
          */
-        const processedPoint =
-          new Set<string>();
+        const processedPoint = new Set<string>()
 
-        for (
-          let pointIndex = 0;
-          pointIndex < pointList.length;
-          pointIndex++
-        ) {
-          const pointItem =
-            pointList[pointIndex];
+        for (let pointIndex = 0; pointIndex < pointList.length; pointIndex++) {
+          const pointItem = pointList[pointIndex]
 
-          const pointKey =
-            s7KeyValue(pointItem?.point);
+          const pointKey = s7KeyValue(pointItem?.point)
 
           if (processedPoint.has(pointKey)) {
-            continue;
+            continue
           }
 
-          processedPoint.add(pointKey);
+          processedPoint.add(pointKey)
 
-          const intradayKey =
-            createIntradayKey(
-              gasDay,
-              contract,
-              shipper,
-              pointItem?.point
-            );
+          const intradayKey = createIntradayKey(gasDay, contract, shipper, pointItem?.point)
 
           /**
            * รักษาพฤติกรรมเดิม:
@@ -12322,10 +13113,7 @@ export class AllocationService {
            *
            * ค่า 0 จึงกลายเป็น null เหมือนเดิม
            */
-          intradaySystemMap.set(
-            intradayKey,
-            pointItem?.value || null
-          );
+          intradaySystemMap.set(intradayKey, pointItem?.value || null)
         }
       }
     }
@@ -12335,74 +13123,70 @@ export class AllocationService {
      * 5. สร้าง resultPorp
      * ============================================================
      */
+    // NOM
+    // "point_type": "CONCEPT"
+    // 
 
-    const resultLength =
-      result?.length ?? 0;
+    const resultLength = result?.length ?? 0
 
-    const resultPorp =
-      new Array(resultLength);
+    const resultPorp = new Array(resultLength)
 
-    for (
-      let index = 0;
-      index < resultLength;
-      index++
-    ) {
-      const allo = result[index];
+    for (let index = 0; index < resultLength; index++) {
+      const allo = result[index]
 
-      let nominationValue:
-        | number
-        | null = null;
+      let nominationValue: number | null = null
 
-      let contractCapacityValue: number | null = null;
-      let allocatedValue: number | null = null;
-      
+      let contractCapacityValue: number | null = null
+      let allocatedValue: number | null = null
 
-      const alloReportList = evidenApiAllocationReport.filter(alloReport => alloReport.execute_timestamp == allo.execute_timestamp && alloReport.gas_day == allo.gas_day)
-      alloReportList.map(alloReport => {
+      let alloReportList = evidenApiAllocationReport.filter((alloReport) => alloReport.execute_timestamp == allo.execute_timestamp && alloReport.gas_day == allo.gas_day && alloReport.gas_hour == allo.gas_hour)
+      if(alloReportList.length > 1){
+        alloReportList = alloReportList.filter((alloReport) => alloReport.request_number == allo.request_number)
+      }
+      alloReportList.map((alloReport) => {
         const sameContractAlloReportDataList = alloReport.data.filter((alloReportData: any) => alloReportData.contract == allo.contract && alloReportData.shipper == allo.shipper)
         sameContractAlloReportDataList.map((alloReportData: any) => {
-          const samePointAlloReportDataItemList = alloReportData.data.filter((alloReportDataItem: any) => alloReportDataItem.point == allo.point &&
-            alloReportDataItem.zone == allo.zone &&
-            alloReportDataItem.area == allo.area &&
-            alloReportDataItem.customer_type == allo.customer_type &&
-            alloReportDataItem.point_type == allo.point_type &&
-            alloReportDataItem.relation_point == allo.relation_point &&
-            alloReportDataItem.relation_point_type == allo.relation_point_type &&
-            alloReportDataItem.entry_exit == allo.entry_exit
+          const samePointAlloReportDataItemList = alloReportData.data.filter(
+            (alloReportDataItem: any) =>
+              alloReportDataItem.point == allo.point &&
+              alloReportDataItem.zone == allo.zone &&
+              alloReportDataItem.area == allo.area &&
+              alloReportDataItem.customer_type == allo.customer_type &&
+              alloReportDataItem.point_type == allo.point_type &&
+              alloReportDataItem.relation_point == allo.relation_point &&
+              alloReportDataItem.relation_point_type == allo.relation_point_type &&
+              alloReportDataItem.entry_exit == allo.entry_exit
           )
           samePointAlloReportDataItemList.map((alloReportDataItem: any) => {
             const allocatedValueList = alloReportDataItem.values.filter((value: any) => value.tag == 'allocatedValue')
             const nominatedValueList = alloReportDataItem.values.filter((value: any) => value.tag == 'nominatedValue')
             const contractCapacityList = alloReportDataItem.values.filter((value: any) => value.tag == 'contractCapacity')
 
-            allocatedValueList.map((valueItem:any) => {
-              if(valueItem.value || valueItem.value == 0) {
-                if(allocatedValue){
+            allocatedValueList.map((valueItem: any) => {
+              if (valueItem.value || valueItem.value == 0) {
+                if (allocatedValue) {
                   allocatedValue = parseToNumber6Decimal(allocatedValue + valueItem.value)
-                }
-                else{
+                } else {
                   allocatedValue = valueItem.value
                 }
               }
             })
 
-            nominatedValueList.map((valueItem:any) => {
-              if(valueItem.value || valueItem.value == 0) {
-                if(nominationValue){
+            nominatedValueList.map((valueItem: any) => {
+              if (valueItem.value || valueItem.value == 0) {
+                if (nominationValue) {
                   nominationValue = parseToNumber6Decimal(nominationValue + valueItem.value)
-                }
-                else{
+                } else {
                   nominationValue = valueItem.value
                 }
               }
             })
 
-            contractCapacityList.map((valueItem:any) => {
-              if(valueItem.value || valueItem.value == 0) {
-                if(contractCapacityValue){
+            contractCapacityList.map((valueItem: any) => {
+              if (valueItem.value || valueItem.value == 0) {
+                if (contractCapacityValue) {
                   contractCapacityValue = parseToNumber6Decimal(contractCapacityValue + valueItem.value)
-                }
-                else{
+                } else {
                   contractCapacityValue = valueItem.value
                 }
               }
@@ -12411,99 +13195,85 @@ export class AllocationService {
         })
       })
 
-      const intradayKey =
-        createIntradayKey(
-          allo?.gas_day,
-          allo?.contract,
-          allo?.shipper,
-          allo?.point
-        );
+      // if(!nominationValue && nominationValue != 0 && isMatch(allo.point_type, 'CONCEPT')){
+      //   if (tab === '1') {
+      //     /**
+      //      * Tab 1 ใช้ฟังก์ชันเดิมก่อน
+      //      */
+      //     if (intradayAllocationGasDays.includes(dayjs(allo?.gas_day, 'YYYY-MM-DD').format('DD/MM/YYYY'))) {
+      //       nominationValue = getAdjustedNomValueFast({
+      //         context: adjustedNominationContext!,
+      //         convertNomFile,
+      //         evidenItem: allo,
+      //         allocationMode: 'eod'
+      //       })
+      //     } else {
+      //       nominationValue = getNomValue(convertNomFile, allo)
+      //     }
+      //   } else {
+      //     /**
+      //      * Tab 2 ใช้ context/index ที่สร้างครั้งเดียว
+      //      */
+      //     nominationValue = getAdjustedNomValueFast({
+      //       context: adjustedNominationContext!,
+      //       convertNomFile,
+      //       evidenItem: allo
+      //     })
+      //   }
+      // }
 
-      const intradaySystem =
-        intradaySystemMap.has(intradayKey)
-          ? intradaySystemMap.get(intradayKey)
-          : null;
+      const intradayKey = createIntradayKey(allo?.gas_day, allo?.contract, allo?.shipper, allo?.point)
 
-      const entryExitKey = String(
-        allo?.entry_exit ?? ""
-      ).toUpperCase();
+      const intradaySystem = intradaySystemMap.has(intradayKey) ? intradaySystemMap.get(intradayKey) : null
 
-      const entry_exit_obj =
-        entryExitMap.get(entryExitKey);
+      const entryExitKey = String(allo?.entry_exit ?? '').toUpperCase()
+
+      const entry_exit_obj = entryExitMap.get(entryExitKey)
 
       resultPorp[index] = {
         ...allo,
         nominationValue,
         contractCapacityValue,
         allocatedValue,
-        usagePercentage: ((allo?.value || allo?.value == 0) && (contractCapacityValue)) ? parseToNumber2Decimal((allo?.value / contractCapacityValue) * 100) : null,
+        usagePercentage: (allo?.value || allo?.value == 0) && contractCapacityValue ? parseToNumber2Decimal((allo?.value / contractCapacityValue) * 100) : null,
         systemAllocation: allo?.value,
-        previousAllocationTPAforReview:
-          allo?.previous_value,
+        previousAllocationTPAforReview: allo?.previous_value,
         intradaySystem,
         entry_exit_obj
-      };
+      }
     }
-
     /**
      * ============================================================
      * 6. Performance Log
      * ============================================================
      */
 
-    console.log(
-      "allocationQuery s7 performance:",
-      {
-        tab,
-        totalRows: resultLength,
+    console.log('allocationQuery s7 performance:', {
+      tab,
+      totalRows: resultLength,
 
-        intradayIndex:
-          intradaySystemMap.size,
+      intradayIndex: intradaySystemMap.size,
 
-        entryExitIndex:
-          entryExitMap.size
-      }
-    );
+      entryExitIndex: entryExitMap.size
+    })
 
-    console.timeEnd("allocationQuery s7");
+    console.timeEnd('allocationQuery s7')
 
-    console.time("allocationQuery s8");
+    console.time('allocationQuery s8')
 
-    const S8_KEY_SEPARATOR = "\u001F";
+    const S8_KEY_SEPARATOR = '\u001F'
 
     const s8KeyValue = (value: any): string => {
       if (value === null || value === undefined) {
-        return "";
+        return ''
       }
 
-      return String(value);
-    };
+      return String(value)
+    }
 
-    const createAllocationMasterKey = (
-      gasDay: any,
-      shipper: any,
-      contract: any,
-      point: any,
-      entryExit: any,
-      area: any,
-      zone: any
-    ): string => {
-      return (
-        s8KeyValue(gasDay) +
-        S8_KEY_SEPARATOR +
-        s8KeyValue(shipper) +
-        S8_KEY_SEPARATOR +
-        s8KeyValue(contract) +
-        S8_KEY_SEPARATOR +
-        s8KeyValue(point) +
-        S8_KEY_SEPARATOR +
-        s8KeyValue(entryExit) +
-        S8_KEY_SEPARATOR +
-        s8KeyValue(area) +
-        S8_KEY_SEPARATOR +
-        s8KeyValue(zone)
-      );
-    };
+    const createAllocationMasterKey = (gasDay: any, shipper: any, contract: any, point: any, entryExit: any, area: any, zone: any): string => {
+      return s8KeyValue(gasDay) + S8_KEY_SEPARATOR + s8KeyValue(shipper) + S8_KEY_SEPARATOR + s8KeyValue(contract) + S8_KEY_SEPARATOR + s8KeyValue(point) + S8_KEY_SEPARATOR + s8KeyValue(entryExit) + S8_KEY_SEPARATOR + s8KeyValue(area) + S8_KEY_SEPARATOR + s8KeyValue(zone)
+    }
 
     /**
      * ============================================================
@@ -12515,30 +13285,18 @@ export class AllocationService {
      *
      * ดังนั้นห้าม set ทับข้อมูลเดิม
      */
-    const allocationMasterMap = new Map<string, any>();
+    const allocationMasterMap = new Map<string, any>()
 
-    for (
-      let index = 0;
-      index < (allocationMaster?.length ?? 0);
-      index++
-    ) {
-      const master = allocationMaster[index];
+    for (let index = 0; index < (allocationMaster?.length ?? 0); index++) {
+      const master = allocationMaster[index]
 
-      const masterKey = createAllocationMasterKey(
-        master?.gas_day_text,
-        master?.shipper_name_text,
-        master?.contract_code_text,
-        master?.point_text,
-        master?.entry_exit_text,
-        master?.area_text,
-        master?.zone_text
-      );
+      const masterKey = createAllocationMasterKey(master?.gas_day_text, master?.shipper_name_text, master?.contract_code_text, master?.point_text, master?.entry_exit_text, master?.area_text, master?.zone_text)
 
       /**
        * เก็บตัวแรก เพื่อให้ผลเหมือน Array.find()
        */
       if (!allocationMasterMap.has(masterKey)) {
-        allocationMasterMap.set(masterKey, master);
+        allocationMasterMap.set(masterKey, master)
       }
     }
 
@@ -12548,68 +13306,54 @@ export class AllocationService {
      * ============================================================
      */
 
-    const resultPorpLength = resultPorp?.length ?? 0;
-    const response = new Array(resultPorpLength);
+    const resultPorpLength = resultPorp?.length ?? 0
+    const response = new Array(resultPorpLength)
 
-    for (
-      let index = 0;
-      index < resultPorpLength;
-      index++
-    ) {
-      const item = resultPorp[index];
+    for (let index = 0; index < resultPorpLength; index++) {
+      const item = resultPorp[index]
 
-      const itemKey = createAllocationMasterKey(
-        item?.gas_day,
-        item?.shipper,
-        item?.contract,
-        item?.point,
-        item?.entry_exit,
-        item?.area,
-        item?.zone
-      );
+      const itemKey = createAllocationMasterKey(item?.gas_day, item?.shipper, item?.contract, item?.point, item?.entry_exit, item?.area, item?.zone)
 
-      const aMaster =
-        allocationMasterMap.get(itemKey);
+      const aMaster = allocationMasterMap.get(itemKey)
 
       response[index] = {
         ...item,
         id: aMaster?.id || null,
-        allocation_status:
-          aMaster?.allocation_status || null,
-        review_code:
-          aMaster?.review_code || null,
-        allocation_management_comment:
-          aMaster?.allocation_management_comment || [],
-        allocation_management_shipper_review:
-          aMaster?.allocation_management_shipper_review || []
-      };
+        allocation_status: aMaster?.allocation_status || null,
+        review_code: aMaster?.review_code || null,
+        allocation_management_comment: aMaster?.allocation_management_comment || [],
+        allocation_management_shipper_review: aMaster?.allocation_management_shipper_review || []
+      }
     }
 
-    console.log("allocationQuery s8 performance:", {
+    console.log('allocationQuery s8 performance:', {
       resultPorpLength,
-      allocationMasterLength:
-        allocationMaster?.length ?? 0,
-      allocationMasterIndex:
-        allocationMasterMap.size
-    });
+      allocationMasterLength: allocationMaster?.length ?? 0,
+      allocationMasterIndex: allocationMasterMap.size
+    })
 
-    console.timeEnd("allocationQuery s8");
+    console.timeEnd('allocationQuery s8')
 
     console.timeEnd('[RUNTIME] allocationQuery')
+    // East_to_RA6
+    // East_to_BVW10
+    // West_to_RA6
+    // West_to_BVW10
+    // nominationValue
     return response
   }
 
   // allocationReportViewGet
-  async allocationReport(payload: any, userId: any) { 
+  async allocationReport(payload: any, userId: any) {
     console.time('[RUNTIME] allocationReport')
-    const { start_date, end_date, skip: skip_, limit: limit_, tab: tab_ } = payload
+    const {start_date, end_date, skip: skip_, limit: limit_, tab: tab_} = payload
     const tab = String(tab_)
     const start = getTodayStartAdd7(start_date)
     const end = getTodayEndAdd7(end_date)
     const startDate = start.toDate()
     const endDate = end.toDate()
 
-    if (!start.isValid() || !end.isValid()) {
+    if (!start || !end || !start.isValid() || !end.isValid()) {
       throw new Error('⛔ Invalid date format')
     }
 
@@ -12620,7 +13364,7 @@ export class AllocationService {
     // *Query data
     const [entryExitMaster, areaMaster, publicList] = await Promise.all([this.repo.getEntryExit(), this.repo.getArea(startDate, endDate), this.repo.getPublication(startDate, endDate, true)])
     let allocationReport = await this.repo.getAllocationReport(startDate, endDate)
-    console.log('__allocationReport : ', allocationReport);
+    console.log('__allocationReport : ', allocationReport)
     // *build lookup
     const entryExitMap = new Map<string, any>(entryExitMaster.map((e: any) => [String(e?.name ?? '').toUpperCase(), e]))
 
@@ -12652,23 +13396,23 @@ export class AllocationService {
     const result: any =
       tab === '1'
         ? Object.values(
-          flatEvidenApi.reduce((acc, curr) => {
-            const key = `${curr.gas_day}|${curr.shipper}|${curr.contract}|${curr.point}|${curr.entry_exit}|${curr.area}|${curr.zone}`
-            if (!acc[key] || acc[key].execute_timestamp < curr.execute_timestamp) {
-              acc[key] = curr
-            }
-            return acc
-          }, {})
-        )
+            flatEvidenApi.reduce((acc, curr) => {
+              const key = `${curr.gas_day}|${curr.shipper}|${curr.contract}|${curr.point}|${curr.entry_exit}|${curr.area}|${curr.zone}`
+              if (!acc[key] || acc[key].execute_timestamp < curr.execute_timestamp) {
+                acc[key] = curr
+              }
+              return acc
+            }, {})
+          )
         : Object.values(
-          flatEvidenApi.reduce((acc, curr) => {
-            const key = `${curr.gas_day}|${curr.gas_hour}|${curr.shipper}|${curr.contract}|${curr.point}|${curr.entry_exit}|${curr.area}|${curr.zone}|${curr.execute_timestamp}`
-            if (!acc[key]) {
-              acc[key] = curr
-            }
-            return acc
-          }, {})
-        )
+            flatEvidenApi.reduce((acc, curr) => {
+              const key = `${curr.gas_day}|${curr.gas_hour}|${curr.shipper}|${curr.contract}|${curr.point}|${curr.entry_exit}|${curr.area}|${curr.zone}|${curr.execute_timestamp}`
+              if (!acc[key]) {
+                acc[key] = curr
+              }
+              return acc
+            }, {})
+          )
 
     // *check update new allocation report
     const newAllocation: any[] = []
@@ -12788,22 +13532,19 @@ export class AllocationService {
       const latestData = Object.values(
         response.reduce((acc: any, item: any) => {
           // const pointKey = item.point_id ?? item.point?.id ?? item.point;
-          const pointKey = item.contract_point;
+          const pointKey = item.contract_point
 
-          const key = `${item.gas_day}_${item.gas_hour}_${item.contract}_${pointKey}`;
+          const key = `${item.gas_day}_${item.gas_hour}_${item.contract}_${pointKey}`
 
-          if (
-            !acc[key] ||
-            Number(item.execute_timestamp) > Number(acc[key].execute_timestamp)
-          ) {
-            acc[key] = item;
+          if (!acc[key] || Number(item.execute_timestamp) > Number(acc[key].execute_timestamp)) {
+            acc[key] = item
           }
 
-          return acc;
+          return acc
         }, {})
-      );
+      )
       return latestData.sort((a: any, b: any) => {
-        if(a.gas_day === b.gas_day) {
+        if (a.gas_day === b.gas_day) {
           const aGasHour = a.gas_hour
           const bGasHour = b.gas_hour
           return bGasHour - aGasHour
@@ -12812,8 +13553,6 @@ export class AllocationService {
         const bGasDay = getTodayNowYYYYMMDDDfaultAdd7(b.gas_day)
         return bGasDay.diff(aGasDay, 'day')
       })
-
-
     } else {
       return response
     }

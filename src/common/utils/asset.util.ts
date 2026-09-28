@@ -615,7 +615,7 @@ export async function arrConfigSet(
         i++
       ) {
         let idNode =
-          setNodes.find(
+          (setNodes || []).find(
             (f: any) => {
               return (
                 f?.id ===
@@ -700,7 +700,7 @@ export async function dfConfigSet(
     i < resultDf.length;
     i++
   ) {
-    let idNode = nodes.find(
+    let idNode = (nodes || []).find(
       (f: any) => {
         return (
           f?.id ===

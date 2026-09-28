@@ -36,9 +36,11 @@ export class PlanningDashboardController {
   @UseGuards(AuthGuard)
   @Get('long-term')
   dashboardLong(
+    @Query('sheet') sheet: string,
     @Req() req: any
   ) {
     return this.planningDashboardService.dashboardLong(
+      {sheet},
       req?.user?.sub
     )
   }
@@ -46,9 +48,11 @@ export class PlanningDashboardController {
   @UseGuards(AuthGuard)
   @Get('medium-term')
   dashboardMedium(
+    @Query('sheet') sheet: string,
     @Req() req: any
   ) {
     return this.planningDashboardService.dashboardMedium(
+      {sheet},
       req?.user?.sub
     )
   }
@@ -56,9 +60,11 @@ export class PlanningDashboardController {
   @UseGuards(AuthGuard)
   @Get('short-term')
   dashboardShort(
+    @Query('sheet') sheet: string,
     @Req() req: any
   ) {
     return this.planningDashboardService.dashboardShort(
+      {sheet},
       req?.user?.sub
     )
   }

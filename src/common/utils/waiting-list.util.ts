@@ -67,8 +67,8 @@ export function getEventDateRange(atDate?: any) {
 // Helper method to get allocation date range
 export function getAllocationDateRange(atDate?: any, startDate?: string, endDate?: string) {
   const date = getTodayNowAdd7(atDate)
-  const start = startDate || date.subtract(1, 'month').tz('Asia/Bangkok').format('YYYY-MM-DD')
-  const end = endDate || date.tz('Asia/Bangkok').format('YYYY-MM-DD')
+  const start = startDate || date.startOf('year').tz('Asia/Bangkok').format('YYYY-MM-DD')
+  const end = endDate || date.endOf('day').tz('Asia/Bangkok').format('YYYY-MM-DD')
   return {
     startDate: start,
     endDate: end

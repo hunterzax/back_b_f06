@@ -174,7 +174,7 @@ export class PathManagementController {
     const {mode, data} =
       await this.pathManagementService.pathManagementEdit(
         body,
-        req?.user?.sub,
+        (req?.user?.sub || -1),
         id
       )
     const his =

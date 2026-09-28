@@ -61,7 +61,7 @@ export class BulletinBoardService {
 
     let result = []
     let current =
-      starts.clone()
+      (starts || dayjs()).clone()
 
     while (
       current.isBefore(
@@ -122,7 +122,7 @@ export class BulletinBoardService {
       : null
     let result = []
     let current =
-      starts.clone()
+      (starts || dayjs()).clone()
 
     while (
       current.isBefore(
@@ -220,22 +220,22 @@ export class BulletinBoardService {
     if (
       file_period_mode === 1
     ) {
-      diff = ends.diff(
-        starts,
+      diff = (ends || dayjs()).diff(
+        (starts || dayjs()),
         'day'
       ) // คำนวณต่างกันเป็นจำนวนวัน
     } else if (
       file_period_mode === 2
     ) {
-      diff = ends.diff(
-        starts,
+      diff = (ends || dayjs()).diff(
+        (starts || dayjs()),
         'month'
       ) // คำนวณต่างกันเป็นจำนวนเดือน
     } else if (
       file_period_mode === 3
     ) {
-      diff = ends.diff(
-        starts,
+      diff = (ends || dayjs()).diff(
+        (starts || dayjs()),
         'year'
       ) // คำนวณต่างกันเป็นจำนวนปี
     } else {
@@ -335,17 +335,16 @@ export class BulletinBoardService {
       file_period_mode === 1
     ) {
       diff =
-        ends.diff(
+        (ends || dayjs()).diff(
           starts,
           'day'
         ) + 1 // คำนวณต่างกันเป็นจำนวนวัน
     } else if (
       file_period_mode === 2
     ) {
-      // diff = ends.diff(starts, 'month'); // คำนวณต่างกันเป็นจำนวนเดือน
-      // diff = ends.endOf('month').diff(starts.startOf('month'), 'month') + 1; // นับเดือนจากต้นเดือนถึงสิ้นเดือน
+     
       diff =
-        ends.diff(
+        (ends || dayjs()).diff(
           starts,
           'month'
         ) + 1 // นับเดือนจากต้นเดือนถึงสิ้นเดือน
@@ -353,7 +352,7 @@ export class BulletinBoardService {
       file_period_mode === 3
     ) {
       diff =
-        ends.diff(
+        (ends || dayjs()).diff(
           starts,
           'year'
         ) + 1 // คำนวณต่างกันเป็นจำนวนปี

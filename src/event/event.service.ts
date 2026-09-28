@@ -42,10 +42,10 @@ export class EventService {
   ) {}
 
   async useReqs(req: any) {
-    const ip = req.headers['x-forwarded-for'] || req.ip
+    const ip = req?.headers?.['x-forwarded-for'] || req?.ip
     return {
       ip: ip,
-      sub: req?.user?.sub,
+      sub: (req?.user?.sub || -1),
       first_name: req?.user?.first_name,
       last_name: req?.user?.last_name,
       username: req?.user?.username,
@@ -297,7 +297,7 @@ export class EventService {
       // }
     })
     : undefined
-    const rData = this.mapDataEventOffspacGas(result, actionUserTypeId || result2?.user_type_id || result?.user_type_id, groupId)
+    const rData = this.mapDataEventOffspacGas(result, actionUserTypeId || result2?.user_type_id || result.user_type_id, groupId)
     return rData
   }
 
@@ -327,7 +327,7 @@ export class EventService {
         }
       }
     })
-    const userTypeId = group.user_type?.id
+    const userTypeId = group?.user_type?.id
     const groupId = group?.id
 
     const eventDateCondition =
@@ -654,7 +654,7 @@ export class EventService {
           }
         }
       })
-      const userTypeId = group.user_type?.id
+      const userTypeId = group?.user_type?.id
       const groupId = group?.id
 
       if (userTypeId === 3 || userTypeId === 4) {
@@ -850,7 +850,7 @@ export class EventService {
             }
           }
         })
-        const userTypeId = group.user_type?.id
+        const userTypeId = group?.user_type?.id
         const groupId = group?.id
 
         if (userTypeId !== 3 && userTypeId !== 4) {
@@ -1200,7 +1200,7 @@ export class EventService {
     
     const result = await this.prisma.$transaction(
       async (prisma) => {
-        const userTypeId = group.user_type?.id
+        const userTypeId = group?.user_type?.id
         const groupId = group?.id
 
         const checkStatusRunId = await prisma.event_runnumber.findFirst({
@@ -1632,7 +1632,7 @@ export class EventService {
     const fromDate = dayjs(event_document_action[event_document_action.length - 1]?.create_date).locale('th')
     const fromSignature = event_document_action[event_document_action.length - 1]?.create_by_account?.signature_base_64 || '' //
 
-    const toAction = event_document_action?.find((f: any) => (f?.user_type_id === 2 || f?.user_type_id === 1))
+    const toAction = (event_document_action || []).find((f: any) => (f?.user_type_id === 2 || f?.user_type_id === 1))
     const toFullname = toAction?.create_by_account?.first_name && toAction?.create_by_account?.last_name ? `${toAction?.create_by_account?.first_name} ${toAction?.create_by_account?.last_name}` : ''
     // const toCompany = 'บริษัท ปตท.จำกัด (มหาชน)'
     const toCompany = 'PTT TSO'
@@ -1652,7 +1652,7 @@ export class EventService {
 
     const longdo_dict = rdoc1Find?.longdo_dict || '' //สำเนา
 
-    const nameGroupDoc = event_document_action[event_document_action.length - 1]?.group?.name
+    const nameGroupDoc = event_document_action && event_document_action[event_document_action.length - 1]?.group?.name || ""
     // จุดส่งเข้าที่เกิดเหตุ | input_delivery_point_at_the_scene
     // วัน/เวลาที่เกิดเหตุ | input_date_time_of_the_incident
     // ประเภทและค่าของคุณภาพก๊าซไม่อยู่ในข้อกำหนดคุณภาพก๊าซ | input_gas_quality_is_not_in_the_gas_quality_requirements
@@ -2661,30 +2661,32 @@ export class EventService {
           const sendEmail = await mailShipperFn(emailUse?.shipper, payload?.document7[i], gSHIPPER, 1013) // menus_id event 105 | (doc 1 2 3) Off-spec Gas 107 | (doc 3.9 4 5 6) Emergency/Difficult Day 106 | (doc 7 8) OFO 1013
 
           try {
-            const templateDocCreate = {
-              cc: emailUse?.ccEmail,
-              header: header,
-              sendEmail: sendEmail,
-              subject: emailNotificationData?.subject || '',
-              detail: emailNotificationData?.detail || '',
-              excelBuffer: excelBuffer,
-              tagHTMLDetail: `
-                <div>
-                  <ul>
-                    <li>Event Code: ${payload?.event_nember || ''}</li>
-                    <li>Gas Day :  ${payload?.document7[i]?.doc_7_input_date_time_of_the_incident || ''}</li>
-                    <li>ระบบส่งก๊าซ :  ${payload?.event_doc_ofo_gas_tranmiss === 5 ? payload?.event_doc_ofo_gas_tranmiss_other : payload?.event_doc_ofo_gas_tranmiss?.name || ''}</li>
-                    <li>การสั่งการ :  ${payload?.document7[i]?.event_doc_gas_shipper_ofo_match[payload?.document7[i]?.event_doc_gas_shipper_ofo_match?.length - 1]?.event_doc_gas_shipper_ofo?.ir === 1 ? 'เพิ่ม' : 'ลด'}</li>
-                    <li>ปริมาณก๊าซ :  ${payload?.document7[i]?.event_doc_gas_shipper_ofo_match[payload?.document7[i]?.event_doc_gas_shipper_ofo_match?.length - 1]?.event_doc_gas_shipper_ofo?.nom_value_mmscfh || ''}</li>
-                  </ul>
-                </div>
-                `,
-              filename: 'ofo_document.pdf',
-              // filename: 'documents.zip',
-              contentType: 'application/pdf'
-              // contentType: 'application/zip',
+            if(payload){
+              const templateDocCreate = {
+                cc: emailUse?.ccEmail,
+                header: header,
+                sendEmail: sendEmail,
+                subject: emailNotificationData?.subject || '',
+                detail: emailNotificationData?.detail || '',
+                excelBuffer: excelBuffer,
+                tagHTMLDetail: `
+                  <div>
+                    <ul>
+                      <li>Event Code: ${payload?.event_nember || ''}</li>
+                      <li>Gas Day :  ${payload?.document7[i]?.doc_7_input_date_time_of_the_incident || ''}</li>
+                      <li>ระบบส่งก๊าซ :  ${(payload?.event_doc_ofo_gas_tranmiss_id === 5 || payload?.event_doc_ofo_gas_tranmiss === 5) ? payload?.event_doc_ofo_gas_tranmiss_other : payload?.event_doc_ofo_gas_tranmiss?.name || ''}</li>
+                      <li>การสั่งการ :  ${payload?.document7[i]?.event_doc_gas_shipper_ofo_match[payload?.document7[i]?.event_doc_gas_shipper_ofo_match?.length - 1]?.event_doc_gas_shipper_ofo?.ir === 1 ? 'เพิ่ม' : 'ลด'}</li>
+                      <li>ปริมาณก๊าซ :  ${payload?.document7[i]?.event_doc_gas_shipper_ofo_match[payload?.document7[i]?.event_doc_gas_shipper_ofo_match?.length - 1]?.event_doc_gas_shipper_ofo?.nom_value_mmscfh || ''}</li>
+                    </ul>
+                  </div>
+                  `,
+                filename: 'ofo_document.pdf',
+                // filename: 'documents.zip',
+                contentType: 'application/pdf'
+                // contentType: 'application/zip',
+              }
+              await sendEmailProviderCustomDocs(templateDocCreate)
             }
-            await sendEmailProviderCustomDocs(templateDocCreate)
           } catch (error) {}
         }
       }
@@ -2693,25 +2695,27 @@ export class EventService {
         const sendEmail = mailTSOFn(gTSO)
 
         try {
-          const templateDocCreate = {
-            cc: [],
-            header: header,
-            sendEmail: sendEmail,
-            subject: emailNotificationData?.subject || '',
-            detail: emailNotificationData?.detail || '',
-            excelBuffer: excelBuffer, // zip แปลงกลับ
-            tagHTMLDetail: `
-            <div>
-              <ul>
-                <li>Event Code: ${payload?.event_nember || ''}</li>
-                <li>ระบบส่งก๊าซ :  ${payload?.event_doc_ofo_gas_tranmiss === 5 ? payload?.event_doc_ofo_gas_tranmiss_other : payload?.event_doc_ofo_gas_tranmiss?.name || ''}</li>
-              </ul>
-            </div>
-            `,
-            filename: 'documents.zip',
-            contentType: 'application/zip'
+          if(payload){
+            const templateDocCreate = {
+              cc: [],
+              header: header,
+              sendEmail: sendEmail,
+              subject: emailNotificationData?.subject || '',
+              detail: emailNotificationData?.detail || '',
+              excelBuffer: excelBuffer, // zip แปลงกลับ
+              tagHTMLDetail: `
+              <div>
+                <ul>
+                  <li>Event Code: ${payload?.event_nember || ''}</li>
+                  <li>ระบบส่งก๊าซ :  ${(payload?.event_doc_ofo_gas_tranmiss_id === 5 || payload?.event_doc_ofo_gas_tranmiss === 5) ? payload?.event_doc_ofo_gas_tranmiss_other : payload?.event_doc_ofo_gas_tranmiss?.name || ''}</li>
+                </ul>
+              </div>
+              `,
+              filename: 'documents.zip',
+              contentType: 'application/zip'
+            }
+            await sendEmailProviderCustomDocs(templateDocCreate)
           }
-          await sendEmailProviderCustomDocs(templateDocCreate)
         } catch (error) {}
       }
     } else if (doc === 8) {
@@ -3051,7 +3055,7 @@ export class EventService {
             }
           }
         })
-        const userTypeId = group.user_type?.id
+        const userTypeId = group?.user_type?.id
         const groupId = group?.id
 
         if (userTypeId !== 2 && userTypeId !== 1) {
@@ -4555,7 +4559,7 @@ export class EventService {
             }
           }
         })
-        const userTypeId = group.user_type?.id
+        const userTypeId = group?.user_type?.id
         const groupId = group?.id
 
         if (userTypeId !== 3 && userTypeId !== 4) {
@@ -6234,7 +6238,7 @@ export class EventService {
             }
           }
         })
-        const userTypeId = group.user_type?.id
+        const userTypeId = group?.user_type?.id
         const groupId = group?.id
 
         // if (userTypeId !== 2 && userTypeId !== 3) {
@@ -7555,30 +7559,6 @@ export class EventService {
               data: useCreate
             })
 
-            // document_code: contractCodeCount + 1,
-            // const shipOle = await prisma.event_document.findMany({
-            //     where: {
-            //       event_runnumber_id: getEventDocument?.event_runnumber_id,
-            //       event_doc_master_id: 3,
-            //       user_type:{
-            //         id: {
-            //           in: [3, 4]
-            //         }
-            //       }
-            //     },
-            //   })
-            //   for (let isp = 0; isp < shipOle.length; isp++) {
-            //     await prisma.event_document.updateMany({
-            //         where: {
-            //           id: shipOle?.[isp]?.id
-            //         },
-            //         data: {
-            //           event_doc_status_id: 2,
-            //           document_code: contractCodeCount + (isp + 1),
-            //         }
-            //       })
-            //   }
-
             if (file && file.length > 0) {
               const fileData = file?.map((fileItem: any) => {
                 return {
@@ -7645,7 +7625,7 @@ export class EventService {
               }
             })
 
-            if(!getEventDocument?.event_document_action.some(f => f?.event_doc_status_id == event_doc_status_id && (f?.user_type_id == 1 || f?.user_type_id == 2))){
+            if(!getEventDocument?.event_document_action?.some(f => f?.event_doc_status_id == event_doc_status_id && (f?.user_type_id == 1 || f?.user_type_id == 2))){
               try {
                 await prisma.event_document_action.create({
                   data: {
@@ -8024,7 +8004,7 @@ export class EventService {
           }
 
           
-          if(event_doc_status_id == 2 && (userTypeId == 1 || userTypeId == 2) && !getEventDocument?.event_document_action.some(f => f?.event_doc_status_id == event_doc_status_id && (f?.user_type_id == 1 || f?.user_type_id == 2))){
+          if(event_doc_status_id == 2 && (userTypeId == 1 || userTypeId == 2) && !getEventDocument?.event_document_action?.some(f => f?.event_doc_status_id == event_doc_status_id && (f?.user_type_id == 1 || f?.user_type_id == 2))){
             try {
               await prisma.event_document_action.create({
                 data: {
@@ -8365,7 +8345,7 @@ export class EventService {
           })
         : groupObj
 
-    const userTypeId = group.user_type?.id
+    const userTypeId = group?.user_type?.id
     const groupId = group?.id
     const isShipper = (userTypeId !== 1 && userTypeId !== 2)
 
@@ -8754,7 +8734,7 @@ export class EventService {
             }
           }
         })
-        const userTypeId = group.user_type?.id
+        const userTypeId = group?.user_type?.id
         const groupId = group?.id
 
         if (userTypeId !== 3 && userTypeId !== 4) {
@@ -9012,7 +8992,7 @@ export class EventService {
       }
     })
 
-    const userTypeId = group.user_type?.id
+    const userTypeId = group?.user_type?.id
     const groupId = group?.id
     if (userTypeId === 3 || userTypeId === 4) {
       // {
@@ -9104,7 +9084,7 @@ export class EventService {
 
       // ---- create runnumber
       // rdoc1Find?.create_by_account?.account_manage?.[0]?.user_type_id === 2
-      const fromFullnameH = (rdoc1Find?.create_by_account?.account_manage?.[0].group?.name && rdoc1Find?.create_by_account?.account_manage?.[0].group?.name) || ''
+      const fromFullnameH = rdoc1Find?.create_by_account?.account_manage?.[0].group?.name || ''
 
       const fromFullname = rdoc1Find?.create_by_account?.first_name && rdoc1Find?.create_by_account?.last_name ? `${rdoc1Find?.create_by_account?.first_name} ${rdoc1Find?.create_by_account?.last_name}` : ''
       // const fromCompany = rdoc1Find?.user_type_id !== 3 ? 'บริษัท ปตท.จำกัด (มหาชน)' : rdoc1Find?.group?.company_name || ''
@@ -10192,7 +10172,7 @@ export class EventService {
         const toSignature = (toAction?.event_doc_status_id !== 1 && toAction?.event_doc_status_id !== 2 && toAction?.create_by_account?.signature_base_64) || '' //
 
         // ---- create runnumber
-        const fromFullnameH = (rdoc1Find?.create_by_account?.account_manage?.[0].group?.name && rdoc1Find?.create_by_account?.account_manage?.[0].group?.name) || ''
+        const fromFullnameH = rdoc1Find?.create_by_account?.account_manage?.[0].group?.name || ''
         const fromFullname = rdoc1Find?.create_by_account?.first_name && rdoc1Find?.create_by_account?.last_name ? `${rdoc1Find?.create_by_account?.first_name} ${rdoc1Find?.create_by_account?.last_name}` : ''
         // const fromCompany = rdoc1Find?.user_type_id !== 3 ? 'บริษัท ปตท.จำกัด (มหาชน)' : rdoc1Find?.group?.company_name || ''
         const fromCompany = (rdoc1Find?.create_by_account?.account_manage?.[0]?.user_type_id !== 3 && rdoc1Find?.create_by_account?.account_manage?.[0]?.user_type_id !== 4) ? 'PTT TSO' : rdoc1Find?.group?.name + ' Shipper' || ''
@@ -10475,7 +10455,7 @@ export class EventService {
                             text: `วันที่เดือนปี: ${tsoDate?.isValid() ? `${tsoDate.format('DD')} / ${tsoDate.format('MM')} / ${tsoDate.format('BB')}` : '  /   /  '}`
                           },
                           {
-                            text: `เวลา : ${tsoDate?.isValid() ? tsoDate.format('HH:mm') : ' '} น.`
+                            text: `เวลา : ${tsoDate && (tsoDate?.isValid() ? tsoDate.format('HH:mm') : ' ') || " "} น.`
                           }
                         ],
                         margin: [5, 5, 5, 5]
@@ -11400,7 +11380,7 @@ export class EventService {
         }
       }
     })
-    const rData = this.emerMapDataEvent(result, result?.user_type_id, groupId)
+    const rData = result && this.emerMapDataEvent(result, result.user_type_id, groupId)
     return rData
   }
 
@@ -11427,7 +11407,7 @@ export class EventService {
         }
       }
     })
-    const userTypeId = group.user_type?.id
+    const userTypeId = group?.user_type?.id
     const groupId = group?.id
 
     const eventDateCondition =
@@ -11891,7 +11871,7 @@ export class EventService {
             }
           }
         })
-        const userTypeId = group.user_type?.id
+        const userTypeId = group?.user_type?.id
         const groupId = group?.id
 
         if (userTypeId === 3 || userTypeId === 4) {
@@ -12458,7 +12438,7 @@ export class EventService {
             }
           }
         })
-        const userTypeId = group.user_type?.id
+        const userTypeId = group?.user_type?.id
         const groupId = group?.id
 
         if (userTypeId !== 2 && userTypeId !== 1) {
@@ -12914,7 +12894,7 @@ export class EventService {
             }
           }
         })
-        const userTypeId = group.user_type?.id
+        const userTypeId = group?.user_type?.id
         const groupId = group?.id
 
         if (userTypeId !== 2 && userTypeId !== 1) {
@@ -13046,7 +13026,7 @@ export class EventService {
             
             await prisma.event_document_emer.updateMany({
               where: {
-                id: shipOle?.[isp]?.id
+                id: shipOle && shipOle?.[isp]?.id || -1
               },
               data: {
                 event_doc_status_id: 2, // draftMode: 2,
@@ -13902,7 +13882,7 @@ export class EventService {
             }
           }
         })
-        const userTypeId = group.user_type?.id
+        const userTypeId = group?.user_type?.id
         const groupId = group?.id
 
         if (userTypeId !== 3 && userTypeId !== 4) {
@@ -14239,7 +14219,7 @@ export class EventService {
       const toFullname =
         toAction?.event_doc_status_id !== 1 && toAction?.event_doc_status_id !== 2 && toAction?.event_doc_status_id !== 6 && toAction?.create_by_account?.first_name && toAction?.create_by_account?.last_name ? `${toAction?.create_by_account?.first_name} ${toAction?.create_by_account?.last_name}` : ''
 
-      const toCompany = (toAction?.group?.company_name && toAction?.group?.company_name) || ''
+      const toCompany = toAction?.group?.company_name || ''
       const userType_ = toAction?.group?.user_type_id // (userType_ === 3 ? ' Shipper' : "")
       const toName = (toAction?.group?.name && toAction?.group?.name + (userType_ === 3 ? ' Shipper' : "")) || ''
       const toDate = dayjs(toAction?.create_date).locale('th')
@@ -14901,7 +14881,7 @@ export class EventService {
             ? `${toAction?.create_by_account?.first_name} ${toAction?.create_by_account?.last_name}`
             : ''
 
-        const toCompany = (toAction?.group?.company_name && toAction?.group?.company_name) || ''
+        const toCompany = toAction?.group?.company_name || ''
         const userType_ = toAction?.group?.user_type_id // (userType_ === 3 ? ' Shipper' : "")
         const toName = (toAction?.group?.name && toAction?.group?.name + (userType_ === 3 ? ' Shipper' : "")) || ''
         const toDate = dayjs(toAction?.create_date).locale('th')
@@ -16148,7 +16128,7 @@ export class EventService {
             }
           }
         })
-        const userTypeId = group.user_type?.id
+        const userTypeId = group?.user_type?.id
         const groupId = group?.id
 
         if (userTypeId !== 2 && userTypeId !== 1) {
@@ -17104,7 +17084,7 @@ export class EventService {
     })
 
     // draft ไม่ส่ง email
-    !!!generate && !!!generated && !(!!generate && !!id_documents) && (await this.sendEmailCondition(result?.emailUse, findOnce, payload, 41, userId))
+    !generate && !generated && !id_documents && (await this.sendEmailCondition(result?.emailUse, findOnce, payload, 41, userId))
 
     return findOnce
   }
@@ -17896,7 +17876,7 @@ export class EventService {
           }
         }
       })
-      const userTypeId = group.user_type?.id
+      const userTypeId = group?.user_type?.id
       const groupId = group?.id
 
       if (userTypeId !== 3 && userTypeId !== 4) {
@@ -18184,7 +18164,7 @@ export class EventService {
       const toFullname =
         toAction?.event_doc_status_id !== 1 && toAction?.event_doc_status_id !== 2 && toAction?.event_doc_status_id !== 6 && toAction?.create_by_account?.first_name && toAction?.create_by_account?.last_name ? `${toAction?.create_by_account?.first_name} ${toAction?.create_by_account?.last_name}` : ''
 
-      // const toCompany = (toAction?.group?.company_name && toAction?.group?.company_name) || ''
+      // const toCompany = toAction?.group?.company_name || ''
       const userType_ = toAction?.group?.user_type_id // (userType_ === 3 ? ' Shipper' : "")
       const toCompany = (toAction?.group?.name && toAction?.group?.name + (userType_ === 3 ? ' Shipper' : "")) || ''
       const toDate = dayjs(toAction?.create_date).locale('th')
@@ -18993,7 +18973,7 @@ export class EventService {
             ? `${toAction?.create_by_account?.first_name} ${toAction?.create_by_account?.last_name}`
             : ''
 
-        // const toCompany = (toAction?.group?.company_name && toAction?.group?.company_name) || ''
+        // const toCompany = toAction?.group?.company_name || ''
         const userType_ = toAction?.group?.user_type_id // (userType_ === 3 ? ' Shipper' : "")
         const toCompany = (toAction?.group?.name && toAction?.group?.name + (userType_ === 3 ? ' Shipper' : "")) || ''
         const toDate = dayjs(toAction?.create_date).locale('th')
@@ -20000,7 +19980,7 @@ export class EventService {
           }
         }
       })
-      const userTypeId = group.user_type?.id
+      const userTypeId = group?.user_type?.id
       const groupId = group?.id
 
       if (userTypeId !== 2 && userTypeId !== 1) {
@@ -20385,7 +20365,7 @@ export class EventService {
           }
         }
       })
-      const userTypeId = group.user_type?.id
+      const userTypeId = group?.user_type?.id
       const groupId = group?.id
 
       if (userTypeId !== 2 && userTypeId !== 1) {
@@ -20580,15 +20560,15 @@ export class EventService {
               }
             },
 
-            doc_5_input_ref_doc_at: draftMode ? doc_5_input_ref_doc_at : getEventDocumentNew?.doc_5_input_ref_doc_at || null,
-            doc_5_input_event_date: draftMode ? doc_5_input_event_date : getEventDocumentNew?.doc_5_input_event_date || null,
-            doc_5_input_event_time: draftMode ? doc_5_input_event_time : getEventDocumentNew?.doc_5_input_event_time || null,
-            doc_5_input_event_summary: draftMode ? doc_5_input_event_summary : getEventDocumentNew?.doc_5_input_event_summary || null,
+            doc_5_input_ref_doc_at: doc_5_input_ref_doc_at || null,
+            doc_5_input_event_date: doc_5_input_event_date || null,
+            doc_5_input_event_time: doc_5_input_event_time || null,
+            doc_5_input_event_summary: doc_5_input_event_summary || null,
 
-            doc_5_input_summary_gas: draftMode ? doc_5_input_summary_gas : getEventDocumentNew?.doc_5_input_summary_gas || null,
-            doc_5_input_more_info: draftMode ? doc_5_input_more_info : getEventDocumentNew?.doc_5_input_more_info || null,
+            doc_5_input_summary_gas: doc_5_input_summary_gas || null,
+            doc_5_input_more_info: doc_5_input_more_info || null,
 
-            longdo_dict: draftMode ? longdo_dict : getEventDocumentNew?.longdo_dict || null,
+            longdo_dict: longdo_dict || null,
 
             event_date: getEventDocumentNew?.event_date || null,
 
@@ -20793,15 +20773,15 @@ export class EventService {
               }
             },
 
-            doc_5_input_ref_doc_at: draftMode ? doc_5_input_ref_doc_at : getEventDocumentNew?.doc_5_input_ref_doc_at || null,
-            doc_5_input_event_date: draftMode ? doc_5_input_event_date : getEventDocumentNew?.doc_5_input_event_date || null,
-            doc_5_input_event_time: draftMode ? doc_5_input_event_time : getEventDocumentNew?.doc_5_input_event_time || null,
-            doc_5_input_event_summary: draftMode ? doc_5_input_event_summary : getEventDocumentNew?.doc_5_input_event_summary || null,
+            doc_5_input_ref_doc_at: getEventDocumentNew?.doc_5_input_ref_doc_at || null,
+            doc_5_input_event_date: getEventDocumentNew?.doc_5_input_event_date || null,
+            doc_5_input_event_time: getEventDocumentNew?.doc_5_input_event_time || null,
+            doc_5_input_event_summary: getEventDocumentNew?.doc_5_input_event_summary || null,
 
-            doc_5_input_summary_gas: draftMode ? doc_5_input_summary_gas : getEventDocumentNew?.doc_5_input_summary_gas || null,
-            doc_5_input_more_info: draftMode ? doc_5_input_more_info : getEventDocumentNew?.doc_5_input_more_info || null,
+            doc_5_input_summary_gas: getEventDocumentNew?.doc_5_input_summary_gas || null,
+            doc_5_input_more_info: getEventDocumentNew?.doc_5_input_more_info || null,
 
-            longdo_dict: draftMode ? longdo_dict : getEventDocumentNew?.longdo_dict || null,
+            longdo_dict: getEventDocumentNew?.longdo_dict || null,
 
             event_date: getEventDocumentNew?.event_date || null,
 
@@ -21310,7 +21290,7 @@ export class EventService {
           }
         }
       })
-      const userTypeId = group.user_type?.id
+      const userTypeId = group?.user_type?.id
       const groupId = group?.id
 
       if (userTypeId !== 3 && userTypeId !== 4) {
@@ -21592,7 +21572,7 @@ export class EventService {
       const toAction = event_document_action?.find((f: any) => (f?.user_type_id === 3 || f?.user_type_id === 4) && f?.group_id === groupId)
       const toFullname = toAction?.event_doc_status_id !== 1 && toAction?.event_doc_status_id !== 2 && toAction?.create_by_account?.first_name && toAction?.create_by_account?.last_name ? `${toAction?.create_by_account?.first_name} ${toAction?.create_by_account?.last_name}` : ''
 
-      // const toCompany = (toAction?.group?.company_name && toAction?.group?.company_name) || ''
+      // const toCompany = toAction?.group?.company_name || ''
       const userType_ = toAction?.group?.user_type_id // (userType_ === 3 ? ' Shipper' : "")
       const toCompany = (toAction?.group?.name && toAction?.group?.name + (userType_ === 3 ? ' Shipper' : "")) || ''
       const toDate = dayjs(toAction?.create_date).locale('th')
@@ -22102,7 +22082,7 @@ export class EventService {
         const toAction = event_document_action?.find((f: any) => (f?.user_type_id === 3 || f?.user_type_id === 4) && f?.group_id === groupId)
         const toFullname = toAction?.event_doc_status_id !== 1 && toAction?.event_doc_status_id !== 2 && toAction?.create_by_account?.first_name && toAction?.create_by_account?.last_name ? `${toAction?.create_by_account?.first_name} ${toAction?.create_by_account?.last_name}` : ''
 
-        // const toCompany = (toAction?.group?.company_name && toAction?.group?.company_name) || ''
+        // const toCompany = toAction?.group?.company_name || ''
         const userType_ = toAction?.group?.user_type_id // (userType_ === 3 ? ' Shipper' : "")
         const toCompany = (toAction?.group?.name && toAction?.group?.name + (userType_ === 3 ? ' Shipper' : "")) || ''
         const toDate = dayjs(toAction?.create_date).locale('th')
@@ -22919,7 +22899,7 @@ export class EventService {
             }
           }
         })
-        const userTypeId = group.user_type?.id
+        const userTypeId = group?.user_type?.id
         const groupId = group?.id
 
         if (userTypeId !== 2 && userTypeId !== 1) {
@@ -23033,7 +23013,7 @@ export class EventService {
           }
         })
 
-        const shipperIdList : number[] = gas_shipper.flatMap((gasShipper: any) => gasShipper.shipper).filter(Number)
+        const shipperIdList : number[] = (gas_shipper || []).flatMap((gasShipper: any) => gasShipper.shipper).filter(Number)
         const uniqueShipperIdSet: Set<number> = new Set(shipperIdList)
         const uniqueShipperIdList: number[] = Array.from(uniqueShipperIdSet)
         
@@ -23077,12 +23057,14 @@ export class EventService {
                 }
               }
             })
-            for (let iShipper = 0; iShipper < gas_shipper[i]?.shipper.length; iShipper++) {
-              const shipperUserTypeId = groupList.find(group => group.id == gas_shipper[i]?.shipper[iShipper])?.user_type_id
+            
+            if(gas_shipper[i]){
+            for (let iShipper = 0; iShipper < (gas_shipper[i].shipper || []).length; iShipper++) {
+              const shipperUserTypeId = groupList.find(group => group.id == gas_shipper[i].shipper[iShipper])?.user_type_id
               const findDocShipper = await prisma.event_document_emer.findFirst({
                 where: {
                   ref_document: createEventDocument?.id,
-                  group_id: gas_shipper[i]?.shipper[iShipper]
+                  group_id: gas_shipper[i].shipper[iShipper]
                 }
               })
               if (findDocShipper) {
@@ -23109,7 +23091,7 @@ export class EventService {
                   },
                   group: {
                     connect: {
-                      id: gas_shipper[i]?.shipper[iShipper]
+                      id: gas_shipper[i].shipper[iShipper]
                     }
                   },
                   user_type: {
@@ -23152,8 +23134,8 @@ export class EventService {
               }
             }
 
-            if (gas_shipper[i]?.file && gas_shipper[i]?.file.length > 0) {
-              const fileData = gas_shipper[i]?.file?.map((fileItem: any) => {
+            if (gas_shipper[i].file && gas_shipper[i].file.length > 0) {
+              const fileData = gas_shipper[i].file.map((fileItem: any) => {
                 return {
                   url: fileItem,
                   event_doc_gas_shipper_id: Number(gas_shipper_create?.id),
@@ -23165,6 +23147,7 @@ export class EventService {
               await prisma.event_doc_gas_shipper_file.createMany({
                 data: fileData
               })
+            }
             }
           }
         }
@@ -23242,7 +23225,7 @@ export class EventService {
           }))
 
         let emailUse = {
-          shipper: gas_shipper?.map((gs: any) => gs?.['shipper']).flat(),
+          shipper: (gas_shipper || []).map((gs: any) => gs?.['shipper']).flat(),
           emailGroup: email_event_for_shipper,
           ccEmail: cc_email
         }
@@ -23333,7 +23316,7 @@ export class EventService {
             }
           }
         })
-        const userTypeId = group.user_type?.id
+        const userTypeId = group?.user_type?.id
         const groupId = group?.id
 
         if (userTypeId !== 2 && userTypeId !== 1) {
@@ -23546,7 +23529,7 @@ export class EventService {
 
         // contractCodeCount
 
-        const shipperIdList : number[] = gas_shipper.flatMap((gasShipper: any) => gasShipper.shipper).filter(Number)
+        const shipperIdList : number[] = (gas_shipper || []).flatMap((gasShipper: any) => gasShipper.shipper).filter(Number)
         const uniqueShipperIdSet: Set<number> = new Set(shipperIdList)
         const uniqueShipperIdList: number[] = Array.from(uniqueShipperIdSet)
         
@@ -23647,12 +23630,12 @@ export class EventService {
               }
             })
 
-            for (let iShipper = 0; iShipper < gas_shipper[i]?.shipper.length; iShipper++) {
+            for (let iShipper = 0; iShipper < (gas_shipper[i]?.shipper || []).length; iShipper++) {
               const shipperUserTypeId = groupList.find(group => group.id == gas_shipper[i]?.shipper[iShipper])?.user_type_id
               const findDocShipper = await prisma.event_document_emer.findFirst({
                 where: {
                   ref_document: getEventDocumentNew?.id,
-                  group_id: gas_shipper[i]?.shipper[iShipper]
+                  group_id: gas_shipper[i].shipper[iShipper]
                 }
               })
               if (findDocShipper) {
@@ -23827,11 +23810,11 @@ export class EventService {
                 }
               })
 
-              for (let iShipper = 0; iShipper < gas_shipper[i]?.shipper.length; iShipper++) {
+              for (let iShipper = 0; iShipper < (gas_shipper[i]?.shipper || []).length; iShipper++) {
                 const findDocShipper = await prisma.event_document_emer.findFirst({
                   where: {
                     ref_document: getEventDocumentNew?.id,
-                    group_id: gas_shipper[i]?.shipper[iShipper]
+                    group_id: gas_shipper[i].shipper[iShipper]
                   }
                 })
                 if (findDocShipper) {
@@ -24598,7 +24581,7 @@ export class EventService {
           }
         }
       })
-      const userTypeId = group.user_type?.id
+      const userTypeId = group?.user_type?.id
       const groupId = group?.id
 
       if (userTypeId !== 3 && userTypeId !== 4) {
@@ -24880,7 +24863,7 @@ export class EventService {
       const toAction = event_document_action?.find((f: any) => (f?.user_type_id === 3 || f?.user_type_id === 4) && f?.group_id === groupId)
       const toFullname = toAction?.event_doc_status_id !== 1 && toAction?.event_doc_status_id !== 2 && toAction?.create_by_account?.first_name && toAction?.create_by_account?.last_name ? `${toAction?.create_by_account?.first_name} ${toAction?.create_by_account?.last_name}` : ''
 
-      // const toCompany = (toAction?.group?.company_name && toAction?.group?.company_name) || ''
+      // const toCompany = toAction?.group?.company_name || ''
       const userType_ = toAction?.group?.user_type_id // (userType_ === 3 ? ' Shipper' : "")
       const toCompany = (toAction?.group?.name && toAction?.group?.name + (userType_ === 3 ? ' Shipper' : "")) || ''
       const toDate = dayjs(toAction?.create_date).locale('th')
@@ -24896,7 +24879,6 @@ export class EventService {
 
       const event_nember = rdoc1Find?.event_runnumber_emer?.event_nember
       const event_doc_status = rdoc1Find?.event_doc_status?.id // 3 accept, 4 reject, 5 Acknowledge
-      rdoc1Find?.event_doc_status?.id === 5 && toSignature
       //   ? {
       //       columns: [
       //         {
@@ -25528,7 +25510,7 @@ export class EventService {
         const toAction = event_document_action?.find((f: any) => (f?.user_type_id === 3 || f?.user_type_id === 4) && f?.group_id === groupId)
         const toFullname = toAction?.event_doc_status_id !== 1 && toAction?.event_doc_status_id !== 2 && toAction?.create_by_account?.first_name && toAction?.create_by_account?.last_name ? `${toAction?.create_by_account?.first_name} ${toAction?.create_by_account?.last_name}` : ''
 
-        // const toCompany = (toAction?.group?.company_name && toAction?.group?.company_name) || ''
+        // const toCompany = toAction?.group?.company_name || ''
         const userType_ = toAction?.group?.user_type_id // (userType_ === 3 ? ' Shipper' : "")
         const toCompany = (toAction?.group?.name && toAction?.group?.name + (userType_ === 3 ? ' Shipper' : "")) || ''
         const toDate = dayjs(toAction?.create_date).locale('th')
@@ -26145,7 +26127,7 @@ export class EventService {
           }
         }
       })
-      const userTypeId = group.user_type?.id
+      const userTypeId = group?.user_type?.id
       const groupId = group?.id
 
       if (userTypeId === 3 || userTypeId === 4) {
@@ -26412,7 +26394,7 @@ export class EventService {
         }
       }
     })
-    const rData = this.ofoMapDataEvent(result, result?.user_type_id, groupId)
+    const rData = result && this.ofoMapDataEvent(result, result.user_type_id, groupId)
     return rData
   }
 
@@ -26439,7 +26421,7 @@ export class EventService {
         }
       }
     })
-    const userTypeId = group.user_type?.id
+    const userTypeId = group?.user_type?.id
     const groupId = group?.id
 
     const eventDateCondition =
@@ -27109,7 +27091,7 @@ export class EventService {
               event_doc_gas_shipper_ofo_match.event_doc_gas_shipper_ofo.nom_point === gasShipper.nom_point &&
               event_doc_gas_shipper_ofo_match.event_doc_gas_shipper_ofo.nom_value_mmscfh?.trim()?.toLowerCase() === gasShipper.nom_value_mmscfh?.trim()?.toLowerCase()
             })
-            return gasShipper.shipper.includes(event_document_ofo.group_id) && isDuplicate
+            return event_document_ofo && gasShipper.shipper.includes(event_document_ofo.group_id) && isDuplicate
           })
         })
 
@@ -27955,7 +27937,7 @@ export class EventService {
             }
           }
         })
-        const userTypeId = group.user_type?.id
+        const userTypeId = group?.user_type?.id
         const groupId = group?.id
 
         if (userTypeId !== 2 && userTypeId !== 1) {
@@ -28088,7 +28070,7 @@ export class EventService {
           }
         })
 
-        const shipperIdList : number[] = gas_shipper.flatMap((gasShipper: any) => gasShipper.shipper).filter(Number)
+        const shipperIdList : number[] = (gas_shipper || []).flatMap((gasShipper: any) => gasShipper.shipper).filter(Number)
         const uniqueShipperIdSet: Set<number> = new Set(shipperIdList)
         const uniqueShipperIdList: number[] = Array.from(uniqueShipperIdSet)
         
@@ -28221,12 +28203,12 @@ export class EventService {
                 }
               }
             })
-            for (let iShipper = 0; iShipper < gas_shipper[i]?.shipper.length; iShipper++) {
+            for (let iShipper = 0; iShipper < (gas_shipper[i]?.shipper || []).length; iShipper++) {
               const shipperUserTypeId = groupList.find(group => group.id == gas_shipper[i]?.shipper[iShipper])?.user_type_id
               const findDocShipper = await prisma.event_document_ofo.findFirst({
                 where: {
                   ref_document: createEventDocument?.id,
-                  group_id: gas_shipper[i]?.shipper[iShipper]
+                  group_id: gas_shipper[i].shipper[iShipper]
                 }
               })
               if (findDocShipper) {
@@ -28433,7 +28415,7 @@ export class EventService {
             }))
 
           let emailUse = {
-            shipper: gas_shipper?.map((gs: any) => gs?.['shipper']).flat(),
+            shipper: (gas_shipper || []).map((gs: any) => gs?.['shipper']).flat(),
             emailGroup: email_event_for_shipper,
             ccEmail: cc_email
           }
@@ -28685,12 +28667,12 @@ export class EventService {
                     }
                   }
                 })
-                for (let iShipper = 0; iShipper < gas_shipper[i]?.shipper.length; iShipper++) {
+                for (let iShipper = 0; iShipper < (gas_shipper[i]?.shipper || []).length; iShipper++) {
                   const shipperUserTypeId = groupList.find(group => group.id == gas_shipper[i]?.shipper[iShipper])?.user_type_id
                   const findDocShipper = await prisma.event_document_ofo.findFirst({
                     where: {
                       ref_document: createEventDocument?.id,
-                      group_id: gas_shipper[i]?.shipper[iShipper]
+                      group_id: gas_shipper[i].shipper[iShipper]
                     }
                   })
                   if (findDocShipper) {
@@ -29171,7 +29153,7 @@ export class EventService {
             }))
 
           let emailUse = {
-            shipper: gas_shipper?.map((gs: any) => gs?.['shipper']).flat(),
+            shipper: (gas_shipper || []).map((gs: any) => gs?.['shipper']).flat(),
             emailGroup: email_event_for_shipper,
             ccEmail: cc_email
           }
@@ -29219,7 +29201,7 @@ export class EventService {
       }
     })
 
-    !!!generate && !!!generated && !(!!generate && !!id_documents) && (await this.sendEmailCondition(result?.emailUse, findOnce, payload, 7, userId))
+    !generate && !generated && !id_documents && (await this.sendEmailCondition(result?.emailUse, findOnce, payload, 7, userId))
 
     return findOnce
   }
@@ -30031,7 +30013,7 @@ export class EventService {
           }
         }
       })
-      const userTypeId = group.user_type?.id
+      const userTypeId = group?.user_type?.id
       const groupId = group?.id
 
       if (userTypeId !== 3 && userTypeId !== 4) {
@@ -30234,27 +30216,28 @@ export class EventService {
     try {
       const emailNotificationData = await emailNotificationDAM(this.prisma, 42) // emailNotificationData?.subject subject: emailNotificationData?.subject || "", detail: emailNotificationData?.detail || "",
       const tsoMail = await emailGetpermissionEmailTSO(this.prisma, 1013) // menus_id event 105 | (doc 1 2 3) Off-spec Gas 107 | (doc 3.9 4 5 6) Emergency/Difficult Day 106 | (doc 7 8) OFO 1013
-
-      const originalData = {
-        cc: null,
-        header: header,
-        // sendEmail: shipperEmailArr,
-        sendEmail: tsoMail,
-        subject: emailNotificationData?.subject || '',
-        detail: emailNotificationData?.detail || '',
-        excelBuffer: excelBuffer,
-        tagHTMLDetail: `
-        <div>
-          <ul>
-            <li>Event Code: ${docId?.event_runnumber_ofo?.event_nember || ''}</li>
-            <li>ระบบส่งก๊าซ :  ${payload?.event_doc_ofo_gas_tranmiss === 5 ? payload?.event_doc_ofo_gas_tranmiss_other : payload?.event_doc_ofo_gas_tranmiss?.name || ''}</li>
-          </ul>
-        </div>
-        `,
-        filename: 'ofo_document.pdf',
-        contentType: 'application/pdf'
+      if(payload){
+        const originalData = {
+          cc: null,
+          header: header,
+          // sendEmail: shipperEmailArr,
+          sendEmail: tsoMail,
+          subject: emailNotificationData?.subject || '',
+          detail: emailNotificationData?.detail || '',
+          excelBuffer: excelBuffer,
+          tagHTMLDetail: `
+          <div>
+            <ul>
+              <li>Event Code: ${docId?.event_runnumber_ofo?.event_nember || ''}</li>
+              <li>ระบบส่งก๊าซ :  ${(payload?.event_doc_ofo_gas_tranmiss_id === 5 || payload?.event_doc_ofo_gas_tranmiss === 5) ? payload?.event_doc_ofo_gas_tranmiss_other : payload?.event_doc_ofo_gas_tranmiss?.name || ''}</li>
+            </ul>
+          </div>
+          `,
+          filename: 'ofo_document.pdf',
+          contentType: 'application/pdf'
+        }
+        await sendEmailProviderCustomDocs(originalData)
       }
-      await sendEmailProviderCustomDocs(originalData)
     } catch (error) {}
 
     return findOnce
@@ -30314,7 +30297,7 @@ export class EventService {
       const toFullname =
         toAction?.event_doc_status_id !== 1 && toAction?.event_doc_status_id !== 2 && toAction?.event_doc_status_id !== 6 && toAction?.create_by_account?.first_name && toAction?.create_by_account?.last_name ? `${toAction?.create_by_account?.first_name} ${toAction?.create_by_account?.last_name}` : ''
 
-      // const toCompany = (toAction?.group?.company_name && toAction?.group?.company_name) || ''
+      // const toCompany = toAction?.group?.company_name || ''
       const userType_ = toAction?.group?.user_type_id // (userType_ === 3 ? ' Shipper' : "")
       const toCompany = (toAction?.group?.name && toAction?.group?.name + (userType_ === 3 ? ' Shipper' : "")) || ''
       const toDate = dayjs(toAction?.create_date).locale('th')
@@ -31110,7 +31093,7 @@ export class EventService {
             : ''
 
         const groupName = group?.name
-        // const toCompany = (toAction?.group?.company_name && toAction?.group?.company_name) || ''
+        // const toCompany = toAction?.group?.company_name || ''
         const userType_ = toAction?.group?.user_type_id // (userType_ === 3 ? ' Shipper' : "")
         const toCompany = (toAction?.group?.name && toAction?.group?.name + (userType_ === 3 ? ' Shipper' : "")) || ''
         const toDate = dayjs(toAction?.create_date).locale('th')
@@ -32104,7 +32087,7 @@ export class EventService {
           }
         }
       })
-      const userTypeId = group.user_type?.id
+      const userTypeId = group?.user_type?.id
       const groupId = group?.id
 
       if (userTypeId !== 2 && userTypeId !== 1) {
@@ -32259,9 +32242,8 @@ export class EventService {
           user_type_id: true
         }
       })
-      // for (let iShipper = 0; iShipper < shipper.length; iShipper++) {
-      for (let iShipper = 0; iShipper < shipperArr.length; iShipper++) {
-        for (let i_ = 0; i_ < shipperArr?.[iShipper]?.shipper.length; i_++) {
+      for (let iShipper = 0; iShipper < (shipperArr || []).length; iShipper++) {
+        for (let i_ = 0; i_ < shipperArr[iShipper]?.shipper.length; i_++) {
           const shipperUserTypeId = groupList.find(group => group.id == shipperArr[iShipper]?.shipper[i_])?.user_type_id
           //
           const shipperCreate = {
@@ -32403,7 +32385,7 @@ export class EventService {
         }))
 
       let emailUse = {
-        shipper: shipperArr?.flatMap((fm: any) => fm?.shipper),
+        shipper: (shipperArr || []).flatMap((fm: any) => fm?.shipper),
         emailGroup: email_event_for_shipper,
         ccEmail: cc_email
       }
@@ -32532,7 +32514,7 @@ export class EventService {
           }
         }
       })
-      const userTypeId = group.user_type?.id
+      const userTypeId = group?.user_type?.id
       const groupId = group?.id
 
       if (userTypeId !== 2 && userTypeId !== 1) {
@@ -32699,16 +32681,14 @@ export class EventService {
           }
         }
       })
-      console.log('_ getEventDocumentNew : ', getEventDocumentNew)
-      console.log('_ shipperArr : ', shipperArr)
+     
       let oldDraftShipperId = []
       let newDataShipperId = []
-      for (let iShipper = 0; iShipper < shipperArr.length; iShipper++) {
-        for (let i_ = 0; i_ < shipperArr?.[iShipper]?.shipper.length; i_++) {
+      for (let iShipper = 0; iShipper < (shipperArr || []).length; iShipper++) {
+        for (let i_ = 0; i_ < shipperArr[iShipper]?.shipper.length; i_++) {
           const findShipper = getEventDocumentNew?.event_runnumber_ofo?.event_document_ofo?.find((f: any) => {
             return f?.group_id === shipperArr?.[iShipper]?.shipper?.[i_] && f?.event_doc_master_id === 8 && f?.seq_doc8_shipper === shipperArr?.[iShipper]?.seq_doc8_shipper
           })
-          console.log('_ findShipper : ', findShipper)
           if (findShipper) {
             // have
             if (draftMode && findShipper?.event_doc_status_id === 1) {
@@ -32774,7 +32754,7 @@ export class EventService {
       console.log('oldDraftShipperId : ', oldDraftShipperId)
       console.log('newDataShipperId : ', newDataShipperId)
       for (let isp = 0; isp < oldDraftShipperId.length; isp++) {
-        await prisma.event_document_ofo?.updateMany({
+        prisma.event_document_ofo && await prisma.event_document_ofo?.updateMany({
           where: {
             id: oldDraftShipperId?.[isp]?.id
           },
@@ -33433,7 +33413,7 @@ export class EventService {
           }
         }
       })
-      const userTypeId = group.user_type?.id
+      const userTypeId = group?.user_type?.id
       const groupId = group?.id
 
       if (userTypeId !== 3 && userTypeId !== 4) {
@@ -33736,7 +33716,7 @@ export class EventService {
       const toAction = event_document_action?.find((f: any) => (f?.user_type_id === 3 || f?.user_type_id === 4) && f?.group_id === groupId)
       const toFullname = toAction?.event_doc_status_id !== 1 && toAction?.event_doc_status_id !== 2 && toAction?.create_by_account?.first_name && toAction?.create_by_account?.last_name ? `${toAction?.create_by_account?.first_name} ${toAction?.create_by_account?.last_name}` : ''
 
-      // const toCompany = (toAction?.group?.company_name && toAction?.group?.company_name) || ''
+      // const toCompany = toAction?.group?.company_name || ''
       const userType_ = toAction?.group?.user_type_id // (userType_ === 3 ? ' Shipper' : "")
       const toCompany = (toAction?.group?.name && toAction?.group?.name + (userType_ === 3 ? ' Shipper' : "")) || ''
       const toDate = dayjs(toAction?.create_date).locale('th')
@@ -34216,7 +34196,7 @@ export class EventService {
         )
         const toFullname = toAction?.event_doc_status_id !== 1 && toAction?.event_doc_status_id !== 2 && toAction?.create_by_account?.first_name && toAction?.create_by_account?.last_name ? `${toAction?.create_by_account?.first_name} ${toAction?.create_by_account?.last_name}` : ''
 
-        // const toCompany = (toAction?.group?.company_name && toAction?.group?.company_name) || ''
+        // const toCompany = toAction?.group?.company_name || ''
         const userType_ = toAction?.group?.user_type_id // (userType_ === 3 ? ' Shipper' : "")
         const toCompany = (toAction?.group?.name && toAction?.group?.name + (userType_ === 3 ? ' Shipper' : "")) || ''
         const toDate = dayjs(toAction?.create_date).locale('th')

@@ -1,7 +1,8 @@
 import {isMatch} from './allocation.util'
 import * as dayjs from 'dayjs'
 import { getTodayEndAdd7, getTodayStartAdd7 } from './date.util'
-import { meteringPointWithRelations } from '@type/prisma.type'
+import { meteringPointWithRelations, nominationPointPopulateForShareMeter, nominationPointWithRelationsForShareMeter } from '@type/prisma.type'
+import { PrismaService } from '@prisma/prisma.service'
 
 /**
  * Status codes for rejected or cancelled nominations.
@@ -702,8 +703,7 @@ export function findMissingGasData(
           (item) =>
             item.meterPointId ===
               pointName &&
-            item.gasDay ===
-              gasDay
+            item.gasDay === gasDay
         )
 
       // Check if any entry has actual volume, heatingValue, wobbeIndex and energy data (not empty string)
@@ -744,8 +744,7 @@ export function findMissingGasDataFromValueOnly(
           (item) =>
             item.meteringPointId ===
               pointName &&
-            item.gasDay ===
-              gasDay
+            item.gasDay === gasDay
         )
 
       // Check if any entry has actual volume, heatingValue, wobbeIndex and energy data (not empty string)
@@ -772,7 +771,7 @@ export function findMissingGasDataFromValueOnly(
 
 export async function shareShipper( 
   payload: meteringPointWithRelations[],
-  prisma:any,
+  prisma: PrismaService,
   start: dayjs.Dayjs | null, 
   end: dayjs.Dayjs | null
 ) : Promise<meteringPointWithRelations[]> {
@@ -782,8 +781,8 @@ export async function shareShipper(
   // HKP1
   // HKP2
   // console.log('[H] payload : ', payload?.filter((f:any) => f?.area?.name === "H")?.filter((f:any) => (f?.metered_point_name === "HKP1" || f?.metered_point_name === "HKP2")));
-  const todayStart = start?.isValid() ? start.toDate() : getTodayStartAdd7().toDate()
-  const todayEnd = end?.isValid() ? end.toDate() : (start?.isValid() ? start.toDate() : getTodayEndAdd7().toDate()) 
+  const todayStart = start && (start?.isValid() ? start.toDate() : getTodayStartAdd7().toDate()) || getTodayStartAdd7().toDate()
+  const todayEnd = end && end?.isValid() ? end.toDate() : (start && (start.isValid() ? start.toDate() : getTodayEndAdd7().toDate()) || getTodayEndAdd7().toDate()) 
   const nomMaster = await prisma.nomination_point.findMany({
     where: {
           AND: [
@@ -808,17 +807,7 @@ export async function shareShipper(
             }
           ]
         },
-    include:{
-      contract_point_list:{
-        include:{
-          shipper_contract_point:{
-            include:{
-              group:true
-            }
-          }
-        }
-      },
-    },
+    ...nominationPointPopulateForShareMeter,
   })
   console.log('nomMaster : ', nomMaster);
 
@@ -1008,6 +997,141 @@ export async function shareShipper(
       }
     )
   // console.log('shareData : ', shareData); 
+
+  return shareData
+}
+
+export async function shareShipperAtNomLevel( 
+  prisma: PrismaService,
+  start: dayjs.Dayjs | null, 
+  end: dayjs.Dayjs | null
+) : Promise<nominationPointWithRelationsForShareMeter[]> {
+  const todayStart = start && (start?.isValid() ? start.toDate() : getTodayStartAdd7().toDate()) || getTodayStartAdd7().toDate()
+  const todayEnd = end && end?.isValid() ? end.toDate() : (start && (start.isValid() ? start.toDate() : getTodayEndAdd7().toDate()) || getTodayEndAdd7().toDate()) 
+  const nomMaster: nominationPointWithRelationsForShareMeter[] = await prisma.nomination_point.findMany({
+    where: {
+      AND: [
+        {
+          start_date: { lte: todayEnd } // start_date ต้องก่อนหรือเท่ากับสิ้นสุดวันนี้
+        },
+        {
+          OR: [
+            { end_date: null }, // ถ้า end_date เป็น null
+            { end_date: { gt: todayStart } } // ถ้า end_date ไม่เป็น null ต้องหลังหรือเท่ากับเริ่มต้นวันนี้
+          ]
+        }
+      ]
+    },
+    ...nominationPointPopulateForShareMeter,
+  })
+
+  // https://app.clickup.com/t/9018502823/86eub6dcw
+  const contractCode = await prisma.contract_code.findMany({
+    where: {
+      AND: [
+        {
+          contract_start_date: { lte: todayEnd }
+        },
+        {
+          status_capacity_request_management: {
+            NOT: {
+              name: {
+                equals: 'Rejected',
+                mode: 'insensitive'
+              }
+            }
+          }
+        },
+        {
+          OR: [
+            { terminate_date: null },
+            { terminate_date: { gt: todayStart } } // Terminate date is after target date
+          ]
+        },
+        {
+          OR: [
+            {
+              AND: [
+                { extend_deadline: { not: null } },
+                { extend_deadline: { gt: todayStart } }
+              ]
+            },
+            {
+              AND: [
+                { extend_deadline: null },
+                {
+                  OR: [
+                    { contract_end_date: null },
+                    { contract_end_date: { gt: todayStart } }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    select:{
+      id: true,
+      contract_code: true,
+      group:{
+        select:{
+          name: true,
+        },
+      },
+      contract_start_date: true,
+      contract_end_date: true,
+      booking_version:{
+        include:{
+          booking_row_json:{
+            select:{
+              contract_point:true,
+            }
+          },
+        },
+        where:{
+          flag_use: true
+        }
+      }
+    }
+  })
+
+  const contract_point_contractSE = contractCode.flatMap(fm => {
+    return (fm.booking_version || []).flatMap(fm_v => {
+      return (fm_v.booking_row_json || []).flatMap(fm_r => {
+        return {
+          // contract_start_date: fm?.contract_start_date,
+          // contract_end_date: fm?.terminate_date || fm?.extend_deadline ||fm?.contract_end_date,
+          // contract_code: fm?.contract_code,
+          contract_point: fm_r.contract_point,
+          group: fm.group?.name
+        }
+      })
+    })
+  })
+
+  const shareData = nomMaster.filter(nom => {
+    const mapData = new Map<string, string[]>();
+    let isShare = false;
+    for(const e of (nom?.contract_point_list || [])){
+      // หา shipper (group) ที่ผูกกับ contract point นี้เท่านั้น
+      const filterContractPointByContractCode = contract_point_contractSE.filter(f => e.contract_point == f.contract_point).map(shipper => shipper.group)
+      const getCountShipper = [...new Set<string>(filterContractPointByContractCode)]
+      if(getCountShipper.length > 0){
+        mapData.set(e.contract_point, getCountShipper);
+        // เทียบกับ contract point ที่เก็บไว้ก่อนหน้า: ถ้ามี group ที่ไม่ตรงกัน = share
+        Array.from(mapData.keys()).filter(key => key != e.contract_point).map(key => {
+          if(mapData.get(key).some(group => !getCountShipper.includes(group))){
+            isShare = true
+          }
+        })
+      }
+      if(isShare){
+        break;
+      }
+    }
+    return isShare;
+  })
 
   return shareData
 }

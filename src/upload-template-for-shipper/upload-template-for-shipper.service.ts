@@ -26,7 +26,8 @@ dayjs.extend(customParseFormat)
 dayjs.extend(isSameOrAfter)
 
 const headNom = ['Zone', 'Supply/Demand', 'Area', 'POINT_ID', 'WI/HV', 'Park/UnparkInstructed Flows', 'Type', 'Area_Code', 'Subarea_Code', 'Unit', 'Entry_Exit', 'WI', 'HV', 'SG']
-const headNomSheet2 = ['Zone', 'Point', 'CO2', 'C1', 'C2', 'C3', 'iC4', 'nC4', 'iC5', 'nC5', 'C6', 'C7', 'C2+', 'N2', 'O2', 'H2S', 'S', 'Hg']
+// const headNomSheet2 = ['Zone', 'Point', 'CO2', 'C1', 'C2', 'C3', 'iC4', 'nC4', 'iC5', 'nC5', 'C6', 'C7', 'C2+', 'N2', 'O2', 'H2S', 'S', 'Hg']
+const headNomSheet2 = ['Zone', 'Point', 'CO2 (%mol)', 'C1 (%mol)', 'C2 (%mol)', 'C3 (%mol)', 'iC4 (%mol)', 'nC4 (%mol)', 'iC5 (%mol)', 'nC5 (%mol)', 'C6 (%mol)', 'C7 (%mol)', 'C2+ (%mol)', 'N2 (%mol)', 'O2 (%mol)', 'H2S (%mol)', 'S (%mol)', 'Hg (%mol)'] // https://app.clickup.com/t/9018502823/86etzcgr8
 
 const headNomSheet3 = [
   [],
@@ -135,10 +136,10 @@ export class UploadTemplateForShipperService {
   ) {}
 
   async useReqs(req: any) {
-    const ip = req.headers['x-forwarded-for'] || req.ip
+    const ip = req?.headers?.['x-forwarded-for'] || req?.ip
     return {
       ip: ip,
-      sub: req?.user?.sub,
+      sub: (req?.user?.sub || -1),
       first_name: req?.user?.first_name,
       last_name: req?.user?.last_name,
       username: req?.user?.username,
@@ -440,7 +441,12 @@ export class UploadTemplateForShipperService {
     console.log('data : ', data);
     console.log('data[data.length - 1] : ', data[data.length - 1]);
     const workbook = XLSX.utils.book_new() // สร้าง workbook ใหม่
-    const worksheet1 = XLSX.utils.aoa_to_sheet([...data, data[data.length - 1].map((e: any) => '')]) // สร้าง sheet จาก array ของ array
+    // const worksheet1 = XLSX.utils.aoa_to_sheet([...data, data[data.length - 1].map((e: any) => '')]) // สร้าง sheet จาก array ของ array
+    const emptyRow = data[data.length - 1].map(() => '')
+    const worksheet1 = XLSX.utils.aoa_to_sheet([
+      ...data,
+      emptyRow
+    ])
     const worksheet2 = XLSX.utils.aoa_to_sheet(data2) // สร้าง sheet จาก array ของ array
     const worksheet3 = XLSX.utils.aoa_to_sheet(data3) // สร้าง sheet จาก array ของ array
     XLSX.utils.book_append_sheet(workbook, worksheet1, typeOfNomination) // เพิ่ม sheet ลงใน workbook
@@ -537,6 +543,20 @@ export class UploadTemplateForShipperService {
         }
       }
     })
+    // เพิ่ม * เป็นแถวสุดท้ายหลังจากทำ style เสร็จแล้ว
+      const range1 = XLSX.utils.decode_range(worksheet1['!ref'] || 'A1:A1')
+      const nextRow = range1.e.r + 1
+
+      XLSX.utils.sheet_add_aoa(
+        worksheet1,
+        [['*']],
+        {
+          origin: {
+            r: nextRow,
+            c: 0
+          }
+        }
+      )
     Object.keys(worksheet2).forEach((cell) => {
       const rowNumber = parseInt(cell.replace(/[^0-9]/g, '')) // ดึงเลขแถวออกมา
       const columnLetter = cell.replace(/[0-9]/g, '') // ดึงตัวอักษรของคอลัมน์
@@ -638,362 +658,6 @@ export class UploadTemplateForShipperService {
     return excelBuffer
   }
 
-  async createTemplatesOld(file: any, fileOriginal: any, payload: any, userId: any) {
-    const {shipper_id, contract_code_id, nomination_type_id, comment} = payload
-
-    const findData = JSON.parse(file?.jsonDataMultiSheet)
-    const checkType = findData.reduce((acc: string | null, f: any) => {
-      if (f?.sheet === 'Daily Nomination') return 'Daily Nomination'
-      if (f?.sheet === 'Weekly Nomination') return 'Weekly Nomination'
-      return acc
-    }, null)
-
-    const checkTemplate = await this.prisma.upload_template_for_shipper.findFirst({
-      where: {
-        group_id: Number(shipper_id),
-        contract_code_id: Number(contract_code_id),
-        nomination_type_id: Number(nomination_type_id)
-      }
-    })
-    let sheet1 = findData.find((f: any) => {
-      return f?.sheet === checkType
-    })
-    let sheet2 = findData.find((f: any) => {
-      return f?.sheet === 'Quality'
-    })
-    let sheet3 = findData.find((f: any) => {
-      return f?.sheet === 'Lists'
-    })
-
-    if (!!checkType && !!sheet2) {
-      const contractCode = await this.prisma.contract_code.findFirst({
-        where: {
-          id: Number(contract_code_id),
-          group_id: Number(shipper_id)
-          // contract_code: sheet1?.data[1][1],
-          // group:{
-          //   name: sheet1?.data[1][0]
-          // },
-        },
-        include: {
-          group: true,
-          booking_version: {
-            include: {
-              booking_row_json: true
-            }
-          }
-        }
-      })
-
-      const weekly = this.getNextSundayDates()
-
-      if (contractCode?.contract_code !== sheet1?.data[1][1] && contractCode?.group?.id_name !== sheet1?.data[1][0]) {
-        throw new HttpException(
-          {
-            status: HttpStatus.BAD_REQUEST,
-            error: 'contract code ไม่ตรง & shipper id ไม่ตรง'
-          },
-          HttpStatus.BAD_REQUEST
-        )
-      } else if (contractCode?.contract_code !== sheet1?.data[1][1]) {
-        throw new HttpException(
-          {
-            status: HttpStatus.BAD_REQUEST,
-            error: 'contract code ไม่ตรง'
-          },
-          HttpStatus.BAD_REQUEST
-        )
-      } else if (contractCode?.group?.id_name !== sheet1?.data[1][0]) {
-        throw new HttpException(
-          {
-            status: HttpStatus.BAD_REQUEST,
-            error: 'shipper id ไม่ตรง'
-          },
-          HttpStatus.BAD_REQUEST
-        )
-      } else {
-        // check หัว
-        // 0-13 14++++
-        const isEqual = headNom.every((val, index) => val === sheet1?.data[2][index])
-
-        if (!!!isEqual) {
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              error: 'Head Sheet 1 ไม่ตรง'
-            },
-            HttpStatus.BAD_REQUEST
-          )
-        }
-        const isEqualSheet2 = headNomSheet2.every((val, index) => val === sheet2?.data[0][index])
-
-        if (!!!isEqualSheet2) {
-          if (!!!isEqualSheet2) {
-            throw new HttpException(
-              {
-                status: HttpStatus.BAD_REQUEST,
-                error: 'Head Sheet 2 ไม่ตรง'
-              },
-              HttpStatus.BAD_REQUEST
-            )
-          }
-
-          if (checkType === 'Daily Nomination') {
-            if (Number(nomination_type_id) !== 1) {
-              throw new HttpException(
-                {
-                  status: HttpStatus.BAD_REQUEST,
-                  // error: 'nomination type ไม่ตรง',
-                  // error: 'File template does not match the document type.',
-                  error: 'Nomination Type is not match' // V.106 Add New Template Manual เคส Type ไม่ตรง (เลือก weekly  ปรับ Error Message https://app.clickup.com/t/86euzxxc2
-                },
-                HttpStatus.BAD_REQUEST
-              )
-            }
-            // 'Daily Nomination'
-            sheet1 = {
-              ...sheet1,
-              data: [[], this.objToArr(sheet1?.data[0]), this.objToArr(sheet1?.data[1]), [...this.truncateArrayHeadSheet1(this.objToArr(sheet1?.data[2])), ...daily], ...sheet1?.data.slice(3).map((e: any) => this.truncateArrayHeadSheet1(this.objToArr(e)))]
-            }
-            sheet2 = {
-              ...sheet2,
-              data: [[], [...this.truncateArrayHeadSheet2(this.objToArr(sheet2.data[0]))], ...sheet2?.data.slice(1).map((e: any) => this.truncateArrayHeadSheet2(this.objToArr(e)))]
-            }
-            sheet3 = {
-              ...sheet3,
-              data: headNomSheet3
-            }
-          } else {
-            if (Number(nomination_type_id) !== 2) {
-              throw new HttpException(
-                {
-                  status: HttpStatus.BAD_REQUEST,
-                  // error: 'nomination type ไม่ตรง',
-                  // error: 'File template does not match the document type.',
-                  error: 'Nomination Type is not match' // V.106 Add New Template Manual เคส Type ไม่ตรง (เลือก weekly  ปรับ Error Message https://app.clickup.com/t/86euzxxc2
-                },
-                HttpStatus.BAD_REQUEST
-              )
-            }
-            // 'Weekly Nomination'
-            sheet1 = {
-              ...sheet1,
-              data: [[], this.objToArr(sheet1?.data[0]), this.objToArr(sheet1?.data[1]), [...this.truncateArrayHeadSheet1(this.objToArr(sheet1?.data[2])), ...weekly], ...sheet1?.data.slice(3).map((e: any) => this.truncateArrayHeadSheet1(this.objToArr(e)))]
-            }
-            sheet2 = {
-              ...sheet2,
-              data: [[], [...this.truncateArrayHeadSheet2(this.objToArr(sheet2.data[0]))], ...sheet2?.data.slice(1).map((e: any) => this.truncateArrayHeadSheet2(this.objToArr(e)))]
-            }
-            sheet3 = {
-              ...sheet3,
-              data: headNomSheet3
-            }
-          }
-        }
-      }
-    } else {
-      if (!!checkType && !!sheet2) {
-        if (!!checkType && !!sheet2) {
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              error: 'type ไม่ตรง & ไม่พบ Sheet 2'
-            },
-            HttpStatus.BAD_REQUEST
-          )
-        }
-        if (!!checkType) {
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              error: 'type ไม่ตรง'
-            },
-            HttpStatus.BAD_REQUEST
-          )
-        } else {
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              error: 'ไม่พบ Sheet 2'
-            },
-            HttpStatus.BAD_REQUEST
-          )
-        }
-      }
-    }
-
-    const excelBuffer = await this.componentGenExcelNom(sheet1?.data, sheet2?.data, sheet3?.data, checkType)
-    const uploadResponse = await uploadFilsTemp({
-      buffer: excelBuffer,
-      originalname: `${fileOriginal?.originalname} `
-    })
-
-    if (!!checkTemplate) {
-      // มี ให้ update
-      // contract_code_id
-      const uploadTemplateId = await this.prisma.upload_template_for_shipper.findFirst({
-        where: {
-          nomination_type_id: Number(nomination_type_id),
-          contract_code_id: Number(contract_code_id),
-          group_id: Number(shipper_id)
-        }
-      })
-      const update = await this.prisma.upload_template_for_shipper.updateMany({
-        where: {
-          id: Number(uploadTemplateId?.id ?? -1)
-        },
-        data: {
-          update_date: dayjs(dayjs().tz('Asia/Bangkok').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]')).tz('Asia/Bangkok').toDate(),
-          update_date_num: Math.floor(Date.now() / 1000),
-          update_by: Number(userId)
-          // update_by_account: {
-          //   connect: {
-          //     id: Number(userId), // Prisma จะใช้ connect แทนการใช้ create_by โดยตรง
-          //   },
-          // },
-        }
-      })
-      if (!!uploadTemplateId) {
-        if (file) {
-          await this.prisma.upload_template_for_shipper_file.create({
-            data: {
-              ...(!!uploadTemplateId?.id && {
-                upload_template_for_shipper: {
-                  connect: {
-                    id: Number(uploadTemplateId?.id)
-                  }
-                }
-              }),
-              url: uploadResponse?.file?.url,
-              create_date: dayjs(dayjs().tz('Asia/Bangkok').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]')).tz('Asia/Bangkok').toDate(),
-              // create_by: Number(userId),
-              create_date_num: Math.floor(Date.now() / 1000),
-              create_by_account: {
-                connect: {
-                  id: Number(userId) // Prisma จะใช้ connect แทนการใช้ create_by โดยตรง
-                }
-              }
-            }
-          })
-        }
-
-        if (comment) {
-          await this.prisma.upload_template_for_shipper_comment.create({
-            data: {
-              ...(!!uploadTemplateId?.id && {
-                upload_template_for_shipper: {
-                  connect: {
-                    id: Number(uploadTemplateId?.id)
-                  }
-                }
-              }),
-              comment: comment,
-              create_date: dayjs(dayjs().tz('Asia/Bangkok').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]')).tz('Asia/Bangkok').toDate(),
-              // create_by: Number(userId),
-              create_date_num: Math.floor(Date.now() / 1000),
-              create_by_account: {
-                connect: {
-                  id: Number(userId) // Prisma จะใช้ connect แทนการใช้ create_by โดยตรง
-                }
-              }
-            }
-          })
-        }
-      }
-
-      return {
-        id: uploadTemplateId?.id,
-        message: `edit`
-      }
-    } else {
-      // ไม่มีสร้างใหม่
-      const create = await this.prisma.upload_template_for_shipper.create({
-        data: {
-          ...(!!shipper_id && {
-            group: {
-              connect: {
-                id: Number(shipper_id)
-              }
-            }
-          }),
-          ...(!!contract_code_id && {
-            contract_code: {
-              connect: {
-                id: Number(contract_code_id)
-              }
-            }
-          }),
-          ...(!!nomination_type_id && {
-            nomination_type: {
-              connect: {
-                id: Number(nomination_type_id)
-              }
-            }
-          }),
-          create_date: dayjs(dayjs().tz('Asia/Bangkok').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]')).tz('Asia/Bangkok').toDate(),
-          // create_by: Number(userId),
-          create_date_num: Math.floor(Date.now() / 1000),
-          create_by_account: {
-            connect: {
-              id: Number(userId) // Prisma จะใช้ connect แทนการใช้ create_by โดยตรง
-            }
-          }
-        }
-      })
-      if (!!create) {
-        if (file) {
-          await this.prisma.upload_template_for_shipper_file.create({
-            data: {
-              ...(!!create?.id && {
-                upload_template_for_shipper: {
-                  connect: {
-                    id: Number(create?.id)
-                  }
-                }
-              }),
-              url: uploadResponse?.file?.url,
-              create_date: dayjs(dayjs().tz('Asia/Bangkok').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]')).tz('Asia/Bangkok').toDate(),
-              // create_by: Number(userId),
-              create_date_num: Math.floor(Date.now() / 1000),
-              create_by_account: {
-                connect: {
-                  id: Number(userId) // Prisma จะใช้ connect แทนการใช้ create_by โดยตรง
-                }
-              }
-            }
-          })
-        }
-
-        if (comment) {
-          await this.prisma.upload_template_for_shipper_comment.create({
-            data: {
-              ...(!!create?.id && {
-                upload_template_for_shipper: {
-                  connect: {
-                    id: Number(create?.id)
-                  }
-                }
-              }),
-              comment: comment,
-              create_date: dayjs(dayjs().tz('Asia/Bangkok').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]')).tz('Asia/Bangkok').toDate(),
-              // create_by: Number(userId),
-              create_date_num: Math.floor(Date.now() / 1000),
-              create_by_account: {
-                connect: {
-                  id: Number(userId) // Prisma จะใช้ connect แทนการใช้ create_by โดยตรง
-                }
-              }
-            }
-          })
-        }
-      }
-
-      return {
-        id: create?.id,
-        message: `create`
-      }
-    }
-  }
 
   async createTemplates(file: any, fileOriginal: any, payload: any, userId: any, req: any, idEdit?: any) {
     const {shipper_id, contract_code_id, nomination_type_id, comment} = payload
@@ -1175,7 +839,7 @@ export class UploadTemplateForShipperService {
               )
             }
 
-            if (checkType === 'Daily Nomination') {
+            if (checkType && checkType === 'Daily Nomination') {
               if (Number(nomination_type_id) !== 1) {
                 throw new HttpException(
                   {
@@ -1194,7 +858,7 @@ export class UploadTemplateForShipperService {
               }
               sheet2 = {
                 ...sheet2,
-                data: [[], [...this.truncateArrayHeadSheet2(this.objToArr(sheet2.data[0]))], ...sheet2?.data.slice(1).map((e: any) => this.truncateArrayHeadSheet2(this.objToArr(e)))]
+                data: [[], [...this.truncateArrayHeadSheet2(this.objToArr(sheet2.data[0]))], ...(sheet2?.data || []).slice(1).map((e: any) => this.truncateArrayHeadSheet2(this.objToArr(e)))]
               }
               sheet3 = {
                 ...sheet3,
@@ -1219,7 +883,7 @@ export class UploadTemplateForShipperService {
               }
               sheet2 = {
                 ...sheet2,
-                data: [[], [...this.truncateArrayHeadSheet2(this.objToArr(sheet2.data[0]))], ...sheet2?.data.slice(1).map((e: any) => this.truncateArrayHeadSheet2(this.objToArr(e)))]
+                data: [[], [...this.truncateArrayHeadSheet2(this.objToArr(sheet2.data[0]))], ...(sheet2?.data || []).slice(1).map((e: any) => this.truncateArrayHeadSheet2(this.objToArr(e)))]
               }
               sheet3 = {
                 ...sheet3,
@@ -1644,6 +1308,25 @@ export class UploadTemplateForShipperService {
       })
     }
 
+    try {
+      await this.prisma.$executeRawUnsafe(`
+        SELECT setval(
+          pg_get_serial_sequence('public.upload_template_for_shipper_file','id'),
+          COALESCE((SELECT MAX(id) FROM public.upload_template_for_shipper_file), 0),
+          true
+        )
+      `)
+      await this.prisma.$executeRawUnsafe(`
+        SELECT setval(
+          pg_get_serial_sequence('public.upload_template_for_shipper_comment','id'),
+          COALESCE((SELECT MAX(id) FROM public.upload_template_for_shipper_comment), 0),
+          true
+        )
+      `)
+    } catch (error) {
+      
+    }
+
     for (let i = 0; i < resultData.length; i++) {
       const update = await this.prisma.upload_template_for_shipper.updateMany({
         where: {
@@ -1656,6 +1339,7 @@ export class UploadTemplateForShipperService {
         }
       })
       if (update.count > 0 && resultData[i]?.url) {
+
         const qn = await this.prisma.upload_template_for_shipper_file.create({
           data: {
             upload_template_for_shipper: {
@@ -2666,11 +2350,34 @@ export class UploadTemplateForShipperService {
           })
         : setotherConcepts
 
+
+    console.log('# contractCode : ', contractCode?.contract_start_date);
+    const getNextSunday = (date: any) => {
+      const d = dayjs(date)
+
+      // ถ้าเป็นวันอาทิตย์อยู่แล้ว ใช้วันเดิม
+      if (d.day() === 0) {
+        return d.format('DD/MM/YYYY')
+      }
+
+      // ถ้าไม่ใช่อาทิตย์ ขยับไปอาทิตย์ถัดไป
+      return d.add(7 - d.day(), 'day').format('DD/MM/YYYY')
+    }
+    const startDefault = type === '1' ? dayjs(contractCode?.contract_start_date).format("DD/MM/YYYY") : type === '2' ?  getNextSunday(contractCode?.contract_start_date) : "DD/MM/YYYY"
+    // console.log('startDefault : ', startDefault);
+    const weeklyContract = Array.from({length: 7}, (_, index) =>
+      dayjs(startDefault, 'DD/MM/YYYY')
+        .add(index, 'day')
+        .format('DD/MM/YYYY')
+    )
+
     const data = [
       [], // Row 0
       ['SHIPPER ID', 'CONTRACT CODE', 'START DATE'], // Row 1
-      [`${contractCode?.group?.id_name}`, `${contractCode?.contract_code}`, 'DD/MM/YYYY'], // Row 2
-      [...headNom, ...(type === '1' ? daily : type === '2' ? weekly : [])], // Row 3
+      // [`${contractCode?.group?.id_name}`, `${contractCode?.contract_code}`, 'DD/MM/YYYY'], // Row 2
+      // [...headNom, ...(type === '1' ? daily : type === '2' ? weekly : [])], // Row 3
+      [`${contractCode?.group?.id_name}`, `${contractCode?.contract_code}`, startDefault], // Row 2
+      [...headNom, ...(type === '1' ? daily : type === '2' ? weeklyContract : [])], // Row 3
       // ...setEntry,
       // ...setExit,
       // ...setAlls,

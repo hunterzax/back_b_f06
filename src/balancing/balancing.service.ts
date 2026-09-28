@@ -74,7 +74,7 @@ export class BalancingService {
       url: `${process.env.IP_EVIDEN}/${url}`,
       headers: {
         'Content-Type': 'application/json',
-        Authorization: process.env.TOKEN_EVIDEN || 'UoGCJZciwqqZyUujRAdz48vamF49EQkUYB7SnMXN95quUkYcl_DqUG9N'
+        Authorization: process.env.TOKEN_EVIDEN || ''
       },
       httpsAgent: agent,
       data: data
@@ -84,11 +84,11 @@ export class BalancingService {
 
       let evidenData = []
       if (resEviden?.status === 200 && !!resEviden?.data) {
-        if (Array.isArray(resEviden.data) && resEviden.data.length > 0) {
+        if (resEviden && Array.isArray(resEviden.data) && resEviden.data.length > 0) {
           let total_record = undefined
-          resEviden.data.map((resEvidenData: any) => {
-            if (resEvidenData?.data && Array.isArray(resEvidenData.data) && resEvidenData.data.length > 0) {
-              if (resEvidenData?.total_record) {
+          resEviden && resEviden?.data?.forEach((resEvidenData: any) => {
+            if (resEvidenData && resEvidenData?.data && Array.isArray(resEvidenData.data) && resEvidenData.data.length > 0) {
+              if (resEvidenData && resEvidenData?.total_record) {
                 if (total_record) {
                   total_record += resEvidenData?.total_record
                 } else {
@@ -102,10 +102,10 @@ export class BalancingService {
             callback(total_record)
           }
         } else {
-          if (callback && resEviden?.data?.total_record) {
+          if (callback && resEviden && resEviden?.data?.total_record) {
             callback(resEviden.data.total_record)
           }
-          evidenData = resEviden?.data
+          evidenData = resEviden && resEviden?.data
         }
       }
 
@@ -134,10 +134,10 @@ export class BalancingService {
   }
 
   async useReqs(req: any) {
-    const ip = req.headers['x-forwarded-for'] || req.ip
+    const ip = req?.headers?.['x-forwarded-for'] || req?.ip
     return {
       ip: ip,
-      sub: req?.user?.sub,
+      sub: (req?.user?.sub || -1),
       first_name: req?.user?.first_name,
       last_name: req?.user?.last_name,
       username: req?.user?.username,
@@ -338,7 +338,7 @@ export class BalancingService {
       }, null)
 
       const east =
-        e['data']
+        e['data'] && e['data']
           ?.filter((f: any) => {
             return f?.zone === 'EAST'
           })
@@ -349,7 +349,7 @@ export class BalancingService {
             return max
           }, null)?.value || null
       const west =
-        e['data']
+        e['data'] && e['data']
           ?.filter((f: any) => {
             return f?.zone === 'WEST'
           })
@@ -628,10 +628,10 @@ export class BalancingService {
           mode: 'insensitive'
         },
         start_date_date: {
-          lte: end ? end.toDate() : todayEnd
+          lte: end.toDate()
         },
         end_date_date: {
-          gte: start ? start.toDate() : todayStart
+          gte: start.toDate()
         }
       }
     })
@@ -643,8 +643,8 @@ export class BalancingService {
           mode: 'insensitive'
         },
         gas_day_date: {
-          gte: start ? start.toDate() : todayStart,
-          lte: end ? end.toDate() : todayEnd
+          gte: start.toDate(),
+          lte: end.toDate()
         }
       }
     })
@@ -657,7 +657,7 @@ export class BalancingService {
     let current = minDate ?? start
 
     while (current.isSameOrBefore(maxDate ?? end)) {
-      dateArray.push(current.format('YYYY-MM-DD'))
+      dateArray.push(current && current.format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD'))
       current = current.add(1, 'day')
     }
     // ---- ดึง  eviden
@@ -713,7 +713,7 @@ export class BalancingService {
       return executeEodList?.some((executeData: any) => {
         const executeStart = getTodayNowAdd7(executeData?.start_date_date)
         const executeEnd = getTodayNowAdd7(executeData?.end_date_date)
-        return executeData.request_number_id == item.request_number && executeStart.isSameOrBefore(itemGasDay, 'day') && executeEnd.isSameOrAfter(itemGasDay, 'day')
+        return executeData?.request_number_id == item?.request_number && executeStart?.isSameOrBefore(itemGasDay, 'day') && executeEnd?.isSameOrAfter(itemGasDay, 'day')
       })
     })
 
@@ -1081,7 +1081,7 @@ export class BalancingService {
       })
     }
 
-    const newEODF = resultEodGroup?.map((eod: any) => {
+    const newEODF = resultEodGroup && resultEodGroup?.map((eod: any) => {
       const finG = groupMaster.find((f: any) => {
         return f?.id_name === eod?.shipper
       })
@@ -1095,8 +1095,12 @@ export class BalancingService {
 
       if ((eod?.dailyAccIm == 0 || eod?.dailyAccIm) && parseToNumber(findAllocationReport?.adjust_imbalance) != null) {
       }
-      const finalDailyAccIm = eod?.dailyAccIm == 0 || eod?.dailyAccIm || parseToNumber(findAllocationReport?.adjust_imbalance) != null ? (Number(eod?.dailyAccIm) || 0) + (Number(findAllocationReport?.adjust_imbalance) || 0) : null
-      const finalIntradayAccIm = eod?.intradayAccIm == 0 || eod?.intradayAccIm || parseToNumber(findAllocationReport?.adjust_imbalance) != null ? (Number(eod?.intradayAccIm) || 0) + (Number(findAllocationReport?.adjust_imbalance) || 0) : null
+      const dailyAcc = eod?.dailyAccIm != null ? Number(eod.dailyAccIm) : 0;
+      const adjustImb = findAllocationReport?.adjust_imbalance != null ? Number(findAllocationReport.adjust_imbalance) : 0;
+      const finalDailyAccIm = (eod?.dailyAccIm != null || findAllocationReport?.adjust_imbalance != null) ? dailyAcc + adjustImb : null;
+
+      const intradayAcc = eod?.intradayAccIm != null ? Number(eod.intradayAccIm) : 0;
+      const finalIntradayAccIm = (eod?.intradayAccIm != null || findAllocationReport?.adjust_imbalance != null) ? intradayAcc + adjustImb : null;
 
       // const { values, ...nEod } = eod
 
@@ -1114,7 +1118,7 @@ export class BalancingService {
         update_date: findAllocationReport?.update_date,
         comment: findAllocationReport?.balancing_adjustment_daily_imbalance_comment
       }
-    })
+    }) || []
 
     return newEODF
   }
@@ -1229,7 +1233,7 @@ export class BalancingService {
     const start = start_date ? getTodayNowAdd7(start_date) : null
     const end = end_date ? getTodayNowAdd7(end_date) : null
 
-    if (!start.isValid() || !end.isValid()) {
+    if (!start || !end || !start.isValid() || !end.isValid()) {
       throw new Error('⛔ Invalid date format')
     }
 
@@ -1296,10 +1300,10 @@ export class BalancingService {
           mode: 'insensitive'
         },
         start_date_date: {
-          lte: end ? end.toDate() : todayEnd
+          lte: end.toDate()
         },
         end_date_date: {
-          gte: start ? start.toDate() : todayStart
+          gte: start.toDate()
         }
       }
     })
@@ -1311,8 +1315,8 @@ export class BalancingService {
           mode: 'insensitive'
         },
         gas_day_date: {
-          gte: start ? start.toDate() : todayStart,
-          lte: end ? end.toDate() : todayEnd
+          gte: start.toDate(),
+          lte: end.toDate()
         }
       }
     })
@@ -1322,11 +1326,13 @@ export class BalancingService {
 
     const dateArray: string[] = []
 
+    if(minDate && maxDate){
     let current = minDate
 
-    while (current?.isSameOrBefore(maxDate)) {
-      dateArray.push(current.format('YYYY-MM-DD'))
+    while (current.isSameOrBefore(maxDate)) {
+      dateArray.push(current && current.format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD'))
       current = current.add(1, 'day')
+    }
     }
 
     // ---- ดึง  eviden
@@ -1373,7 +1379,7 @@ export class BalancingService {
       return executeEodList?.some((executeData: any) => {
         const executeStart = getTodayNowAdd7(executeData?.start_date_date)
         const executeEnd = getTodayNowAdd7(executeData?.end_date_date)
-        return executeData.request_number_id == item.request_number && executeStart.isSameOrBefore(itemGasDay, 'day') && executeEnd.isSameOrAfter(itemGasDay, 'day')
+        return executeData?.request_number_id == item?.request_number && executeStart?.isSameOrBefore(itemGasDay, 'day') && executeEnd?.isSameOrAfter(itemGasDay, 'day')
       })
     })
 
@@ -1774,7 +1780,7 @@ export class BalancingService {
         }
       })
     }
-    const newEODF = resultEodGroup?.map((eod: any) => {
+    const newEODF = resultEodGroup && resultEodGroup?.map((eod: any) => {
       const finG = groupMaster.find((f: any) => {
         return f?.id_name === eod?.shipper
       })
@@ -1786,8 +1792,12 @@ export class BalancingService {
       const findAllocationReport = balanceMaster.find((f: any) => {
         return f?.gas_day_text === eod?.['gas_day'] && f?.shipper_name_text === eod?.['shipper'] && f?.zone_text?.toUpperCase() === eod?.['zone']?.toUpperCase()
       })
-      const finalDailyAccIm = eod?.dailyAccIm == 0 || eod?.dailyAccIm || parseToNumber(findAllocationReport?.adjust_imbalance) != null ? (Number(eod?.dailyAccIm) || 0) + (Number(findAllocationReport?.adjust_imbalance) || 0) : null
-      const finalIntradayAccIm = eod?.intradayAccIm == 0 || eod?.intradayAccIm || parseToNumber(findAllocationReport?.adjust_imbalance) != null ? (Number(eod?.intradayAccIm) || 0) + (Number(findAllocationReport?.adjust_imbalance) || 0) : null
+      const dailyAcc = eod?.dailyAccIm != null ? Number(eod.dailyAccIm) : 0;
+      const adjustImb = findAllocationReport?.adjust_imbalance != null ? Number(findAllocationReport.adjust_imbalance) : 0;
+      const finalDailyAccIm = (eod?.dailyAccIm != null || findAllocationReport?.adjust_imbalance != null) ? dailyAcc + adjustImb : null;
+
+      const intradayAcc = eod?.intradayAccIm != null ? Number(eod.intradayAccIm) : 0;
+      const finalIntradayAccIm = (eod?.intradayAccIm != null || findAllocationReport?.adjust_imbalance != null) ? intradayAcc + adjustImb : null;
 
       // const { values, ...nEod } = eod
 
@@ -1805,7 +1815,7 @@ export class BalancingService {
         update_date: findAllocationReport?.update_date,
         comment: findAllocationReport?.balancing_adjust_accumulated_imbalance_comment
       }
-    })
+    }) || []
 
     return newEODF
   }
@@ -2310,14 +2320,17 @@ export class BalancingService {
     //   return acc;
     // }, null);
     const dataRes = findData[0]?.data
-    const header = dataRes[0]
-    const value = dataRes.slice(1)
+    const header = dataRes?.[0] || {}
+    const value = dataRes && dataRes.slice(1) || []
     const gasDayKey = Object.keys(header).find((key) => header[key] === 'Gas Day')
     const shipperNameKey = Object.keys(header).find((key) => header[key] === 'Shipper Name')
     const zoneKey = Object.keys(header).find((key) => header[key] === 'Zone')
-    const ventGasKey = Object.keys(header).find((key) => header[key] === 'Vent Gas')
-    const commissiongGasKey = Object.keys(header).find((key) => header[key] === 'Commissioning Gas')
-    const otherGasKey = Object.keys(header).find((key) => header[key] === 'Other Gas')
+    // const ventGasKey = Object.keys(header).find((key) => header[key] === 'Vent Gas')
+    // const commissiongGasKey = Object.keys(header).find((key) => header[key] === 'Commissioning Gas')
+    // const otherGasKey = Object.keys(header).find((key) => header[key] === 'Other Gas')
+    const ventGasKey = Object.keys(header).find((key) => header[key] === 'Vent Gas' || header[key] === 'Vent Gas (MMBTU)')
+    const commissiongGasKey = Object.keys(header).find((key) => header[key] === 'Commissioning Gas' || header[key] === 'Commissioning Gas (MMBTU)')
+    const otherGasKey = Object.keys(header).find((key) => header[key] === 'Other Gas' || header[key] === 'Other Gas (MMBTU)')
     const remarksKey = Object.keys(header).find((key) => header[key] === 'Comment')
     if (!gasDayKey || !shipperNameKey || !zoneKey || !ventGasKey || !commissiongGasKey || !otherGasKey) {
       throw new HttpException(
@@ -2783,9 +2796,9 @@ export class BalancingService {
           'Gas Day': '02/05/2025',
           'Shipper Name': 'B.GRIMM',
           Zone: 'EAST',
-          'Vent Gas': '1.0000',
-          'Commissioning Gas': '0.5000',
-          'Other Gas': '0.3000',
+          'Vent Gas (MMBTU)': '1.0000',
+          'Commissioning Gas (MMBTU)': '0.5000',
+          'Other Gas (MMBTU)': '0.3000',
           "Comment": 'Sample Data'
         }
       ],
@@ -2971,10 +2984,10 @@ export class BalancingService {
       })?.value
 
       return {
-        gas_day: getTodayNowYYYYMMDDDfaultAdd7(e?.gas_day).toDate(),
+        gas_day: e && getTodayNowYYYYMMDDDfaultAdd7(e?.gas_day).toDate() || dayjs().toDate(),
 
         gas_day_text: e?.gas_day,
-        gas_hour: e?.gas_hour && `${e?.gas_hour > 10 ? e?.gas_hour + ':00' : '0' + e?.gas_hour + ':00'}`,
+        gas_hour: e && e?.gas_hour && `${e?.gas_hour > 10 ? e?.gas_hour + ':00' : '0' + e?.gas_hour + ':00'}`,
         timestamp: dayjs(e['execute_timestamp'] * 1000).format('DD/MM/YYYY HH:mm'),
         zone_text: e?.zone,
         mode: e?.mode || null,
@@ -3135,7 +3148,7 @@ export class BalancingService {
           filteredActiveMode.reduce(
             (acc, curr) => {
               // const key = curr.gas_day_text;
-              const key = `${curr.gas_day}|${curr.zone}|${curr.mode}|${curr?.shipper}`
+              const key = curr && `${curr.gas_day}|${curr.zone}|${curr.mode}|${curr?.shipper}` || ""
               const currTimestamp = dayjs(curr.timestamp, 'DD/MM/YYYY HH:mm')
 
               if (!acc[key] || currTimestamp.isAfter(dayjs(acc[key].timestamp, 'DD/MM/YYYY HH:mm'))) {
@@ -3156,8 +3169,7 @@ export class BalancingService {
             const gasDay = curr.gas_day_text // "2025-05-02"
             const [hour, minute] = curr.gas_hour.split(':') // ["16", "15"]
             // const key = `${gasDay}_${hour}`; // group: "2025-05-02_16"
-            const key = `${gasDay}_${hour}|${curr.zone}|${curr.mode}|${curr?.shipper}`
-            // const key = `${gasDay}_${hour}|${curr.zone}|${curr.mode}|${curr?.shipper}`;
+            const key = curr && `${gasDay}_${hour}|${curr.zone}|${curr.mode}|${curr?.shipper}` || ""
 
             const currentMinutes = parseInt(minute) // นาทีของ current
             const existing = acc[key]
@@ -3385,7 +3397,7 @@ export class BalancingService {
       ? Object.values(
           timestampFil.reduce(
             (acc, curr) => {
-              const key = `${curr.gas_day}|${curr.zone}|${curr.mode}|${curr?.shipper}`
+              const key = curr && `${curr.gas_day}|${curr.zone}|${curr.mode}|${curr?.shipper}` || ""
               // const key = `${curr.gas_day}`;
               const currTimestamp = dayjs(curr.timestamp, 'DD/MM/YYYY HH:mm')
 
@@ -3419,7 +3431,7 @@ export class BalancingService {
             // if (!existing || currentMinutes > existing.gas_hour) {
             //   acc[key] = curr;
             // }
-            const key = `${curr.gas_day}|${curr.zone}|${curr.mode}|${curr?.shipper}`
+            const key = curr && `${curr.gas_day}|${curr.zone}|${curr.mode}|${curr?.shipper}` || ""
             const currHour = Number(curr.gas_hour) // แปลงเป็นเลขชัวร์
 
             const existing = acc[key]
@@ -3516,8 +3528,8 @@ export class BalancingService {
   async intradayBaseInentoryImport(grpcTransform: any, file: any, userId: any) {
     const findData = JSON.parse(grpcTransform?.jsonDataMultiSheet)
     const dataRes = findData[0]?.data
-    const header = dataRes[0]
-    const value = dataRes.slice(1)
+    const header = dataRes?.[0] || {}
+    const value = dataRes && dataRes.slice(1) || []
 
     const gasDayKey = Object.keys(header).find((key) => header[key] === 'Gas Day')
     const gasHourKey = Object.keys(header).find((key) => header[key] === 'Gas Hour')
@@ -3948,7 +3960,7 @@ export class BalancingService {
   // request_number
   async balancReport(payload: any, userId: any) {
     // balance_balance_report
-    const {start_date, end_date, skip, limit} = payload
+    const {start_date, end_date, skip, limit} = payload || {}
     //
     const {minDate, maxDate} = await findMinMaxExeDate(this.prisma, start_date, end_date)
 
@@ -4032,7 +4044,7 @@ export class BalancingService {
         return executeEodList?.some((executeData: any) => {
           const executeStart = getTodayNowAdd7(executeData?.start_date_date)
           const executeEnd = getTodayNowAdd7(executeData?.end_date_date)
-          return executeData.request_number_id == item.request_number && executeStart.isSameOrBefore(itemGasDay, 'day') && executeEnd.isSameOrAfter(itemGasDay, 'day')
+          return executeData?.request_number_id == item?.request_number && executeStart?.isSameOrBefore(itemGasDay, 'day') && executeEnd?.isSameOrAfter(itemGasDay, 'day')
         })
       })
 
@@ -4259,8 +4271,8 @@ export class BalancingService {
                 }
 
                 return {
-                  valueContractPlanning: valueContractPlanning || null,
-                  valueContractActual: valueContractActual || null
+                  valueContractPlanning,
+                  valueContractActual
                 }
               })
             )
@@ -4283,8 +4295,8 @@ export class BalancingService {
           // totalAllPlanning: null,
           // totalAllActual: null,
           shipperData: shipperData || null,
-          totalAllPlanning: totalAllPlanning || null,
-          totalAllActual: totalAllActual || null
+          totalAllPlanning,
+          totalAllActual
         }
       })
     )
@@ -4772,6 +4784,9 @@ export class BalancingService {
 
     const grouped = {}
     for (const curr of evidenApiCenter?.data ?? []) {
+      if(!curr){
+        continue;
+      }
       const key = `${curr.gas_day}|${curr.gas_hour}|${curr.execute_timestamp}`
 
       if (!grouped[key]) {
@@ -5130,7 +5145,7 @@ export class BalancingService {
       // keyData
       const valuesData = {
         timestamp: dayjs(e['execute_timestamp'] * 1000).format('DD/MM/YYYY HH:mm'),
-        gas_hour: e?.gas_hour && `${e?.gas_hour > 10 ? e?.gas_hour + ':00' : '0' + e?.gas_hour + ':00'}`,
+        gas_hour: e && e?.gas_hour && `${e?.gas_hour > 10 ? e?.gas_hour + ':00' : '0' + e?.gas_hour + ':00'}`,
         shipperName: null,
         zone: e['zone'],
         zoneObj: zoneObj,
@@ -5230,7 +5245,7 @@ export class BalancingService {
 
         return {
           timestamp: dayjs(e['execute_timestamp'] * 1000).format('DD/MM/YYYY HH:mm'),
-          gas_hour: e?.gas_hour && `${e?.gas_hour > 10 ? e?.gas_hour + ':00' : '0' + e?.gas_hour + ':00'}`,
+          gas_hour: e && e?.gas_hour && `${e?.gas_hour > 10 ? e?.gas_hour + ':00' : '0' + e?.gas_hour + ':00'}`,
           shipperName: shipper,
           zone: e['zone'],
           zoneObj: zoneObj,
@@ -5429,7 +5444,7 @@ export class BalancingService {
             }
           }
 
-          return f?.gas_day === nEvidenApiCenter[i]?.gas_day && f?.gas_hour === nEvidenApiCenter[i]?.gas_hour && f?.zone === nEvidenApiCenter[i]?.zone && f?.shipper === nEvidenApiCenter[i]?.shipperData[iSd]?.shipperName && isSignConsistent
+          return f?.gas_day === nEvidenApiCenter[i]?.gas_day && f?.gas_hour === nEvidenApiCenter[i]?.gas_hour && f?.zone === nEvidenApiCenter[i]?.zone && f?.shipper === nEvidenApiCenter[i]?.shipperData[iSd]?.shipperName && f?.execute_timestamp === nEvidenApiCenter[i]?.execute_timestamp && isSignConsistent
         })
         if (findDataShipper) {
           const createDate = dayjs(findDataShipper?.execute_timestamp * 1000) // แปลงจาก timestamp
@@ -6089,7 +6104,7 @@ export class BalancingService {
     return {
       ...resData,
       timestamp: dayjs(resData['execute_timestamp'] * 1000).format('DD/MM/YYYY HH:mm'),
-      gas_hours: resData?.gas_hour && `${resData?.gas_hour > 10 ? resData?.gas_hour + ':00' : '0' + resData?.gas_hour + ':00'}`
+      gas_hours: resData && resData?.gas_hour && `${resData?.gas_hour > 10 ? resData?.gas_hour + ':00' : '0' + resData?.gas_hour + ':00'}`
     }
   }
 
@@ -6097,6 +6112,7 @@ export class BalancingService {
   // plan_
   async balanceIntradayDashboard(payload: any, userId: any) {
     const {gas_day, skip, limit, shipper_id, execute_timestamp, lasted_version} = payload
+    console.log('shipper_id : ', shipper_id);
 
     const todayStart = getTodayNowYYYYMMDDDfaultAdd7(gas_day).toDate()
     const todayEnd = getTodayNowYYYYMMDDDfaultAdd7(gas_day).toDate()
@@ -6145,9 +6161,6 @@ export class BalancingService {
       'balance_intraday_dashboard'
     )
 
-    // nomination_values คือ plan
-    // balance_values คือ actual
-
     const matchWithExecuteList = (evidenApiCenter?.data ?? []).filter((item: any) => {
       const itemGasDay = getTodayNowYYYYMMDDDfaultAdd7(item.gas_day)
       return executeIntradayList?.some((executeData: any) => {
@@ -6178,7 +6191,7 @@ export class BalancingService {
 
     const grouped: any = Object.values(
       dataEvuent?.reduce((acc, item, index) => {
-        const key = `${item.gas_day}|${item?.gas_hour}|${item?.execute_timestamp}`
+        const key = `${item?.gas_day}|${item?.gas_hour}|${item?.execute_timestamp}`
         if (!acc[key]) {
           acc[key] = {
             gas_day: item?.gas_day,
@@ -6198,13 +6211,181 @@ export class BalancingService {
       let sys_plan = []
       let sys_actual = []
 
+      let shipperSystemCheck:any = null
+
       if (shipper_id) {
         const findShipper = e?.data?.[0]?.shipper_data?.find((f: any) => {
           return f?.shipper === shipper_id
         })
+        // https://app.clickup.com/t/9018502823/86ey4nae3
+        // https://app.clickup.com/t/9018502823/86ey4naef
 
-        plan = findShipper?.nomination_values || []
-        actual = findShipper?.balance_values || []
+        // Acc. Imbalance (Meter) (MMBTU)
+        // accImb_east
+        // accImb_west
+
+        // Acc. Imbalance (Inventory) (MMBTU)
+        // accImbInv_east
+        // accImbInv_west
+
+        // Order (East)
+        // MMBTU energyAdjustIFOFO_east?.value
+        // MMSCF volumeAdjustIFOFO_east?.value
+
+        // Order (West)
+        // MMBTU energyAdjustIFOFO_west?.value
+        // MMSCF volumeAdjustIFOFO_west?.value
+
+        const hasPTT = shipper_id?.trim().toLowerCase() === 'ngp-s16-001';
+        const checkPMN = (pnm:any) => {
+          if (!pnm && pnm !== 0) return null;
+          return Number(pnm) >= 0;
+        }
+        // const checkPMNMatch = (pnmMatch:any, pttCheck_:any, valueCheck:any, shipperDataArr:any) => {
+
+        //   if(pnmMatch?.tag === "energyAdjustIFOFO_east" || pnmMatch?.tag === "volumeAdjustIFOFO_east"){
+        //     if(pttCheck_){
+        //       const shipperCheck_ = checkPMN(shipperDataArr?.find((f:any) => f?.tag === "accImbInv_east")?.value)
+        //       return {
+        //         ...pnmMatch,
+        //         value: valueCheck?.accImbInv_east === null ? null : (shipperCheck_ === valueCheck?.accImbInv_east ? pnmMatch?.value : null)
+        //       }
+        //     }else{
+        //       const shipperCheck_ = checkPMN(shipperDataArr?.find((f:any) => f?.tag === "accImb_east")?.value)
+        //       return {
+        //         ...pnmMatch,
+        //         value: valueCheck?.accImb_east === null ? null : (shipperCheck_ === valueCheck?.accImb_east ? pnmMatch?.value : null)
+        //       }
+        //     }
+        //   }else if(pnmMatch?.tag === "energyAdjustIFOFO_west" || pnmMatch?.tag === "volumeAdjustIFOFO_west"){
+        //     if(pttCheck_){
+        //       const shipperCheck_ = checkPMN(shipperDataArr?.find((f:any) => f?.tag === "accImbInv_west")?.value)
+        //       return {
+        //         ...pnmMatch,
+        //         value: valueCheck?.accImbInv_west === null ? null : (shipperCheck_ === valueCheck?.accImbInv_west ? pnmMatch?.value : null)
+        //       }
+        //     }else{
+        //       const shipperCheck_ = checkPMN(shipperDataArr?.find((f:any) => f?.tag === "accImb_west")?.value)
+        //       return {
+        //         ...pnmMatch,
+        //         value: valueCheck?.accImb_west === null ? null : (shipperCheck_ === valueCheck?.accImb_west ? pnmMatch?.value : null)
+        //       }
+        //     }
+        //   }
+        // }
+        // shipperSystemCheck = {
+        //   systemPlan: {
+        //     accImb_east: checkPMN((e?.data?.[0]?.nomination_values || [])?.find((f:any) => f?.tag === "accImb_east")?.value), // No PTT check
+        //     accImb_west: checkPMN((e?.data?.[0]?.nomination_values || [])?.find((f:any) => f?.tag === "accImb_west")?.value), // No PTT check
+        //     accImbInv_east: checkPMN((e?.data?.[0]?.nomination_values || [])?.find((f:any) => f?.tag === "accImbInv_east")?.value),  // PTT check
+        //     accImbInv_west: checkPMN((e?.data?.[0]?.nomination_values || [])?.find((f:any) => f?.tag === "accImbInv_west")?.value),  // PTT check
+        //   },
+        //   systemActual: {
+        //     accImb_east: checkPMN((e?.data?.[0]?.balance_values || [])?.find((f:any) => f?.tag === "accImb_east")?.value), // No PTT check
+        //     accImb_west: checkPMN((e?.data?.[0]?.balance_values || [])?.find((f:any) => f?.tag === "accImb_west")?.value), // No PTT check
+        //     accImbInv_east: checkPMN((e?.data?.[0]?.balance_values || [])?.find((f:any) => f?.tag === "accImbInv_east")?.value),  // PTT check
+        //     accImbInv_west: checkPMN((e?.data?.[0]?.balance_values || [])?.find((f:any) => f?.tag === "accImbInv_west")?.value),  // PTT check
+        //   },
+        //   shipperPTT: hasPTT, // true PTT , false ไม่ใช่ PTT
+        //   remark1:`Shipper PTT ให้เทียบค่า Acc. Imbalance (Inventory) กับฝั่ง System ถ้าค่าเป็น + หรือ - ตรงกับ system ให้แสดงค่า order ตาม zone นั้นๆ แต่ถ้าไม่ตรงกับ system ให้ระบบ hide ค่า order ไม่ต้องแสดง`,
+        //   remark2:`Shipper อื่นๆ ให้เทียบค่า Acc. Imbalance (Meter) กับฝั่ง System ถ้าค่าเป็น + หรือ - ตรงกับ system ให้แสดงค่า order ตาม zone นั้นๆ แต่ถ้าไม่ตรงกับ system ให้ระบบ hide ค่า order ไม่ต้องแสดง`
+        // }
+
+        const checkPMNMatchNew = (pnmMatch:any, pttCheck_:any, valueCheck:any, shipperDataArr:any) => {
+
+          if(pnmMatch?.tag === "energyAdjustIFOFO_east" || pnmMatch?.tag === "volumeAdjustIFOFO_east"){
+            if(pttCheck_){
+              const shipperCheck_ = checkPMN(pnmMatch?.value)
+              return {
+                ...pnmMatch,
+                value: valueCheck?.[pnmMatch?.tag] === null ? null : (shipperCheck_ === valueCheck?.[pnmMatch?.tag] ? pnmMatch?.value : null)
+              }
+            }else{
+              const shipperCheck_ = checkPMN(pnmMatch?.value)
+              return {
+                ...pnmMatch,
+                value: valueCheck?.[pnmMatch?.tag] === null ? null : (shipperCheck_ === valueCheck?.[pnmMatch?.tag] ? pnmMatch?.value : null)
+              }
+            }
+          }else if(pnmMatch?.tag === "energyAdjustIFOFO_west" || pnmMatch?.tag === "volumeAdjustIFOFO_west"){
+            if(pttCheck_){
+              const shipperCheck_ = checkPMN(pnmMatch?.value)
+              return {
+                ...pnmMatch,
+                value: valueCheck?.[pnmMatch?.tag] === null ? null : (shipperCheck_ === valueCheck?.[pnmMatch?.tag] ? pnmMatch?.value : null)
+              }
+            }else{
+              const shipperCheck_ = checkPMN(pnmMatch?.value)
+              return {
+                ...pnmMatch,
+                value: valueCheck?.[pnmMatch?.tag] === null ? null : (shipperCheck_ === valueCheck?.[pnmMatch?.tag] ? pnmMatch?.value : null)
+              }
+            }
+          }
+        }
+        shipperSystemCheck = {
+          systemPlan: {
+            // accImb_east: checkPMN((e?.data?.[0]?.nomination_values || [])?.find((f:any) => f?.tag === "accImb_east")?.value), // No PTT check
+            // accImb_west: checkPMN((e?.data?.[0]?.nomination_values || [])?.find((f:any) => f?.tag === "accImb_west")?.value), // No PTT check
+            // accImbInv_east: checkPMN((e?.data?.[0]?.nomination_values || [])?.find((f:any) => f?.tag === "accImbInv_east")?.value),  // PTT check
+            // accImbInv_west: checkPMN((e?.data?.[0]?.nomination_values || [])?.find((f:any) => f?.tag === "accImbInv_west")?.value),  // PTT check
+            order_mmbtu_east: checkPMN((e?.data?.[0]?.balance_values || [])?.find((f:any) => f?.tag === "energyAdjustIFOFO_east")?.value),  
+            order_mmscf_east: checkPMN((e?.data?.[0]?.balance_values || [])?.find((f:any) => f?.tag === "volumeAdjustIFOFO_east")?.value),  
+            order_mmbtu_west: checkPMN((e?.data?.[0]?.balance_values || [])?.find((f:any) => f?.tag === "energyAdjustIFOFO_west")?.value),  
+            order_mmscf_west: checkPMN((e?.data?.[0]?.balance_values || [])?.find((f:any) => f?.tag === "volumeAdjustIFOFO_west")?.value),
+          },
+          systemActual: {
+            // accImb_east: checkPMN((e?.data?.[0]?.balance_values || [])?.find((f:any) => f?.tag === "accImb_east")?.value), // No PTT check
+            // accImb_west: checkPMN((e?.data?.[0]?.balance_values || [])?.find((f:any) => f?.tag === "accImb_west")?.value), // No PTT check
+            // accImbInv_east: checkPMN((e?.data?.[0]?.balance_values || [])?.find((f:any) => f?.tag === "accImbInv_east")?.value),  // PTT check
+            // accImbInv_west: checkPMN((e?.data?.[0]?.balance_values || [])?.find((f:any) => f?.tag === "accImbInv_west")?.value),  // PTT check
+            energyAdjustIFOFO_east: checkPMN((e?.data?.[0]?.balance_values || [])?.find((f:any) => f?.tag === "energyAdjustIFOFO_east")?.value),  
+            volumeAdjustIFOFO_east: checkPMN((e?.data?.[0]?.balance_values || [])?.find((f:any) => f?.tag === "volumeAdjustIFOFO_east")?.value),  
+            energyAdjustIFOFO_west: checkPMN((e?.data?.[0]?.balance_values || [])?.find((f:any) => f?.tag === "energyAdjustIFOFO_west")?.value),  
+            volumeAdjustIFOFO_west: checkPMN((e?.data?.[0]?.balance_values || [])?.find((f:any) => f?.tag === "volumeAdjustIFOFO_west")?.value),  
+          },
+          shipperPTT: hasPTT, // true PTT , false ไม่ใช่ PTT
+          remark1:`Shipper PTT ให้เทียบค่า Acc. Imbalance (Inventory) กับฝั่ง System ถ้าค่าเป็น + หรือ - ตรงกับ system ให้แสดงค่า order ตาม zone นั้นๆ แต่ถ้าไม่ตรงกับ system ให้ระบบ hide ค่า order ไม่ต้องแสดง`,
+          remark2:`Shipper อื่นๆ ให้เทียบค่า Acc. Imbalance (Meter) กับฝั่ง System ถ้าค่าเป็น + หรือ - ตรงกับ system ให้แสดงค่า order ตาม zone นั้นๆ แต่ถ้าไม่ตรงกับ system ให้ระบบ hide ค่า order ไม่ต้องแสดง`
+        }
+      
+        plan = (findShipper?.nomination_values || [])?.map((d_:any) => {
+          const tagCheck = ["energyAdjustIFOFO_east", "volumeAdjustIFOFO_east", "energyAdjustIFOFO_west", "volumeAdjustIFOFO_west"]
+          if(tagCheck?.includes(d_?.tag)){
+
+            if(d_ === null){
+              return d_
+            }else{
+              // return checkPMNMatch(d_, shipperSystemCheck?.shipperPTT, shipperSystemCheck?.systemPlan, (findShipper?.nomination_values || []))
+              return checkPMNMatchNew(d_, shipperSystemCheck?.shipperPTT, shipperSystemCheck?.systemPlan, (findShipper?.nomination_values || []))
+            }
+          }else {
+            return d_
+          }
+        })
+        actual = (findShipper?.balance_values || [])?.map((d_:any) => {
+          // order mmbtu energyAdjustIFOFO_east energyAdjustIFOFO_west
+          // order mmscf volumeAdjustIFOFO_east volumeAdjustIFOFO_west
+          const tagCheck = ["energyAdjustIFOFO_east", "volumeAdjustIFOFO_east", "energyAdjustIFOFO_west", "volumeAdjustIFOFO_west"]
+          if(tagCheck?.includes(d_?.tag)){
+            if(d_ === null){
+              return d_
+            }else{
+              // console.log(`+++ d_?.tag : `, d_?.tag);
+              // console.log(`+++ d_?.value : `, d_?.value);
+              // console.log((e?.data?.[0]?.balance_values || []));
+              // console.log('d_ : ', d_);
+              // console.log('shipperSystemCheck?.systemActual : ', shipperSystemCheck?.systemActual);
+              // return checkPMNMatch(d_, shipperSystemCheck?.shipperPTT, shipperSystemCheck?.systemActual, (findShipper?.balance_values || []))
+              return checkPMNMatchNew(d_, shipperSystemCheck?.shipperPTT, shipperSystemCheck?.systemActual, (findShipper?.balance_values || []))
+              // return d_
+
+            }
+          }else {
+            return d_
+          }
+        })
+        
         sys_plan = e?.data?.[0]?.nomination_values || []
         sys_actual = e?.data?.[0]?.balance_values || []
       } else {
@@ -6220,9 +6401,12 @@ export class BalancingService {
         plan,
         actual,
         sys_plan,
-        sys_actual
+        sys_actual,
+        shipperSystemCheck
       }
     })
+
+    console.log('nGrouped : ', nGrouped);
 
     const fnGrouped = nGrouped?.filter((f: any) => {
       return f?.plan.length > 0 && f?.actual.length > 0
@@ -6245,7 +6429,7 @@ export class BalancingService {
         validation: e?.['zone_data']?.find((f: any) => f?.zone === 'WEST' && f?.tag?.toLowerCase() === 'flow_type')?.value || null
       }
 
-      const {plan, actual, zone_data, ...nE} = e
+      const {plan = [], actual = [], zone_data = [], ...nE} = e || {}
 
       const plan_ = [...plan]
       const actual_ = [...actual, condition_east, condition_west]
@@ -6257,9 +6441,11 @@ export class BalancingService {
         actual: actual_
       }
     })
+    
+    console.log('nefnGrouped : ', nefnGrouped);
 
     const fnefnGrouped = nefnGrouped?.map((e: any) => {
-      const {gas_day, gas_hour, execute_timestamp, plan, actual, sys_plan, sys_actual, zone_data, ...nE} = e
+      const {gas_day, gas_hour, execute_timestamp, plan, actual, sys_plan, sys_actual, zone_data, shipperSystemCheck, ...nE} = e
 
       const getValueArr = (mains: any, key: any) => {
         const finds = mains?.find((f: any) => f?.tag === key)
@@ -6280,34 +6466,7 @@ export class BalancingService {
         getValueArr(actual, 'level_percentage_west')?.validation ??
         getValueArr(plan, 'level_percentage_west')?.validation
 
-      // park_east
-      // park_west
-      // park_east-west
-      // shrinkage_zone + instructedFlow_zone - (ventGas_zone + commissioningGas_zone + otherGas_zone)
-
-      // ไม่มี
-      // shrinkage_east
-      // instructedFlow_east
-      // ventGas_east
-      // commissioningGas_east
-      // otherGas_east
-
-      // shrinkage_west
-      // instructedFlow_west
-      // ventGas_west
-      // commissioningGas_west
-      // otherGas_west
-
-      // NX ต้อง Cal เอง shrinkage_zone + instructedFlow_zone - (ventGas_zone + commissioningGas_zone + otherGas_zone)
-
-      // const testEastWest = getValueArr(plan, 'shrinkage_east-west')?.value +
-      //       getValueArr(plan, 'instructedFlow_east-west')?.value -
-      //       (getValueArr(plan, 'ventGas_east-west')?.value +
-      //         getValueArr(plan, 'commissioningGas_east-west')?.value +
-      //         getValueArr(plan, 'otherGas_east-west')?.value) || null
-
       const fnNullCheckZeroAll = (datas: any, a: any, b: any, c: any, d: any, e: any) => {
-        // getValueArr(plan, 'shrinkage_east')?.value
         if (getValueArr(datas, a)?.value === undefined && getValueArr(datas, b)?.value === undefined && getValueArr(datas, c)?.value === undefined && getValueArr(datas, d)?.value === undefined && getValueArr(datas, e)?.value === undefined) {
           return null
         } else {
@@ -6322,9 +6481,6 @@ export class BalancingService {
       const a_shrinkage_others_west = fnNullCheckZeroAll(actual, 'shrinkage_west', 'instructedFlow_west', 'ventGas_west', 'commissioningGas_west', 'otherGas_west')
       const a_shrinkage_others_east_west = fnNullCheckZeroAll(actual, 'shrinkage_east-west', 'instructedFlow_east-west', 'ventGas_east-west', 'commissioningGas_east-west', 'otherGas_east-west')
 
-      // sys_plan,
-      //   sys_actual,
-
       const plan_ = {
         ['total_entry_east']: getValueArr(plan, 'total_entry_east'),
         ['total_entry_west']: getValueArr(plan, 'total_entry_west'),
@@ -6338,47 +6494,28 @@ export class BalancingService {
         ['park/unpark_east']: (getValueArr(plan, 'park_east')?.value ?? 0) - (getValueArr(plan, 'unpark_east')?.value ?? getValueArr(plan, 'Unpark_east')?.value ?? 0), //calc
         ['park/unpark_west']: (getValueArr(plan, 'park_west')?.value ?? 0) - (getValueArr(plan, 'unpark_west')?.value ?? getValueArr(plan, 'Unpark_west')?.value ?? 0), //calc
         ['park/unpark_east-west']: (getValueArr(plan, 'park_east-west')?.value ?? 0) - (getValueArr(plan, 'unpark_east-west')?.value ?? getValueArr(plan, 'Unpark_east-west')?.value ?? 0), //calc
-        // detail_entry_east-west_ra6Ratio
-        // detail_entry_east-west_bvw10Ratio
         ['detail_entry_east-west_ra6Ratio']: getValueArr(plan, 'detail_entry_east-west_ra6Ratio'),
         ['detail_entry_east-west_bvw10Ratio']: getValueArr(plan, 'detail_entry_east-west_bvw10Ratio'),
         ['shrinkage_others_east']: p_shrinkage_others_east, //calc
         ['shrinkage_others_west']: p_shrinkage_others_west, //calc
         ['shrinkage_others_east-west']: p_shrinkage_others_east_west, //calc
-        // ['minInventoryChange_east']: null, // null
-        // ['minInventoryChange_west']: null, // null
-        // ['minInventoryChange_east-west']: null, // null
         ['minInventoryChange_east']: getValueArr(plan, 'minInventoryChange_east'),
         ['minInventoryChange_west']: getValueArr(plan, 'minInventoryChange_west'),
         ['minInventoryChange_east-west']: getValueArr(plan, 'minInventoryChange_east-west'),
-
-        // ['dailyImb_east']: null, // null
-        // ['dailyImb_west']: null, // null
-        // ['accImb_east']: null, // null
-        // ['accImb_west']: null, // null
-        // ['accImbInv_east']: null, // null
-        // ['accImbInv_west']: null, // null
         ['dailyImb_east']: getValueArr(plan, 'dailyImb_east'),
         ['dailyImb_west']: getValueArr(plan, 'dailyImb_west'),
         ['accImb_east']: getValueArr(plan, 'accImb_east'),
         ['accImb_west']: getValueArr(plan, 'accImb_west'),
         ['accImbInv_east']: getValueArr(plan, 'accImbInv_east'),
         ['accImbInv_west']: getValueArr(plan, 'accImbInv_west'),
-
         ['dailyImb_total']: getValueArr(plan, 'dailyImb_total'),
         ['absimb']: getValueArr(plan, 'absimb'),
-
         ['system_level_east']: null, // null
         ['level_percentage_east']: null, // null
         ['energyAdjustIFOFO_east']: null, // null
         ['volumeAdjustIFOFO_east']: null, // null
         ['system_level_west']: null, // null
         ['level_percentage_west']: null, // null
-
-        // ['energyAdjustIFOFO_west']: null, // null
-        // ['volumeAdjustIFOFO_west']: null, // null
-        // ['condition_east']: null, // null
-        // ['condition_west']: null, // null
         ['energyAdjustIFOFO_west']: getValueArr(plan, 'energyAdjustIFOFO_west'),
         ['volumeAdjustIFOFO_west']: getValueArr(plan, 'volumeAdjustIFOFO_west'),
         ['condition_east']: getValueArr(plan, 'condition_east'),
@@ -6432,13 +6569,11 @@ export class BalancingService {
         gas_hour_num: gas_hour,
         gas_hour: (gas_hour && `${gas_hour > 10 ? gas_hour + ':00' : '0' + gas_hour + ':00'}`) || '', //,
         execute_timestamp,
-        // zone_data,
-        // plan,
-        // actual,
         plan_,
         actual_
       }
     })
+    console.log('fnefnGrouped : ', fnefnGrouped);
 
     const latestPerHour = Object.values(
       fnefnGrouped.reduce((acc, curr) => {
@@ -6451,16 +6586,6 @@ export class BalancingService {
     )
 
     return latestPerHour
-
-    // const result = lasted_version
-    //   ? fnefnGrouped.filter(
-    //       (e) =>
-    //         e.gas_hour_num ===
-    //         Math.max(...fnefnGrouped.map((e) => e.gas_hour_num)),
-    //     )
-    //   : fnefnGrouped;
-
-    // return result;
   }
 
   async balanceIntradayDashboardSendEmailGetUserType(userId: any) {
@@ -6620,7 +6745,7 @@ export class BalancingService {
                             font-size: 15px;
                             "
                         >
-                            ${detail ? String(detail || '-').replace(/\n/g, '<br>') : '-'} 
+                            ${detail ? String(detail).replace(/\n/g, '<br>') : '-'} 
                         </div>
                       
                         <div style="margin-top: 30px; font-size: 15px;">
@@ -6772,7 +6897,7 @@ export class BalancingService {
 
         return {
           ...nE,
-          value: value || null
+          value
         }
       })
 
@@ -7244,7 +7369,7 @@ export class BalancingService {
 
           return {
             ...nE,
-            value: value || null
+            value
           }
         })
 
@@ -7387,7 +7512,7 @@ export class BalancingService {
           type: 'line'
         }
       ],
-      data: nDataTempAll || []
+      data: nDataTempAll
     }
 
     return dataUse
@@ -7476,7 +7601,7 @@ export class BalancingService {
     const start = start_date ? getTodayStartAdd7(start_date) : null
     const end = end_date ? getTodayEndAdd7(end_date) : null
 
-    if (!start.isValid() || !end.isValid()) {
+    if (!start || !end || !start.isValid() || !end.isValid()) {
       throw new Error('⛔ Invalid date format')
     }
 
@@ -7489,7 +7614,7 @@ export class BalancingService {
     let current = start
 
     while (current.isSameOrBefore(end)) {
-      dateArray.push(current.format('YYYY-MM-DD'))
+      dateArray.push(current && current.format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD'))
       current = current.add(1, 'day')
     }
 
@@ -8134,7 +8259,7 @@ export class BalancingService {
         limit,
         shipperId,
         contractCode,
-        shipperIdList
+        shipperIdList: shipperIdList ? `${shipperIdList}`.replace('HashNumberSign', '#') : shipperIdList
       },
       userId
     )
@@ -8156,8 +8281,9 @@ export class BalancingService {
       return month.format('MMMM') // 'MMMM' จะได้ชื่อเดือนเต็ม เช่น June
     }
 
-    const monthText = getMonthNameFromNumber(payload?.month)
-    const monthYearFormat = `${monthText} ${payload?.year}`
+    const monthText = payload && getMonthNameFromNumber(payload?.month) || "";
+    const year = payload?.year || '';
+    const monthYearFormat = `${monthText} ${year}`
     const contractCode = !!payload?.contractCode && payload?.contractCode !== 'Summary' ? payload?.contractCode : null
     const typeReport = balancingMonthlyReport?.typeReportDB
 
@@ -8269,7 +8395,7 @@ export class BalancingService {
       response,
       fName,
       // userId,
-      allMonthly?.create_by // https://app.clickup.com/t/86eujrga5
+      allMonthly && allMonthly?.create_by || null // https://app.clickup.com/t/86eujrga5
     )
   }
   
@@ -8560,7 +8686,7 @@ export class BalancingService {
 
     const publishData = matchWithExecuteList.filter((evidenData: any) => {
       return !publicationCenterDeletedList?.some((unpublishData: any) => {
-        return unpublishData?.execute_timestamp === evidenData.execute_timestamp && unpublishData?.gas_day_text === evidenData.gas_day && unpublishData?.gas_hour === evidenData?.gas_hour
+        return unpublishData?.execute_timestamp === evidenData?.execute_timestamp && unpublishData?.gas_day_text === evidenData?.gas_day && unpublishData?.gas_hour === evidenData?.gas_hour
       })
     })
 
@@ -8606,7 +8732,7 @@ export class BalancingService {
           } else {
             let todayModeOfZoneBeforeThisHour = todayModeZone.filter((modeZone: any) => {
               const gasHour = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('H')) + 1
-              return gasHour < i && isMatch(modeZone?.zone?.name, `${zone}`)
+              return gasHour < i && modeZone && isMatch(modeZone?.zone?.name, `${zone}`)
             })
 
             if (todayModeOfZoneBeforeThisHour.length > 0) {
@@ -8623,9 +8749,9 @@ export class BalancingService {
             }
           }
 
-          const thisHourData = latestPublishData?.find((evidenData: any) => {
-            return evidenData.gas_hour === i && isMatch(evidenData.mode, activeMode?.mode?.mode) && isMatch(evidenData.zone, `${zone}`)
-          })
+          const thisHourData = latestPublishData && latestPublishData?.find((evidenData: any) => {
+            return evidenData?.gas_hour === i && isMatch(evidenData?.mode, activeMode?.mode?.mode) && isMatch(evidenData?.zone, `${zone}`)
+          }) || null
 
           let value = {
             totalAccImbInv_percentage: null,
@@ -9054,8 +9180,8 @@ export class BalancingService {
                 }
 
                 return {
-                  valueContractPlanning: valueContractPlanning || null,
-                  valueContractActual: valueContractActual || null
+                  valueContractPlanning,
+                  valueContractActual
                 }
               })
             )
@@ -9078,8 +9204,8 @@ export class BalancingService {
           gas_hour: gas_hour,
           ...nE,
           shipperData: shipperData || null,
-          totalAllPlanning: totalAllPlanning || null,
-          totalAllActual: totalAllActual || null
+          totalAllPlanning,
+          totalAllActual
         }
       })
     )
@@ -9330,7 +9456,7 @@ export class BalancingService {
           }) ?? []
 
         if (shipperData.length > 0) {
-          evidenData.shipper_data = shipperData
+          if (evidenData) evidenData.shipper_data = shipperData
           return evidenData
         }
 
@@ -9497,7 +9623,7 @@ export class BalancingService {
 
       const modeOfThisHourAndZone = todayModeZone.filter((modeZone: any) => {
         const gasHour = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('H'))
-        return gasHour == evidenDataWithoutValues.gas_hour && isMatch(modeZone?.zone?.name, evidenDataWithoutValues.zone)
+        return gasHour == evidenDataWithoutValues?.gas_hour && modeZone && isMatch(modeZone?.zone?.name, evidenDataWithoutValues?.zone)
       })
 
       let activeMode = undefined
@@ -9515,7 +9641,7 @@ export class BalancingService {
       } else {
         let todayModeOfZoneBeforeThisHour = todayModeZone.filter((modeZone: any) => {
           const gasHour = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('H')) + 1
-          return gasHour < evidenDataWithoutValues.gas_hour && isMatch(modeZone?.zone?.name, evidenDataWithoutValues.zone)
+          return gasHour < evidenDataWithoutValues?.gas_hour && modeZone && isMatch(modeZone?.zone?.name, evidenDataWithoutValues?.zone)
         })
 
         if (todayModeOfZoneBeforeThisHour.length > 0) {
@@ -9585,7 +9711,7 @@ export class BalancingService {
 
     const publishData = matchWithExecuteList.filter((evidenData: any) => {
       return !publicationCenterDeletedList?.some((unpublishData: any) => {
-        return unpublishData?.execute_timestamp === evidenData.execute_timestamp && unpublishData?.gas_day_text === evidenData.gas_day && unpublishData?.gas_hour === evidenData?.gas_hour
+        return unpublishData?.execute_timestamp === evidenData?.execute_timestamp && unpublishData?.gas_day_text === evidenData?.gas_day && unpublishData?.gas_hour === evidenData?.gas_hour
       })
     })
 
@@ -9900,7 +10026,7 @@ export class BalancingService {
 
         const publishData = matchWithExecuteList.filter((evidenData: any) => {
           return !publicationCenterDeletedList?.some((unpublishData: any) => {
-            return unpublishData?.execute_timestamp === evidenData.execute_timestamp && unpublishData?.gas_day_text === evidenData.gas_day && unpublishData?.gas_hour === evidenData?.gas_hour
+            return unpublishData?.execute_timestamp === evidenData?.execute_timestamp && unpublishData?.gas_day_text === evidenData?.gas_day && unpublishData?.gas_hour === evidenData?.gas_hour
           })
         })
 
@@ -9975,9 +10101,9 @@ export class BalancingService {
             // console.log('i : ', i);
             // console.log('____activeMode : ', activeMode);
             // console.log('-----');
-            const thisHourData = latestPublishData?.find((evidenData: any) => {
+            const thisHourData = latestPublishData && latestPublishData?.find((evidenData: any) => {
               return evidenData.gas_hour === i && isMatch(evidenData.mode, activeMode?.mode?.mode)
-            })
+            }) || null
 
             let value: any = {
               all: null,
@@ -10269,13 +10395,607 @@ export class BalancingService {
           type: 'line'
         }
       ],
-      data: nDataTempAll || []
+      data: nDataTempAll
     }
 
     return dataUse
   }
 
   //#region ignore active mode  
+  async systemAccImbalanceInventory3OLD(payload: any, userId: any) {
+    const {gas_day, skip, limit, shipper_id, execute_timestamp, lasted_version} = payload
+
+    let totalRecord: number | undefined = undefined
+    await this.evidenApiCenter(
+      {
+        gas_day,
+        start_hour: 1,
+        end_hour: 24,
+        skip: 0,
+        limit: 1
+      },
+      'balance_system_acc_imb',
+      (total_record: number) => {
+        totalRecord = total_record
+      }
+    )
+    const evidenApiCenter: any = await this.evidenApiCenter(
+      {
+        gas_day,
+        start_hour: 1,
+        end_hour: 24,
+        skip: totalRecord ? 0 : Number(skip),
+        limit: totalRecord ? totalRecord : Number(limit)
+      },
+      'balance_system_acc_imb'
+    )
+
+    const todayStart = getTodayStartYYYYMMDDDfaultAdd7(gas_day).toDate()
+    const todayEnd = getTodayEndYYYYMMDDDfaultAdd7(gas_day).toDate()
+
+    const todayModeZone = await this.prisma.mode_zone_base_inventory.findMany({
+      where: {
+        start_date: {
+          gte: todayStart,
+          lte: todayEnd
+        }
+      },
+      include: {
+        zone: true,
+        mode: true,
+        create_by_account: {
+          select: {
+            id: true,
+            email: true,
+            first_name: true,
+            last_name: true
+          }
+        },
+        update_by_account: {
+          select: {
+            id: true,
+            email: true,
+            first_name: true,
+            last_name: true
+          }
+        }
+      },
+      orderBy: [
+        {
+        start_date: 'desc'
+      },
+      {
+        create_date: "desc"
+      }
+      ]
+    })
+
+    let lastetModeBeforeToday = []
+
+    const modeZone = await this.prisma.mode_zone_base_inventory.findMany({
+      where: {
+        start_date: {
+          lt: todayStart
+        }
+      },
+      include: {
+        zone: true,
+        mode: true,
+        create_by_account: {
+          select: {
+            id: true,
+            email: true,
+            first_name: true,
+            last_name: true
+          }
+        },
+        update_by_account: {
+          select: {
+            id: true,
+            email: true,
+            first_name: true,
+            last_name: true
+          }
+        }
+      },
+      orderBy: {
+        start_date: 'desc'
+      }
+    })
+
+    lastetModeBeforeToday = modeZone.reduce((acc: any[], current: any) => {
+      const existingIndex = acc.findIndex((item) => isMatch(item.zone?.name, current.zone?.name))
+
+      if (existingIndex < 0) {
+        acc.push(current)
+      } else if (current.start_date > acc[existingIndex]?.start_date) {
+        acc[existingIndex] = current
+      }
+      else if (current.start_date == acc[existingIndex]?.start_date && dayjs(current.create_date).isAfter(dayjs(acc[existingIndex]?.create_date))) {
+        acc[existingIndex] = current
+      }
+
+      return acc
+    }, [])
+
+    const executeIntradayList = await this.prisma.execute_intraday.findMany({
+      where: {
+        status: {
+          equals: 'OK',
+          mode: 'insensitive'
+        },
+        gas_day_date: {
+          gte: todayStart,
+          lte: todayEnd
+        }
+      }
+    })
+
+    const publicationCenterDeletedList = await this.prisma.publication_center.findMany({
+      where: {
+        AND: [
+          {
+            gas_day: {
+              gte: todayStart
+            }
+          },
+          {
+            gas_day: {
+              lte: todayEnd
+            }
+          },
+          {
+            del_flag: true
+          }
+        ]
+      }
+    })
+
+    const groupMasterCheck = await this.prisma.group.findFirst({
+      where: {
+        account_manage: {
+          some: {
+            account_id: Number(userId)
+          }
+        }
+      },
+      include: {
+        contract_code: {
+          where: {
+            AND: [
+              {
+                status_capacity_request_management_id: {
+                  in: [2, 5]
+                }
+              }, // Approved
+              {
+                contract_start_date: {
+                  lte: todayEnd
+                }
+              }, // Started before or on target date
+              // Not rejected
+              {
+                status_capacity_request_management: {
+                  NOT: {
+                    name: {
+                      equals: 'Rejected',
+                      mode: 'insensitive'
+                    }
+                  }
+                }
+              },
+              // If terminate_date exists and targetDate >= terminate_date, exclude (inactive)
+              {
+                OR: [
+                  {
+                    terminate_date: null
+                  }, // No terminate date
+                  {
+                    terminate_date: {
+                      gt: todayStart
+                    }
+                  } // Terminate date is after target date
+                ]
+              },
+              // Use extend_deadline if available, otherwise use contract_end_date
+              {
+                OR: [
+                  // If extend_deadline exists, use it as end date
+                  {
+                    AND: [
+                      {
+                        extend_deadline: {
+                          not: null
+                        }
+                      },
+                      {
+                        extend_deadline: {
+                          gt: todayStart
+                        }
+                      }
+                    ]
+                  },
+                  // If extend_deadline is null, use contract_end_date
+                  {
+                    AND: [
+                      {
+                        extend_deadline: null
+                      },
+                      {
+                        OR: [
+                          {
+                            contract_end_date: null
+                          },
+                          {
+                            contract_end_date: {
+                              gt: todayStart
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          include: {
+            booking_version: {
+              where: {
+                flag_use: true
+              },
+              include: {
+                // booking_full_json: true,
+                booking_row_json: true
+              },
+              take: 1,
+              orderBy: {
+                id: 'desc'
+              }
+            }
+          }
+        }
+      }
+    })
+    const userType = groupMasterCheck?.user_type_id
+
+    let dataEvuent = evidenApiCenter?.data || []
+
+    // If not admin or TSO filter data by shipper group
+    if (userType && userType != 1 && userType != 2) {
+      let uniqueZones = []
+      groupMasterCheck.contract_code.map((contract) => {
+        contract.booking_version.map((version) => {
+          version.booking_row_json.map((row) => {
+            if (row.zone_text && !uniqueZones.some((zone) => isMatch(zone, row.zone_text))) {
+              uniqueZones.push(row.zone_text)
+            }
+          })
+        })
+      })
+
+      dataEvuent = dataEvuent.filter((item: any) => {
+        return uniqueZones.some((zone) => isMatch(zone, item.zone))
+      })
+    }
+
+    const matchWithExecuteList = dataEvuent.filter((item: any) => {
+      const itemGasDay = getTodayNowYYYYMMDDDfaultAdd7(item.gas_day)
+      return executeIntradayList?.some((executeData: any) => {
+        const executeGasDay = getTodayNowAdd7(executeData.gas_day)
+        return executeData.request_number_id == item.request_number && executeGasDay.isSame(itemGasDay, 'day')
+      })
+    })
+
+    const publishData = matchWithExecuteList.filter((evidenData: any) => {
+      return !publicationCenterDeletedList?.some((unpublishData: any) => {
+        return unpublishData?.execute_timestamp === evidenData?.execute_timestamp && unpublishData?.gas_day_text === evidenData?.gas_day && unpublishData?.gas_hour === evidenData?.gas_hour
+      })
+    })
+
+    // Get the latest execute_timestamp for each unique combination of gas_day, gas_hour, zone, and mode
+    const latestPublishData = publishData.reduce((acc: any[], current: any) => {
+      // const key = `${current.gas_day}_${current.gas_hour}_${current.zone}_${current.mode}`;
+      const existingIndex = acc.findIndex((item) => item.gas_day === current.gas_day && item.gas_hour === current.gas_hour && item.zone === current.zone && item.mode === current.mode)
+
+      if (existingIndex < 0) {
+        acc.push(current)
+      } else if (current.execute_timestamp > acc[existingIndex].execute_timestamp) {
+        acc[existingIndex] = current
+      }
+
+      return acc
+    }, []).sort((a: any, b: any) => b.execute_timestamp - a.execute_timestamp)
+
+    if (latestPublishData.length > 0) {
+      const uniqueZones = [...new Set(latestPublishData.map((data: any) => data.zone))]
+
+      let hourData = []
+      for (let i = 0; i <= 24; i++) {
+        for (const zone of uniqueZones) {
+          const modeOfThisHourAndZone = todayModeZone.filter((modeZone: any) => {
+            const gasHour = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('H'))
+            const gasMinute = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('mm'))
+
+            return gasHour == i && isMatch(modeZone?.zone?.name, `${zone}`) && gasMinute == 0
+          })
+
+          let activeMode = undefined
+          if (modeOfThisHourAndZone.length > 0) {
+            // if must prorate do it here
+            // just get the lastet for now
+            modeOfThisHourAndZone.sort((a: any, b: any) => {
+              const startDateDiff = dayjs(b.start_date).diff(dayjs(a.start_date))
+              if (startDateDiff !== 0) {
+                return startDateDiff
+              }
+              return dayjs(b.create_date).diff(dayjs(a.create_date))
+            })
+            activeMode = modeOfThisHourAndZone[0]
+          } else {
+            let todayModeOfZoneBeforeThisHour = todayModeZone.filter((modeZone: any) => {
+              const gasHour = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('H')) + 1
+              return gasHour < i && modeZone && isMatch(modeZone?.zone?.name, `${zone}`)
+            })
+
+            if (todayModeOfZoneBeforeThisHour.length > 0) {
+              todayModeOfZoneBeforeThisHour.sort((a: any, b: any) => {
+                const startDateDiff = dayjs(b.start_date).diff(dayjs(a.start_date))
+                if (startDateDiff !== 0) {
+                  return startDateDiff
+                }
+                return dayjs(b.create_date).diff(dayjs(a.create_date))
+              })
+              activeMode = todayModeOfZoneBeforeThisHour[0]
+            } else {
+              activeMode = lastetModeBeforeToday.find((f: any) => isMatch(f?.zone?.name, `${zone}`))
+            }
+          }
+
+          let thisHourData = (latestPublishData || [])?.find((evidenData: any) => {
+            return evidenData?.gas_hour === i && isMatch(evidenData?.zone, `${zone}`)
+          })
+
+          if(!thisHourData) {
+            const beforeLatestPublishData = (publishData || [])?.filter((evidenData: any) => {
+              return evidenData?.gas_hour === i && isMatch(evidenData?.zone, `${zone}`)
+            })?.reduce((acc: any[], current: any) => {
+              const existingIndex = acc.findIndex((item) => item.gas_day === current.gas_day && item.gas_hour === current.gas_hour && item.zone === current.zone && item.mode === current.mode)
+        
+              if (existingIndex < 0) {
+                acc.push(current)
+              } else if (current.execute_timestamp > acc[existingIndex].execute_timestamp) {
+                acc[existingIndex] = current
+              }
+        
+              return acc
+            }, [])
+
+            thisHourData = beforeLatestPublishData?.find((evidenData: any) => {
+              return evidenData?.gas_hour === i && isMatch(evidenData?.zone, `${zone}`)
+            })
+          }
+
+          let value = {
+            totalAccImbInv_percentage: null,
+            high_max_percentage: null,
+            high_dd_percentage: null,
+            high_red_percentage: null,
+            high_orange_percentage: null,
+            high_alert_percentage: null,
+            low_max_percentage: null,
+            low_dd_percentage: null,
+            low_red_percentage: null,
+            low_orange_percentage: null,
+            low_alert_percentage: null,
+            mode: null
+          }
+
+          if (thisHourData) {
+            value['totalAccImbInv_percentage'] = thisHourData.values?.find((f: any) => f?.tag === 'totalAccImbInv_percentage')?.value ?? null
+            value['high_max_percentage'] = thisHourData.values?.find((f: any) => f?.tag === 'high_max_percentage')?.value ?? null
+            value['high_dd_percentage'] = thisHourData.values?.find((f: any) => f?.tag === 'high_dd_percentage')?.value ?? null
+            value['high_red_percentage'] = thisHourData.values?.find((f: any) => f?.tag === 'high_red_percentage')?.value ?? null
+            value['high_orange_percentage'] = thisHourData.values?.find((f: any) => f?.tag === 'high_orange_percentage')?.value ?? null
+            value['high_alert_percentage'] = thisHourData.values?.find((f: any) => f?.tag === 'high_alert_percentage')?.value ?? null
+            value['low_max_percentage'] = thisHourData.values?.find((f: any) => f?.tag === 'low_max_percentage')?.value ?? null
+            value['low_dd_percentage'] = thisHourData.values?.find((f: any) => f?.tag === 'low_dd_percentage')?.value ?? null
+            value['low_red_percentage'] = thisHourData.values?.find((f: any) => f?.tag === 'low_red_percentage')?.value ?? null
+            value['low_orange_percentage'] = thisHourData.values?.find((f: any) => f?.tag === 'low_orange_percentage')?.value ?? null
+            value['low_alert_percentage'] = thisHourData.values?.find((f: any) => f?.tag === 'low_alert_percentage')?.value ?? null
+            value['mode'] = thisHourData.mode ?? null
+          }
+
+          const existingIndex = hourData.findIndex((data: any) => data.gas_hour === i)
+          if (existingIndex >= 0) {
+            hourData[existingIndex].mode = thisHourData ? thisHourData.mode : null
+            hourData[existingIndex].zone = thisHourData ? zone : null
+            hourData[existingIndex].value = value
+            if (hourData[existingIndex].activeMode?.start_date < activeMode?.start_date) {
+              hourData[existingIndex].activeMode = activeMode
+            }
+            hourData[existingIndex].valueOfEachZone[`${zone}`] = value
+          } else {
+            hourData.push({
+              gas_hour: i,
+              gas_hour_text: i >= 10 ? `${i}:00` : `0${i}:00`,
+              mode: thisHourData ? (thisHourData.mode ?? activeMode?.mode?.mode) : null,
+              zone: thisHourData ? zone : null,
+              value: value,
+              valueOfEachZone: {
+                [`${zone}`]: value
+              },
+              activeMode
+            })
+          }
+        }
+      }
+
+      const dataUse = {
+        templateLabelKeys: [
+          {
+            lebel: 'EAST',
+            color: '#dbe4fe',
+            key: 'totalAccImbInv_percentage',
+            type: 'bar'
+          },
+          {
+            lebel: 'WEST',
+            color: '#fdcee3',
+            key: 'totalAccImbInv_percentage',
+            type: 'bar'
+          },
+          {
+            lebel: 'High Max',
+            color: '#535353',
+            key: 'high_max_percentage',
+            type: 'line'
+          },
+          {
+            lebel: 'High Difficult Day',
+            color: '#824ba6',
+            key: 'high_dd_percentage',
+            type: 'line'
+          },
+          {
+            lebel: 'High Red',
+            color: '#da1610',
+            key: 'high_red_percentage',
+            type: 'line'
+          },
+          {
+            lebel: 'High Orange',
+            color: '#f56f16',
+            key: 'high_orange_percentage',
+            type: 'line'
+          },
+          {
+            lebel: 'Alert High',
+            color: '#eac12a',
+            key: 'high_alert_percentage',
+            type: 'line'
+          },
+          {
+            lebel: 'Low Min',
+            color: '#535353',
+            key: 'low_max_percentage',
+            type: 'line'
+          },
+          {
+            lebel: 'Low Difficult Day',
+            color: '#824ba6',
+            key: 'low_dd_percentage',
+            type: 'line'
+          },
+          {
+            lebel: 'Low Red',
+            color: '#da1610',
+            key: 'low_red_percentage',
+            type: 'line'
+          },
+          {
+            lebel: 'Low Orange',
+            color: '#f56f16',
+            key: 'low_orange_percentage',
+            type: 'line'
+          },
+          {
+            lebel: 'Alert Low',
+            color: '#eac12a',
+            key: 'low_alert_percentage',
+            type: 'line'
+          }
+        ],
+        data: [
+          {
+            gas_day: gas_day,
+            hour: hourData
+          }
+        ]
+      }
+      return dataUse
+    } else {
+      const dataUse = {
+        templateLabelKeys: [
+          {
+            lebel: 'EAST',
+            color: '#dbe4fe',
+            key: 'totalAccImbInv_percentage',
+            type: 'bar'
+          },
+          {
+            lebel: 'WEST',
+            color: '#fdcee3',
+            key: 'totalAccImbInv_percentage',
+            type: 'bar'
+          },
+          {
+            lebel: 'High Max',
+            color: '#535353',
+            key: 'high_max_percentage',
+            type: 'line'
+          },
+          {
+            lebel: 'High Difficult Day',
+            color: '#824ba6',
+            key: 'high_dd_percentage',
+            type: 'line'
+          },
+          {
+            lebel: 'High Red',
+            color: '#da1610',
+            key: 'high_red_percentage',
+            type: 'line'
+          },
+          {
+            lebel: 'High Orange',
+            color: '#f56f16',
+            key: 'high_orange_percentage',
+            type: 'line'
+          },
+          {
+            lebel: 'Alert High',
+            color: '#eac12a',
+            key: 'high_alert_percentage',
+            type: 'line'
+          },
+          {
+            lebel: 'Low Min',
+            color: '#535353',
+            key: 'low_max_percentage',
+            type: 'line'
+          },
+          {
+            lebel: 'Low Difficult Day',
+            color: '#824ba6',
+            key: 'low_dd_percentage',
+            type: 'line'
+          },
+          {
+            lebel: 'Low Red',
+            color: '#da1610',
+            key: 'low_red_percentage',
+            type: 'line'
+          },
+          {
+            lebel: 'Low Orange',
+            color: '#f56f16',
+            key: 'low_orange_percentage',
+            type: 'line'
+          },
+          {
+            lebel: 'Alert Low',
+            color: '#eac12a',
+            key: 'low_alert_percentage',
+            type: 'line'
+          }
+        ],
+        data: []
+      }
+      return dataUse
+    }
+  }
+  
   async systemAccImbalanceInventory3(payload: any, userId: any) {
     const {gas_day, skip, limit, shipper_id, execute_timestamp, lasted_version} = payload
 
@@ -10563,7 +11283,7 @@ export class BalancingService {
 
     const publishData = matchWithExecuteList.filter((evidenData: any) => {
       return !publicationCenterDeletedList?.some((unpublishData: any) => {
-        return unpublishData?.execute_timestamp === evidenData.execute_timestamp && unpublishData?.gas_day_text === evidenData.gas_day && unpublishData?.gas_hour === evidenData?.gas_hour
+        return unpublishData?.execute_timestamp === evidenData?.execute_timestamp && unpublishData?.gas_day_text === evidenData?.gas_day && unpublishData?.gas_hour === evidenData?.gas_hour
       })
     })
 
@@ -10609,7 +11329,7 @@ export class BalancingService {
           } else {
             let todayModeOfZoneBeforeThisHour = todayModeZone.filter((modeZone: any) => {
               const gasHour = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('H')) + 1
-              return gasHour < i && isMatch(modeZone?.zone?.name, `${zone}`)
+              return gasHour < i && modeZone && isMatch(modeZone?.zone?.name, `${zone}`)
             })
 
             if (todayModeOfZoneBeforeThisHour.length > 0) {
@@ -10626,13 +11346,13 @@ export class BalancingService {
             }
           }
 
-          let thisHourData = latestPublishData?.find((evidenData: any) => {
-            return evidenData.gas_hour === i && isMatch(evidenData.zone, `${zone}`)
+          let thisHourData = (latestPublishData || [])?.find((evidenData: any) => {
+            return evidenData?.gas_hour === i && isMatch(evidenData?.zone, `${zone}`)
           })
 
           if(!thisHourData) {
-            const beforeLatestPublishData = publishData?.filter((evidenData: any) => {
-              return evidenData.gas_hour === i && isMatch(evidenData.zone, `${zone}`)
+            const beforeLatestPublishData = (publishData || [])?.filter((evidenData: any) => {
+              return evidenData?.gas_hour === i && isMatch(evidenData?.zone, `${zone}`)
             })?.reduce((acc: any[], current: any) => {
               const existingIndex = acc.findIndex((item) => item.gas_day === current.gas_day && item.gas_hour === current.gas_hour && item.zone === current.zone && item.mode === current.mode)
         
@@ -10646,7 +11366,7 @@ export class BalancingService {
             }, [])
 
             thisHourData = beforeLatestPublishData?.find((evidenData: any) => {
-              return evidenData.gas_hour === i && isMatch(evidenData.zone, `${zone}`)
+              return evidenData?.gas_hour === i && isMatch(evidenData?.zone, `${zone}`)
             })
           }
 
@@ -11091,7 +11811,7 @@ export class BalancingService {
 
         const publishData = matchWithExecuteList.filter((evidenData: any) => {
           return !publicationCenterDeletedList?.some((unpublishData: any) => {
-            return unpublishData?.execute_timestamp === evidenData.execute_timestamp && unpublishData?.gas_day_text === evidenData.gas_day && unpublishData?.gas_hour === evidenData?.gas_hour
+            return unpublishData?.execute_timestamp === evidenData?.execute_timestamp && unpublishData?.gas_day_text === evidenData?.gas_day && unpublishData?.gas_hour === evidenData?.gas_hour
           })
         })
 
@@ -11160,13 +11880,13 @@ export class BalancingService {
               }
             }
             
-            let thisHourData = latestPublishData?.find((evidenData: any) => {
-              return evidenData.gas_hour === i
+            let thisHourData = (latestPublishData || [])?.find((evidenData: any) => {
+              return evidenData?.gas_hour === i
             })
 
             if(!thisHourData) {
-              const beforeLatestPublishData = publishData?.filter((evidenData: any) => {
-                return evidenData.gas_hour === i
+              const beforeLatestPublishData = (publishData || [])?.filter((evidenData: any) => {
+                return evidenData?.gas_hour === i
               })?.reduce((acc: any[], current: any) => {
                 const existingIndex = acc.findIndex((item) => item.gas_day === current.gas_day && item.gas_hour === current.gas_hour && item.zone === current.zone && item.mode === current.mode)
       
@@ -11180,7 +11900,7 @@ export class BalancingService {
               }, [])
   
               thisHourData = beforeLatestPublishData?.find((evidenData: any) => {
-                return evidenData.gas_hour === i
+                return evidenData?.gas_hour === i
               })
             }
 
@@ -11474,7 +12194,7 @@ export class BalancingService {
           type: 'line'
         }
       ],
-      data: nDataTempAll || []
+      data: nDataTempAll
     }
 
     return dataUse
@@ -12389,7 +13109,7 @@ export class BalancingService {
               ].systemValue = systemValue
 
               const existingActiveModeDate =
-                hourData[existingIndex]
+                hourData?.[existingIndex]
                   ?.activeMode?.start_date
 
               const newActiveModeDate =
@@ -12698,6 +13418,9 @@ export class BalancingService {
 
     const grouped = {}
     for (const curr of evidenApiCenter?.data ?? []) {
+      if(!curr){
+        continue;
+      }
       const key = `${curr.gas_day}|${curr.gas_hour}|${curr.execute_timestamp}`
 
       if (!grouped[key]) {

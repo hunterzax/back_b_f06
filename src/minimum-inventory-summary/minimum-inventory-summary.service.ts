@@ -110,10 +110,10 @@ export class MinimumInventorySummaryService {
       await this.prisma.query_shipper_nomination_file.findMany(
         {
           where: {
-            NOT: {
-              contract_code_id:
-                null
-            }, // revers bal ไม่แสดง effect
+            // NOT: {
+            //   contract_code_id:
+            //     null
+            // }, // revers bal ไม่แสดง effect
             // nomination_type_id: 1,
             query_shipper_nomination_status:
               {
@@ -151,6 +151,11 @@ export class MinimumInventorySummaryService {
                             lt: nextSunday.toDate()
                           }
                       },
+                      {
+                        OR: [
+                          {
+                            reserve_balancing_gas_contract_id: { not: null }
+                          },
                       {
                         contract_code: {
                           contract_start_date: { lt: nextSunday.toDate() }, // Started before or on target date
@@ -199,6 +204,8 @@ export class MinimumInventorySummaryService {
                             },
                           ],
                         }
+                      }
+                        ]
                       }
                     ]
                   },
@@ -429,7 +436,7 @@ export class MinimumInventorySummaryService {
             []
 
           if (
-            e?.nomination_type
+            e && e?.nomination_type
               ?.id === 1
           ) {
             MinInventoryChangeUse =
@@ -486,7 +493,7 @@ export class MinimumInventorySummaryService {
                       ) // Remove parentheses and add negative sign
                   }
                   const nomination_row_json_id =
-                    p?.id
+                    p && p?.id || -1
 
                   const nomType =
                     'daily'
@@ -507,13 +514,7 @@ export class MinimumInventorySummaryService {
                     nomination_row_json:
                       p,
                     type: 'Min_Inventory_Change',
-                    value:
-                      value !==
-                      undefined
-                        ? parseToNumber(
-                            value
-                          )
-                        : '',
+                    value: parseToNumber(value) || '',
                     nomType
                   }
                 }
@@ -574,7 +575,7 @@ export class MinimumInventorySummaryService {
                       ) // Remove parentheses and add negative sign
                   }
                   const nomination_row_json_id =
-                    p?.id
+                    p && p?.id || -1
 
                   const nomType =
                     'daily'
@@ -595,13 +596,7 @@ export class MinimumInventorySummaryService {
                     nomination_row_json:
                       p,
                     type: 'Exchange_Min_Inventory',
-                    value:
-                      value !==
-                      undefined
-                        ? parseToNumber(
-                            value
-                          )
-                        : '',
+                    value: parseToNumber(value) || '',
                     nomType
                   }
                 }
@@ -669,7 +664,7 @@ export class MinimumInventorySummaryService {
                         ) // Remove parentheses and add negative sign
                     }
                     const nomination_row_json_id =
-                      p?.id
+                      p && p?.id || -1
 
                     const nomType =
                       day
@@ -704,13 +699,7 @@ export class MinimumInventorySummaryService {
                         nomination_row_json:
                           p,
                         type: 'Min_Inventory_Change',
-                        value:
-                          value !==
-                          undefined
-                            ? parseToNumber(
-                                value
-                              )
-                            : '',
+                        value: parseToNumber(value),
                         nomType
                       }
                     )
@@ -737,13 +726,7 @@ export class MinimumInventorySummaryService {
                       nomination_row_json:
                         p,
                       type: 'Min_Inventory_Change',
-                      value:
-                        value !==
-                        undefined
-                          ? parseToNumber(
-                              value
-                            )
-                          : '',
+                      value: parseToNumber(value) || '',
                       nomType
                     }
                   }
@@ -783,7 +766,7 @@ export class MinimumInventorySummaryService {
                       return;
                     }
                     const nomination_row_json_id =
-                      p?.id
+                      p && p?.id || -1
 
                     const nomType =
                       day
@@ -900,7 +883,7 @@ export class MinimumInventorySummaryService {
             iW++
           ) {
             if (
-              data?.[iW]
+              data && data?.[iW] && data?.[iW]
                 ?.nomination_type
                 ?.id === 1
             ) {
@@ -990,7 +973,7 @@ export class MinimumInventorySummaryService {
                   eN?.zone
                 )
               }
-            ) || null
+            ) ?? null
 
           const daily =
             data?.filter(
@@ -1034,7 +1017,7 @@ export class MinimumInventorySummaryService {
                   acc,
                   item
                 ) => {
-                  const key = `${item.gas_day}|${item.group?.name}|${item?.contract_code?.contract_code ?? item?.reserve_balancing_gas_contract?.res_bal_gas_contract}`
+                  const key = item && `${item.gas_day}|${item.group?.name}|${item?.contract_code?.contract_code ?? item?.reserve_balancing_gas_contract?.res_bal_gas_contract}` || ""
                   if (
                     !acc[key]
                   ) {
@@ -1123,7 +1106,7 @@ export class MinimumInventorySummaryService {
                   acc,
                   item
                 ) => {
-                  const key = `${item.gas_day}|${item.group?.name}|${item?.contract_code?.contract_code ?? item?.reserve_balancing_gas_contract?.res_bal_gas_contract}`
+                  const key = item && `${item.gas_day}|${item.group?.name}|${item?.contract_code?.contract_code ?? item?.reserve_balancing_gas_contract?.res_bal_gas_contract}` || ""
                   if (
                     !acc[key]
                   ) {

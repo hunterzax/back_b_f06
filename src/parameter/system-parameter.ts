@@ -125,40 +125,73 @@ export class ParameterSystemParameterService {
       ...dataWithout
     } = payload
 
+    const startDayjs = start_date ? getTodayStartAdd7(start_date) : getTodayStartAdd7()
+    const endDayjs = end_date ? getTodayEndAdd7(end_date) : null
+
     const checkSE =
       await this.prisma.system_parameter.findMany(
         {
           where: {
+            AND: [
+              {
+                start_date: endDayjs && (endDayjs?.isValid() ? { lt: endDayjs.toDate() } : { lte: startDayjs.toDate() }) || { lte: startDayjs.toDate() },
+              },
+              {
+                OR: [
+                  { end_date : null},
+                  { end_date : { gt: startDayjs.toDate() } }
+                ],
+              },
+              {
             menus_id:
               menus_id,
+              },
+              {
             system_parameter_id:
               system_parameter_id
+              },
+            ]
           }
         }
       )
     let flagSE = false
+    let isAutoEndExist = false
+    const activeAndNoEnd = checkSE.filter(item => item.end_date === null && item.start_date <= startDayjs.toDate())
+
+    // if (checkSE.length > 0) {
+    //   for (
+    //     let i = 0;
+    //     i < checkSE.length;
+    //     i++
+    //   ) {
+    //     const isOverlap =
+    //       await checkStartEndBoom(
+    //         checkSE[i]
+    //           ?.start_date,
+    //         checkSE[i]
+    //           ?.end_date,
+    //         start_date,
+    //         end_date
+    //       )
+    //     if (isOverlap) {
+    //       flagSE = true
+    //       break
+    //     }
+    //   }
+    // } else {
+    //   flagSE = false
+    // }
 
     if (checkSE.length > 0) {
-      for (
-        let i = 0;
-        i < checkSE.length;
-        i++
-      ) {
-        const isOverlap =
-          await checkStartEndBoom(
-            checkSE[i]
-              ?.start_date,
-            checkSE[i]
-              ?.end_date,
-            start_date,
-            end_date
-          )
-        if (isOverlap) {
-          flagSE = true
-          break
-        }
+      if(activeAndNoEnd.length == checkSE.length) {
+        flagSE = false
+        isAutoEndExist = true
       }
-    } else {
+      else{
+        flagSE = true
+      }
+    }
+    else{
       flagSE = false
     }
 
@@ -200,8 +233,24 @@ export class ParameterSystemParameterService {
       //   value = validation.convertedTimes
       // }
 
+      const result = await this.prisma.$transaction(async (tx) => {
+        if(isAutoEndExist){
+          const updateResult = await tx.system_parameter.updateMany({
+            where: {
+              id: {
+                in: activeAndNoEnd.map(item => item.id)
+              }
+            },
+            data: {
+              end_date: startDayjs.toDate(),
+              update_date: getTodayNowAdd7().toDate(),
+              update_by: Number(userId),
+              update_date_num: getTodayNowAdd7().unix()
+            }
+          })
+        }
       const systemParameterCreate =
-        await this.prisma.system_parameter.create(
+          await tx.system_parameter.create(
           {
             data: {
               ...dataWithout,
@@ -251,6 +300,8 @@ export class ParameterSystemParameterService {
           }
         )
       return systemParameterCreate
+      })
+      return result
     }
   }
 
@@ -267,43 +318,78 @@ export class ParameterSystemParameterService {
       ...dataWithout
     } = payload
 
+    const startDayjs = start_date ? getTodayStartAdd7(start_date) : getTodayStartAdd7()
+    const endDayjs = end_date ? getTodayEndAdd7(end_date) : null
+
     const checkSE =
       await this.prisma.system_parameter.findMany(
         {
           where: {
+            AND: [
+              {
             id: {
               not: Number(id)
             },
+              },
+              {
+                start_date: endDayjs && (endDayjs?.isValid() ? { lt: endDayjs.toDate() } : { lte: startDayjs.toDate() }) || { lte: startDayjs.toDate() },
+              },
+              {
+                OR: [
+                  { end_date : null},
+                  { end_date : { gt: startDayjs.toDate() } }
+                ],
+              },
+              {
             menus_id:
               menus_id,
+              },
+              {
             system_parameter_id:
               system_parameter_id
+              },
+            ]
           }
         }
       )
     let flagSE = false
+    let isAutoEndExist = false
+    const activeAndNoEnd = checkSE.filter(item => item.end_date === null && item.start_date <= startDayjs.toDate())
+
+    // if (checkSE.length > 0) {
+    //   for (
+    //     let i = 0;
+    //     i < checkSE.length;
+    //     i++
+    //   ) {
+    //     const isOverlap =
+    //       await checkStartEndBoom(
+    //         checkSE[i]
+    //           ?.start_date,
+    //         checkSE[i]
+    //           ?.end_date,
+    //         start_date,
+    //         end_date
+    //       )
+    //     if (isOverlap) {
+    //       flagSE = true
+    //       break
+    //     }
+    //   }
+    // } else {
+    //   flagSE = false
+    // }
 
     if (checkSE.length > 0) {
-      for (
-        let i = 0;
-        i < checkSE.length;
-        i++
-      ) {
-        const isOverlap =
-          await checkStartEndBoom(
-            checkSE[i]
-              ?.start_date,
-            checkSE[i]
-              ?.end_date,
-            start_date,
-            end_date
-          )
-        if (isOverlap) {
-          flagSE = true
-          break
-        }
+      if(activeAndNoEnd.length == checkSE.length) {
+        flagSE = false
+        isAutoEndExist = true
       }
-    } else {
+      else{
+        flagSE = true
+      }
+    }
+    else{
       flagSE = false
     }
 
@@ -345,8 +431,24 @@ export class ParameterSystemParameterService {
       //   value = validation.convertedTimes
       // }
 
+      const result = await this.prisma.$transaction(async (tx) => {
+        if(isAutoEndExist){
+          const updateResult = await tx.system_parameter.updateMany({
+            where: {
+              id: {
+                in: activeAndNoEnd.map(item => item.id)
+              }
+            },
+            data: {
+              end_date: startDayjs.toDate(),
+              update_date: getTodayNowAdd7().toDate(),
+              update_by: Number(userId),
+              update_date_num: getTodayNowAdd7().unix()
+            }
+          })
+        }
       const systemParameterEdit =
-        await this.prisma.system_parameter.update(
+          await tx.system_parameter.update(
           {
             where: {
               id: Number(id)
@@ -400,6 +502,8 @@ export class ParameterSystemParameterService {
           }
         )
       return systemParameterEdit
+      })
+      return result
     }
   }
 

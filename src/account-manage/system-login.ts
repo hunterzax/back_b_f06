@@ -341,7 +341,7 @@ export class AccountManageSystemLoginService {
         mode_account_id,
         role_id,
         ...dataWithout
-      } = payload
+      } = (payload || {})
       const roleMasterCreate =
         await this.prisma.system_login.create(
           {
@@ -376,7 +376,7 @@ export class AccountManageSystemLoginService {
             }
           }
         )
-      if (
+      if (payload &&
         payload
           ?.system_login_account
           ?.length > 0
@@ -918,10 +918,10 @@ export class AccountManageSystemLoginService {
                 await this.prisma.account.findUnique(
                   {
                     where: {
-                      id: system_login_account[
+                      id: system_login_account[i] && system_login_account[
                         i
                       ]
-                        ?.account_id
+                        ?.account_id || -1
                     }
                   }
                 )

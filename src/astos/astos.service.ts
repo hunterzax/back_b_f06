@@ -7,6 +7,7 @@ import {
   getTodayStartAdd7,
   getTodayStartYYYYMMDDDfaultAdd7,
   getWeekRange,
+  timeToMinutes,
 } from 'src/common/utils/date.util';
 import * as dayjs from 'dayjs';
 import * as customParseFormat from 'dayjs/plugin/customParseFormat';
@@ -21,7 +22,7 @@ import { PrismaService } from '@prisma/prisma.service';
 import { getIntradayBaseInentoryFromWebService } from 'src/common/utils/balancing.util';
 import { MeteredMicroService } from 'src/grpc/metered-service.service';
 import { isMatch } from 'src/common/utils/allocation.util';
-import { parseToNumber } from 'src/common/utils/number.util';
+import { divideTo3Decimal, divideTo6Decimal, parseToNumber, parseToNumber3Decimal, parseToNumber6Decimal } from 'src/common/utils/number.util';
 import { AllocationService } from 'src/allocation/allocation.service';
 
 dayjs.extend(customParseFormat);
@@ -45,6 +46,8 @@ export class AstosService {
     email: string[],
   ) {
     await axios.post(
+      // NOSONAR
+      // ใช้ HTTP เพราะเป็น internal service
       `http://${process.env.IN_APP_URL}/message`,
       {
         extras: { email },
@@ -420,7 +423,13 @@ export class AstosService {
 
           if (!isInWindow || !key) continue; // skip if not in window
 
-          const value = this.utils.asNumber(r?.data_temp?.[key]);
+          let value = null;
+          if(r){
+            const valNum = this.utils.asNumber(r.data_temp?.[key]);
+            if(valNum || valNum == 0){
+              value = valNum;
+            }
+          }
           flatOut.push({
             contract: e.contract_code,
             shipper: e.group?.id_name,
@@ -429,7 +438,7 @@ export class AstosService {
             entry_exit: r.entry_exit_id === 1 ? 'ENTRY' : 'EXIT',
             zone: r.zone_text,
             dates: dISO,
-            value,
+            value: value,
           });
         }
       }
@@ -1016,7 +1025,7 @@ export class AstosService {
           const head = obj?.headData ?? {};
           const rows: any[] = obj?.valueData ?? [];
 
-          const colKey = this.utils.resolveColumnKey(head, gd, isDaily).trim();
+          const colKey = this.utils.resolveColumnKey(head, gd, isDaily).trim() || null;
           if (!colKey) continue;
 
           for (const row of rows) {
@@ -1532,17 +1541,27 @@ export class AstosService {
 
         const perDay =
           adjustmentUnit === 'MMSCF'
-            ? item.valume_mmscfd
-            : item.valume_mmscfd2;
+            ? parseToNumber6Decimal(item.valume_mmscfd)
+            : parseToNumber3Decimal(item.valume_mmscfd2);
         const perHour =
           adjustmentUnit === 'MMSCF'
-            ? item.valume_mmscfh
-            : item.valume_mmscfh2;
+            ? parseToNumber6Decimal(item.valume_mmscfh)
+            : parseToNumber3Decimal(item.valume_mmscfh2);
 
         let valueH: number | null = null;
-        if (has(perHour) && !has(perDay)) valueH = Number(perHour);
-        else if (!has(perHour) && has(perDay)) valueH = Number(perDay) / 24;
-        else if (has(perHour) && has(perDay)) valueH = Number(perHour);
+        let valueD: number | null = null;
+        if (has(perHour) && !has(perDay)){
+          valueH = perHour;
+          valueD = parseToNumber3Decimal(perHour * 24);
+        }
+        else if (!has(perHour) && has(perDay)){
+          valueH = divideTo3Decimal(perDay, 24);
+          valueD = perDay;
+        }
+        else if (has(perHour) && has(perDay)){
+          valueH = perHour;
+          valueD = perDay;
+        }
         else continue;
 
         if (Number.isNaN(valueH)) continue;
@@ -1554,6 +1573,7 @@ export class AstosService {
           arr.push({
             minute,
             valueH,
+            valueD,
           });
           shipperPointAdj.set(key, arr);
 
@@ -1612,7 +1632,14 @@ export class AstosService {
       }
     >(); // key: gas_day|gas_hour|shipper|point
 
-    for (const g of groups.values()) {
+    const groupsByContract = Array.from(groups.values()).sort(
+      (a, b) =>
+        String(a.gas_day ?? '').localeCompare(String(b.gas_day ?? '')) ||
+        (a.gas_hour - b.gas_hour) ||
+        String(a.contract ?? '').localeCompare(String(b.contract ?? '')) ||
+        String(a.shipper ?? '').localeCompare(String(b.shipper ?? '')),
+    );
+    for (const g of groupsByContract) {
       totalRecords += g.data.length;
       const { gas_day, gas_hour, shipper } = g;
 
@@ -1930,6 +1957,311 @@ export class AstosService {
         baseIndex.set(keySP, slot);
       }
     }
+
+    const adjustmentUnit = payload && this.resolveDailyAdjustmentUnit(payload?.daily_adjustment_summary_unit) || "";
+
+    // จัดกลุ่ม slot ใน baseIndex ตาม adjCode + point + hour
+    // เพื่อใช้ตรวจว่าผลรวมหลังกระจาย daily adjustment ตรงกับค่าเป้าหมาย (valueH) หรือไม่
+    // groupKey = `${adjCode}|${point}|${hour}` → list ของ key ใน baseIndex (แยกตาม shipper)
+    const groupByAdjCode = new Map<string, string[]>();
+
+    const adjustValueAtPointAndTime = new Map<string, { minute: number; mmbtud: number; mmbtuh: number; mmscfd: number;  mmscfh: number; }>();
+
+    // เก็บประวัติการ adjust เพื่อจัดการกับการ adjust ซ้อนทับกัน
+    const adjustHistory: {
+      nomination_point: string;
+      gas_day: string;
+      group_id: number;
+      group_name: string;
+      group_id_name: string;
+      timeMinutes: number;
+      time: string;
+    }[] = [];
+
+    // สร้างกลุ่ม: จากแต่ละ adjustment event หาชั่วโมงที่ได้รับผล (ตั้งแต่ชั่วโมงของ minute นั้นถึง H24)
+    // แล้วเก็บ key ของ baseIndex ที่เกี่ยวข้องไว้ใน groupByAdjCode
+    const dayStart = getTodayStartAdd7(gas_day).toDate();
+    const dayEnd = getTodayEndAdd7(gas_day).toDate();
+    const dailyAdjust = await this.prisma.daily_adjustment.findMany({
+      where: {
+        daily_adjustment_status_id: 2, // เฉพาะที่ approved
+        gas_day: {
+          gte: dayStart,
+          lte: dayEnd,
+        },
+      },
+      orderBy: {
+        create_date: 'asc',
+      }, // เรียงตามวันที่สร้างเพื่อประมวลผล adjustment ตามลำดับเวลา
+      select: {
+        id: true,
+        create_date: true,
+        gas_day: true,
+        time: true,
+        daily_code: true,
+        daily_adjustment_group: {
+          select: {
+            group: {
+              select: {
+                id: true,
+                id_name: true,
+                name: true,
+                contract_code: {
+                  where: {
+                    AND: [
+                      {
+                        contract_start_date: {
+                          lte: dayEnd
+                        }
+                      }, // Started before or on target date
+                      // Not rejected
+                      {
+                        status_capacity_request_management: {
+                          NOT: {
+                            name: {
+                              equals: 'Rejected',
+                              mode: 'insensitive'
+                            }
+                          }
+                        }
+                      },
+                      // If terminate_date exists and targetDate >= terminate_date, exclude (inactive)
+                      {
+                        OR: [
+                          {
+                            terminate_date: null
+                          }, // No terminate date
+                          {
+                            terminate_date: {
+                              gt: dayStart
+                            }
+                          } // Terminate date is after target date
+                        ]
+                      },
+                      // Use extend_deadline if available, otherwise use contract_end_date
+                      {
+                        OR: [
+                          // If extend_deadline exists, use it as end date
+                          {
+                            AND: [
+                              {
+                                extend_deadline: {
+                                  not: null
+                                }
+                              },
+                              {
+                                extend_deadline: {
+                                  gt: dayStart
+                                }
+                              }
+                            ]
+                          },
+                          // If extend_deadline is null, use contract_end_date
+                          {
+                            AND: [
+                              {
+                                extend_deadline: null
+                              },
+                              {
+                                OR: [
+                                  {
+                                    contract_end_date: null
+                                  },
+                                  {
+                                    contract_end_date: {
+                                      gt: dayStart
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  select: {
+                    id: true,
+                    contract_code: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        daily_adjustment_nom: {
+          select: {
+            heating_value: true, // heating value (BTU/SCF)
+            valume_mmscfd: true, // ปริมาณต่อวัน (MMSCFD)
+            valume_mmscfh: true, // ปริมาณต่อชั่วโมง (MMSCFH)
+            valume_mmscfd2: true, // energy ต่อวัน (MMBTU/D)
+            valume_mmscfh2: true, // energy ต่อชั่วโมง (MMBTU/H)
+            nomination_point: {
+              select: {
+                nomination_point: true,
+                zone: true,
+                area: true,
+                entry_exit: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    for(const adjust of dailyAdjust){
+      const adjustCode = adjust.daily_code;
+      const adjustGasDay = dayjs(adjust.gas_day).tz('Asia/Bangkok').format('YYYY-MM-DD');
+      const adjustTime = adjust.time; // เวลาที่ทำการ adjust (เช่น "14:30")
+      // แปลง adjustment time เป็นนาที (เพื่อใช้ในการเปรียบเทียบ)
+      const adjustTimeMinutes = timeToMinutes(adjustTime);
+      const shouldDeletedHour: number = Math.ceil(adjustTimeMinutes / 60);
+      const fromHour: number = shouldDeletedHour + 1;
+      
+      for (const dailyAdjustmentNom of adjust.daily_adjustment_nom) {
+        const point = dailyAdjustmentNom.nomination_point?.nomination_point;
+        // ดึงค่า adjust value (ใช้ค่ารายชั่วโมงถ้ามี ถ้าไม่มีให้แบ่งค่ารายวันด้วย 24)
+        const adjustEnergyPerDay = parseToNumber3Decimal(dailyAdjustmentNom.valume_mmscfd2) ?? parseToNumber3Decimal(parseToNumber3Decimal(dailyAdjustmentNom.valume_mmscfh2) * 24);
+        const adjustEnergyPerHour = parseToNumber3Decimal(dailyAdjustmentNom.valume_mmscfh2) ?? divideTo3Decimal(parseToNumber3Decimal(dailyAdjustmentNom.valume_mmscfd2), 24);
+        const adjustVolumePerDay = parseToNumber3Decimal(dailyAdjustmentNom.valume_mmscfd) ?? parseToNumber3Decimal(parseToNumber3Decimal(dailyAdjustmentNom.valume_mmscfh) * 24);
+        const adjustVolumePerHour = parseToNumber6Decimal(dailyAdjustmentNom.valume_mmscfh) ?? divideTo6Decimal(parseToNumber6Decimal(dailyAdjustmentNom.valume_mmscfd), 24);
+
+        const shouldDeletedKey = `${adjustGasDay}|${shouldDeletedHour}|${point}|${adjustCode}`
+        
+        for (const dailyAdjustmentGroup of adjust.daily_adjustment_group) {
+          // หาประวัติการ adjust ที่เกิดขึ้นหลังจากเวลา adjust ปัจจุบัน (สำหรับ point, zone, area, entry/exit, gas_day, group เดียวกัน)
+          // เพื่อไม่ให้ adjustment ปัจจุบันไปแก้ไขค่าหลังจาก adjustment ที่เกิดขึ้นในภายหลัง
+          const activeHistory = adjustHistory.filter(
+            (history) =>
+              history.nomination_point == point &&
+              history.gas_day == adjustGasDay &&
+              history.group_id == dailyAdjustmentGroup.group?.id &&
+              history.timeMinutes > adjustTimeMinutes,
+          );
+          // หาเวลาที่ไม่ควร adjust (เวลาของ adjustment ที่เกิดขึ้นหลังจากนี้)
+          const doNotAdjustAfterTime = activeHistory.length > 0 ? Math.min(...activeHistory.map((history) => history.timeMinutes)) : undefined;
+          const shouldBreakAt: number = Math.ceil(doNotAdjustAfterTime / 60);
+          if(adjustValueAtPointAndTime.has(shouldDeletedKey)){
+            adjustValueAtPointAndTime.delete(shouldDeletedKey);
+          }
+          for (let i = fromHour; i <= 24; i++) {
+            if(i >= shouldBreakAt){
+              break;
+            }
+            const key = `${adjustGasDay}|${i}|${point}|${adjustCode}`
+            adjustValueAtPointAndTime.set(key, {
+              minute: adjustTimeMinutes,
+              mmbtud: adjustEnergyPerDay,
+              mmbtuh: adjustEnergyPerHour,
+              mmscfd: adjustVolumePerDay,
+              mmscfh: adjustVolumePerHour,
+            });
+          }
+
+          // บันทึกประวัติการ adjust
+          adjustHistory.push({
+            nomination_point: point,
+            gas_day: adjustGasDay,
+            group_id: dailyAdjustmentGroup.group?.id,
+            group_name: dailyAdjustmentGroup.group?.name,
+            group_id_name: dailyAdjustmentGroup.group?.id_name,
+            timeMinutes: adjustTimeMinutes,
+            time: adjustTime,
+          });
+        }
+      }
+    }
+
+
+    for(const key of shipperPointAdj.keys()){
+      const value = shipperPointAdj.get(key);
+      const [adjCode, shipperId, point] = key.split('|');
+      value?.map((item) => {
+        // นาทีของ adjustment → ชั่วโมงเริ่มต้นที่ต้องปรับ (เช่น minute 90 → hour 2)
+        const fromHour: number = Math.ceil(item.minute / 60) + 1;
+        for (let i = fromHour; i <= 24; i++) {
+          const keyOfBaseIndex = `${gas_day}|${i}|${shipperId}|${point}`;
+          const slot = baseIndex.get(keyOfBaseIndex);
+          if (!slot) continue;
+          
+          const groupKey = `${adjCode}|${point}|${i}`
+          if(!groupByAdjCode.has(groupKey)){
+            groupByAdjCode.set(groupKey, []);
+          }
+          const keyListOfBaseIndex = groupByAdjCode.get(groupKey)
+          if(!keyListOfBaseIndex.includes(keyOfBaseIndex)){
+            keyListOfBaseIndex.push(keyOfBaseIndex);
+          }
+        }
+      });
+    };
+
+    // วนทีละกลุ่ม (adjCode + point + hour) เพื่อ reconcile ส่วนต่างจากการปัดเศษ/กระจายค่า
+    for(const [groupKey, keyListOfBaseIndex] of groupByAdjCode.entries()){
+      const [groupAdjCode, groupPoint, groupHour] = groupKey.split('|');
+      let total = 0;
+      let targetKey = '';
+      let maxMember = undefined;
+      
+      // รวม total ของทุก shipper ในกลุ่มเดียวกัน และหา member ที่มีค่ามากที่สุด
+      // (จะใช้ member นี้เป็นจุดรับส่วนต่าง diff ทีหลัง)
+      keyListOfBaseIndex.map((key) => {
+        const slot = baseIndex.get(key);
+        const members = slot.members || [];
+
+        if(slot.total){
+          total += slot.total;
+        }
+
+        for (const member of members) {
+          const memberValue = Number(member.rec?.value) || 0;
+          const maxValue = Number(maxMember?.rec?.value) || 0;
+          if (memberValue > maxValue) {
+            maxMember = member;
+            targetKey = key;
+          }
+        }
+      })
+
+      // เทียบผลรวมจริง (total) กับค่าเป้าหมายของ adjustment (valueH)
+      // ถ้าไม่เท่ากัน = มีส่วนต่างจาก rounding/กระจายสัดส่วน → บวก/ลบ diff เข้า maxMember
+      const adjustValueAtPointAndTimeKeys = Array.from(adjustValueAtPointAndTime.keys()).filter((key) => {
+        const [adjustGasDay, gasHour, point, adjustCode] = key.split('|');
+        return adjustGasDay === gas_day && gasHour === groupHour && point === groupPoint && adjustCode === groupAdjCode;
+      })
+      for(const key of adjustValueAtPointAndTimeKeys){
+        const value = adjustValueAtPointAndTime.get(key);
+        const valueH = (adjustmentUnit === 'MMSCF' ? value.mmscfh : value.mmbtuh)
+        if(valueH != total){
+          // ส่วนต่างที่ต้องชดเชยให้ผลรวมตรงกับ valueH
+          const diff = adjustmentUnit === 'MMSCF' ? parseToNumber6Decimal(valueH - total) : parseToNumber3Decimal(valueH - total);
+  
+          const slot = baseIndex.get(targetKey);
+          // ใส่ส่วนต่างเข้า member ที่มีค่าสูงสุด (ลดผลกระทบการกระจายซ้ำหลายที่)
+          maxMember.rec.value = adjustmentUnit === 'MMSCF' ? parseToNumber6Decimal(parseToNumber6Decimal(maxMember.rec.value) + diff) : parseToNumber3Decimal(parseToNumber3Decimal(maxMember.rec.value) + diff);
+          // คำนวณ slot.total ใหม่จาก members หลังปรับค่า
+          slot.total = (slot.members || []).reduce(
+            (sum, member) => {
+              const currentValue = adjustmentUnit === 'MMSCF' ? parseToNumber6Decimal(member.rec?.value) : parseToNumber3Decimal(member.rec?.value);
+              if(currentValue || currentValue === 0){
+                if(sum){
+                  return parseToNumber6Decimal(sum + currentValue);
+                }
+                else{
+                  return currentValue;
+                }
+              }
+              else{
+                return sum;
+              }
+            },
+            undefined,
+          );
+          baseIndex.set(targetKey, slot);
+        }
+      }
+    };
+
     // Cumulative and response (round final values to 3 decimals)
     const sorted = Array.from(groups.values()).sort(
       (a, b) =>
@@ -1939,10 +2271,7 @@ export class AstosService {
         a.gas_hour - b.gas_hour,
     );
 
-    if (
-      this.resolveDailyAdjustmentUnit(payload?.daily_adjustment_summary_unit) ===
-      'MMSCF'
-    ) {
+    if (adjustmentUnit === 'MMSCF') {
       return sorted
         .map((g) => ({
           ...g,
@@ -2351,10 +2680,7 @@ export class AstosService {
     return {
       total_record: mappedData.length,
       status_code: 200,
-      data:
-        skip === 0 && limit === 0
-          ? mappedData
-          : mappedData.slice(skip, skip + limit),
+      data: limit > 0 ? mappedData.slice(skip, skip + limit) : mappedData,
     };
   }
 
@@ -2681,10 +3007,7 @@ export class AstosService {
     return {
       total_record: mappedData.length,
       status_code: 200,
-      data:
-        skip === 0 && limit === 0
-          ? mappedData
-          : mappedData.slice(skip, skip + limit),
+      data: limit > 0 ? mappedData.slice(skip, skip + limit) : mappedData,
     };
   }
 
@@ -2787,10 +3110,7 @@ export class AstosService {
     return {
       total_record: mappedData.length,
       status_code: rawResult?.status_code ?? 200,
-      data:
-        skip === 0 && limit === 0
-          ? mappedData
-          : mappedData.slice(skip, skip + limit),
+      data: limit > 0 ? mappedData.slice(skip, skip + limit) : mappedData,
     };
   }
 }

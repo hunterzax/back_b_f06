@@ -1,12 +1,11 @@
 import {PrismaService} from 'prisma/prisma.service'
-import {getTodayStartAdd7, getTodayNowYYYYMMDDDfaultAdd7, getWeekRange, getTodayNowDDMMYYYYAdd7, timeToMinutes, getDayjsFromHHmm} from './date.util'
-import {contract_code, group, zone} from '@prisma/client'
+import {getTodayStartAdd7, getTodayNowYYYYMMDDDfaultAdd7, getWeekRange, getTodayNowDDMMYYYYAdd7, timeToMinutes, getDayjsFromHHmm, getTodayNowAdd7} from './date.util'
+import {contract_code, group, Prisma, zone} from '@prisma/client'
 import {
   activeData,
   allocationModeRecord,
   areaPopulate,
   areaWithRelations,
-  conceptPointPopulate,
   conceptPointWithRelations,
   meteringPointPopulate,
   meteringPointWithRelations,
@@ -69,7 +68,7 @@ export function extractAndGenerateDateArray(evidenApi: any[]): string[] {
         let current = minGasDayObj
 
         while (current.isSameOrBefore(maxGasDayObj)) {
-          dateArray.push(current.format('YYYY-MM-DD'))
+          dateArray.push(current && current.format('YYYY-MM-DD') || getTodayNowAdd7().format('YYYY-MM-DD'))
           current = current.add(1, 'day')
         }
       }
@@ -84,29 +83,82 @@ export function extractAndGenerateDateArray(evidenApi: any[]): string[] {
  */
 export async function buildActiveDataForDates(
   dateArray: string[],
-  prisma: PrismaService
+  prisma: PrismaService,
+  userId?: any
 ): Promise<
   activeData[]
 > {
-  if (dateArray.length === 0) {
+  if (dateArray && dateArray.length === 0) {
     return []
   }
   // Find min and max dates from dateArray
 
-  const min = dateArray?.reduce((min, current) => {
+  const min = (dateArray || [])?.reduce((min, current) => {
     const minDayjs = getTodayNowYYYYMMDDDfaultAdd7(min + 'T00:00:00Z')
     const currentDayjs = getTodayNowYYYYMMDDDfaultAdd7(current + 'T00:00:00Z')
     return currentDayjs.isBefore(minDayjs) ? current : min
   })
-  const max = dateArray?.reduce((max, current) => {
+  const max = (dateArray || [])?.reduce((max, current) => {
     const maxDayjs = getTodayNowYYYYMMDDDfaultAdd7(max + 'T00:00:00Z')
     const currentDayjs = getTodayNowYYYYMMDDDfaultAdd7(current + 'T00:00:00Z')
     return currentDayjs.isAfter(maxDayjs) ? current : max
   })
 
-  const minDate = getTodayNowYYYYMMDDDfaultAdd7(min + 'T00:00:00Z').toDate()
+  const minDayjs = getTodayNowYYYYMMDDDfaultAdd7(min + 'T00:00:00Z')
+  const minDate = minDayjs.toDate()
 
-  const maxDate = getTodayNowYYYYMMDDDfaultAdd7(max + 'T00:00:00Z').toDate()
+  const maxDayjs = getTodayNowYYYYMMDDDfaultAdd7(max + 'T00:00:00Z')
+  const maxDate = maxDayjs.toDate()
+
+  const conceptPointAndInWhere: Prisma.concept_pointWhereInput[] = [
+    {
+      OR: [
+        { end_date: null },
+        { end_date: { gt: minDate } }
+      ]
+    },
+    { start_date: { lte: maxDate } }
+  ]
+
+  let group_: group | undefined = undefined
+  if (userId) {
+    const userType = await prisma.user_type.findFirst({
+      where: {
+        account_manage: {
+          some: {
+            account_id: Number(userId)
+          }
+        }
+      }
+    })
+
+    if (userType?.id === 3) {
+      group_ = await prisma.group.findFirst({
+        where: {
+          account_manage: {
+            some: {
+              account_id: Number(userId)
+            }
+          }
+        }
+      })
+
+      if (group_) {
+        conceptPointAndInWhere.push({
+          limit_concept_point_history: {
+            some: {
+              group_id: group_.id,
+              create_date: { lte: maxDate },
+              OR: [
+                { deleted_date: null },
+                { deleted_date: { gte: minDate } }
+              ]
+            }
+          }
+        })
+      }
+    }
+  }
 
   const areaMaster: areaWithRelations[] = await prisma.area.findMany({
     where: {
@@ -249,21 +301,28 @@ export async function buildActiveDataForDates(
     ...nominationPointPopulate
   })
 
-  const conceptPointMaster: conceptPointWithRelations[] = await prisma.concept_point.findMany({
+  const conceptPointMaster = await prisma.concept_point.findMany({
     where: {
-      OR: [
-        {end_date: null},
-        {
-          end_date: {
-            gt: minDate
-          }
-        }
-      ],
-      start_date: {
-        lte: maxDate
-      }
+      AND: conceptPointAndInWhere,
     },
-    ...conceptPointPopulate
+    include: {
+      type_concept_point: true,
+      limit_concept_point_history: {
+        where: {
+          ...(group_ && {group_id: group_.id}),
+        },
+        include: {
+          group: {
+            select: {
+              id: true,
+              id_name: true,
+              name: true,
+              company_name: true
+            }
+          },
+        }
+      },
+    }
   })
 
   const nonTpaPointMaster: nonTpaPointWithRelations[] = await prisma.non_tpa_point.findMany({
@@ -303,7 +362,8 @@ export async function buildActiveDataForDates(
   return await Promise.all(
     dateArray.map(async (date) => {
       try {
-        const targetDate = getTodayNowYYYYMMDDDfaultAdd7(date + 'T00:00:00Z').toDate()
+        const targetDayjs = getTodayNowYYYYMMDDDfaultAdd7(date + 'T00:00:00Z')
+        const targetDate = targetDayjs.toDate()
 
         // Find active areas at this date
         const activeAreas: areaWithRelations[] = areaMaster.filter((area) => area.start_date <= targetDate && (area.end_date === null || area.end_date >= targetDate))
@@ -375,7 +435,17 @@ export async function buildActiveDataForDates(
         const activeNominationPoints: nominationPointWithRelations[] = nominationPointMaster.filter((nominationPoint) => nominationPoint.start_date <= targetDate && (nominationPoint.end_date === null || nominationPoint.end_date >= targetDate))
 
         // Find active concept_point at this date
-        const activeConceptPoints: conceptPointWithRelations[] = conceptPointMaster
+        const activeConceptPoints: conceptPointWithRelations[] = conceptPointMaster.filter((conceptPoint) => {
+          let isLimit = true
+          if((conceptPoint.limit_concept_point_history || []).length > 0){
+            isLimit = conceptPoint.limit_concept_point_history.some(limit => {
+              const createDayjs = getTodayNowAdd7(limit.create_date)
+              const deleteDayjs = getTodayNowAdd7(limit.deleted_date)
+              return createDayjs.isSameOrBefore(targetDayjs, 'day') && (limit.deleted_date === null || deleteDayjs.isAfter(targetDayjs, 'day'))
+            })
+          }
+          return conceptPoint.start_date <= targetDate && (conceptPoint.end_date === null || conceptPoint.end_date >= targetDate) && isLimit;
+        })
 
         // Find active non_tpa_point at this date
         const activeNonTpaPoints: nonTpaPointWithRelations[] = nonTpaPointMaster.filter((nonTpaPoint) => nonTpaPoint.start_date <= targetDate && (nonTpaPoint.end_date === null || nonTpaPoint.end_date >= targetDate))
@@ -825,7 +895,7 @@ export function groupDataAlloManage(data: any[]) {
       1: 5 // Lowest priority
     }
 
-    const grouped: any = data.reduce(
+    const grouped: any = (data)?.filter((f_:any) => f_ !== null)?.reduce(
       (acc, item) => {
         const key = `${item.gas_day}-${item.point}`
 
@@ -834,8 +904,8 @@ export function groupDataAlloManage(data: any[]) {
             // id: generateRandomId(),
             id: item?.point + '_' + item.gas_day,
             gas_day: item.gas_day,
-            point_text: item?.point,
-            entry_exit: item?.entry_exit_obj?.name,
+            point_text: item.point || null,
+            entry_exit: item.entry_exit_obj?.name || null,
 
             nomination_value: 0,
             system_allocation: 0,
@@ -965,11 +1035,13 @@ export function getNomValue(convertNomFile: any[], evidenItem: any) {
             newNominationValue = parseToNumber(rowDataItem?.data_temp['38'])
 
             // ถ้ามี gas_hour ให้คำนวณค่ารวมจากรายชั่วโมง (column 14, 15, 16, ...)
-            if (evidenItem?.gas_hour) {
+            if (evidenItem && evidenItem?.gas_hour) {
               let i = 0
               let acc: number | null = null
               // รวมค่ารายชั่วโมงตั้งแต่ชั่วโมงที่ 0 ถึง gas_hour-1
               do {
+                // Coverity flags this as unused_expr (NO_EFFECT).
+                // coverity[unused_expr:SUPPRESS]
                 const valuePerHour: number | null = parseToNumber(rowDataItem['data_temp'][`${14 + i}`])
                 if (acc) {
                   if (valuePerHour) {
@@ -990,7 +1062,7 @@ export function getNomValue(convertNomFile: any[], evidenItem: any) {
             newNominationValue = parseToNumber(rowDataItem?.data_temp[`${14 + dayOfWeek}`])
 
             // ถ้ามี gas_hour ให้คำนวณค่าแบบ prorated (แบ่งตามสัดส่วนชั่วโมง)
-            if (evidenItem?.gas_hour) {
+            if (evidenItem && evidenItem?.gas_hour) {
               // newNominationValue = (newNominationValue / 24) * evidenItem?.gas_hour
               newNominationValue = Math.round((newNominationValue / 24) * evidenItem?.gas_hour * 10000) / 10000 // https://app.clickup.com/t/86evj8e72
             }
@@ -1031,7 +1103,7 @@ export function getNomValue(convertNomFile: any[], evidenItem: any) {
             if (weeklyRowDataItem?.data_temp) {
               let newNominationValue: number | null = null
               newNominationValue = parseToNumber(weeklyRowDataItem?.data_temp[`${14 + dayOfWeek}`])
-              if (evidenItem?.gas_hour) {
+              if (evidenItem && evidenItem?.gas_hour) {
                 newNominationValue = (newNominationValue / 24) * evidenItem?.gas_hour
               }
               if (nominationValue) {
@@ -1800,7 +1872,7 @@ export function getNomValueFast({
               rowDataItem?.data_temp?.["38"]
             );
 
-          if (evidenItem?.gas_hour) {
+          if (evidenItem && evidenItem?.gas_hour) {
             const numericGasHour =
               Number(evidenItem.gas_hour);
 
@@ -1865,7 +1937,7 @@ export function getNomValueFast({
               ]
             );
 
-          if (evidenItem?.gas_hour) {
+          if (evidenItem && evidenItem?.gas_hour) {
             /**
              * รักษาการ round 4 ตำแหน่ง
              * ตามเส้นหลักของฟังก์ชันเดิม
@@ -1944,7 +2016,7 @@ export function getNomValueFast({
                   ]
                 );
 
-              if (evidenItem?.gas_hour) {
+              if (evidenItem && evidenItem?.gas_hour) {
                 /**
                  * Fallback เดิมไม่ได้ round 4 ตำแหน่ง
                  * จึงไม่ round ตรงนี้

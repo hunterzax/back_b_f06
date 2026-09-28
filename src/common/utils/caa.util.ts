@@ -104,7 +104,7 @@ export class CAA {
       console.log(`[DEBUG][authAD]: access_token=${access_token}`);
       const isValidWithoutCAA = await this.validateTokenWithoutCAA(access_token, false);
       console.log(`[INFO][authAD]: bypass validate token from CA&A ${isValidWithoutCAA}`);
-      void this.runBackground('authAD', async () => {
+      this.runBackground('authAD', async () => {
         await this.validateADWithCAA(endpoint, data);
       });
       return isValidWithoutCAA;
@@ -162,7 +162,7 @@ export class CAA {
       }
 
       console.log(`[INFO][authB2C]: bypass validate token from CA&A ${isValidWithoutCAA}`);
-      void this.runBackground('authB2C', async () => {
+      this.runBackground('authB2C', async () => {
         await this.validateB2CWithCAA(endpoint, data, access_token);
       });
       return isValidWithoutCAA;
@@ -215,7 +215,7 @@ export class CAA {
     extraXml?: string;
   }) {
     const by = params.by || caa_system_user;
-    void this.runBackground('createRoleInBackground', async () => {
+    this.runBackground('createRoleInBackground', async () => {
       const response = await this.createRole({
         name: params.name,
         by: by,
@@ -265,7 +265,7 @@ export class CAA {
     description?: string;
   }) {
     const by = params.by || caa_system_user;
-    void this.runBackground('updateRoleInBackground', async () => {
+    this.runBackground('updateRoleInBackground', async () => {
       const roleName = params.oldName || params.name;
       const roleResponse = await this.getRoleByName(roleName);
       const role = this.findCaaRole(roleResponse?.Data, roleName);
@@ -413,7 +413,7 @@ export class CAA {
     roleName: string;
     by?: string;
   }) {
-    void this.runBackground('syncLoginUserRole', async () => {
+    this.runBackground('syncLoginUserRole', async () => {
       await this.syncLoginUserRole(params);
     });
   }
@@ -424,7 +424,7 @@ export class CAA {
     roleName?: string;
     by?: string;
   }) {
-    void this.runBackground('syncUserRole', async () => {
+    this.runBackground('syncUserRole', async () => {
       await this.syncUserRole(params);
     });
   }

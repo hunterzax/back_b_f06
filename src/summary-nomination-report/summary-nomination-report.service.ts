@@ -165,13 +165,14 @@ export class SummaryNominationReportService {
   }
 
   fnALLNOMUutilization(payload_: any, type_: any, area_data: any, dataMMSCF: any, nomData: any, D_EW_OBJ:any, W_EW_OBJ:any) {
+    const effectiveDataMMSCF = dataMMSCF || payload_;
     const result_all = payload_?.map((e: any) => {
       const {area_text, utilization, arrNom, entry_exit_id, totalCap, wi, hv, sg, ...nE} = e
       let calc = 0
       let wi_ = 0
       let hv_ = 0
       let sg_ = 0
-      let pointArr = entry_exit_id === 1 ? arrNom : this.fnsupplyRef_entry(e?.area_text, payload_, area_data)
+      let pointArr = entry_exit_id === 1 ? arrNom : this.fnsupplyRef_entry(e && e?.area_text || "", payload_, area_data)
       // // S_GSP1
       //   if(e?.nomiantion_point === "S_GSP1"){
       //     console.log('S_GSP1 : ', e);
@@ -476,6 +477,7 @@ export class SummaryNominationReportService {
   }
 
   fnALLNOMUutilizationWeekly(payload_: any, type_: any, area_data: any, dataMMSCF: any, nomData: any, W_EW_OBJ:any) {
+    const effectiveDataMMSCF = dataMMSCF || payload_;
     // unix = 'MMSCFD'
 
     // sunday = 130752.721
@@ -575,7 +577,7 @@ export class SummaryNominationReportService {
       let wi_ = 0
       let hv_ = 0
       let sg_ = 0
-      let pointArr = entry_exit_id === 1 ? arrNom : this.fnsupplyRef_entry(e?.area_text, payload_, area_data)
+      let pointArr = entry_exit_id === 1 ? arrNom : this.fnsupplyRef_entry(e && e?.area_text || "", payload_, area_data)
 
       if (entry_exit_id === 1) {
         if (type_ === 'mmscf') {
@@ -1581,14 +1583,14 @@ export class SummaryNominationReportService {
               query_shipper_nomination_file_renom_id: e?.query_shipper_nomination_file_renom_id,
               submitted_timestamp: e?.submitted_timestamp,
               nomination_full_json: nomination_full_json[0],
-              nomination_row_json: nx,
-              unix: nx['data_temp']['9'],
-              query_shipper_nomination_type_id: nx?.query_shipper_nomination_type_id,
-              query_shipper_nomination_type: nx?.query_shipper_nomination_type,
-              entry_exit_id: nx?.entry_exit_id,
-              nomination_point: nx['data_temp']['3'],
-              area_text: nx['data_temp']['2'],
-              zone_text: nx['data_temp']['0']
+              nomination_row_json: nx || null,
+              unix: nx && nx['data_temp']['9'] || null,
+              query_shipper_nomination_type_id: nx && nx?.query_shipper_nomination_type_id || null,
+              query_shipper_nomination_type: nx && nx?.query_shipper_nomination_type || null,
+              entry_exit_id: nx && nx?.entry_exit_id || null,
+              nomination_point: nx && nx['data_temp']['3'] || null,
+              area_text: nx && nx['data_temp']['2'] || null,
+              zone_text: nx && nx['data_temp']['0'] || null
             })
 
             return nx
@@ -1722,7 +1724,7 @@ export class SummaryNominationReportService {
       }
     })
 
-    let dMMBTUD1 = dailyArrNomMMBTUD.map((e: any) => {
+    let dMMBTUD1 = (dailyArrNomMMBTUD || []).map((e: any) => {
       const nomPoint = nomData?.find((f: any) => {
         return f?.nomination_point === e?.nomination_point
       })
@@ -1842,25 +1844,25 @@ export class SummaryNominationReportService {
       }
 
       const dayWeek = {
-        gas_day_sunday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(0, 'day').format('DD/MM/YYYY'),
+        gas_day_sunday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(0, 'day').format('DD/MM/YYYY'),
         sunday: e['nomination_row_json']?.['data_temp']?.['14'] || 0,
         sunday_utilization: calcWeek(sundayTotalCap, nomPoint?.maximum_capacity),
-        gas_day_monday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(1, 'day').format('DD/MM/YYYY'),
+        gas_day_monday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(1, 'day').format('DD/MM/YYYY'),
         monday: e['nomination_row_json']?.['data_temp']?.['15'] || 0,
         monday_utilization: calcWeek(mondayTotalCap, nomPoint?.maximum_capacity),
-        gas_day_tuesday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(2, 'day').format('DD/MM/YYYY'),
+        gas_day_tuesday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(2, 'day').format('DD/MM/YYYY'),
         tuesday: e['nomination_row_json']?.['data_temp']?.['16'] || 0,
         tuesday_utilization: calcWeek(tuesdayTotalCap, nomPoint?.maximum_capacity),
-        gas_day_wednesday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(3, 'day').format('DD/MM/YYYY'),
+        gas_day_wednesday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(3, 'day').format('DD/MM/YYYY'),
         wednesday: e['nomination_row_json']?.['data_temp']?.['17'] || 0,
         wednesday_utilization: calcWeek(wednesdayTotalCap, nomPoint?.maximum_capacity),
-        gas_day_thursday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(4, 'day').format('DD/MM/YYYY'),
+        gas_day_thursday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(4, 'day').format('DD/MM/YYYY'),
         thursday: e['nomination_row_json']?.['data_temp']?.['18'] || 0,
         thursday_utilization: calcWeek(thursdayTotalCap, nomPoint?.maximum_capacity),
-        gas_day_friday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(5, 'day').format('DD/MM/YYYY'),
+        gas_day_friday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(5, 'day').format('DD/MM/YYYY'),
         friday: e['nomination_row_json']?.['data_temp']?.['19'] || 0,
         friday_utilization: calcWeek(fridayTotalCap, nomPoint?.maximum_capacity),
-        gas_day_saturday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(6, 'day').format('DD/MM/YYYY'),
+        gas_day_saturday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(6, 'day').format('DD/MM/YYYY'),
         saturday: e['nomination_row_json']?.['data_temp']?.['20'] || 0,
         saturday_utilization: calcWeek(saturdayTotalCap, nomPoint?.maximum_capacity)
       }
@@ -1871,7 +1873,7 @@ export class SummaryNominationReportService {
       }
     })
 
-    let wMMBTUD1 = weeklyArrNomMMBTUD.map((e: any) => {
+    let wMMBTUD1 = (weeklyArrNomMMBTUD || []).map((e: any) => {
       let sundayTotalCap = e['nomination_row_json']?.['data_temp']?.['14']?.replace(/,/g, '') || null
       let mondayTotalCap = e['nomination_row_json']?.['data_temp']?.['15']?.replace(/,/g, '') || null
       let tuesdayTotalCap = e['nomination_row_json']?.['data_temp']?.['16']?.replace(/,/g, '') || null
@@ -1986,9 +1988,9 @@ export class SummaryNominationReportService {
       }
     })
 
-    const groupByKeysALL = (item: any) => `${item.gas_day_text}${item.nomination_point}`
+    const groupByKeysALL = (item: any) => `${item?.gas_day_text}${item?.nomination_point}`
 
-    const groupByKeys = (item: any) => `${item.gas_day_text}${item.nomination_point}|${item?.nomination_code}`
+    const groupByKeys = (item: any) => `${item?.gas_day_text}${item?.nomination_point}|${item?.nomination_code}`
 
     const horuss = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H7', 'H8', 'H9', 'H10', 'H11', 'H12', 'H13', 'H14', 'H15', 'H16', 'H17', 'H18', 'H19', 'H20', 'H21', 'H22', 'H23', 'H24']
 
@@ -2032,7 +2034,7 @@ export class SummaryNominationReportService {
               const utilization = parseToNumber(item['utilization'] || '0')
               acc[key]['utilization'] = (baseutilization ?? 0) + (utilization ?? 0)
               acc[key]['arrNom'] = [...acc[key]['arrNom'], item]
-              acc[key]['arrContractId'] = [...acc[key]['arrContractId'], item?.contract_code_id]
+              acc[key]['arrContractId'] = item && [...acc[key]['arrContractId'], item?.contract_code_id] || acc[key]['arrContractId']
             }
 
             return acc
@@ -2075,7 +2077,7 @@ export class SummaryNominationReportService {
               const utilization = parseToNumber(item['utilization'] || '0')
               acc[key]['utilization'] = (baseutilization ?? 0) + (utilization ?? 0)
               acc[key]['arrNom'] = [...acc[key]['arrNom'], item]
-              acc[key]['arrContractId'] = [...acc[key]['arrContractId'], item?.contract_code_id]
+              acc[key]['arrContractId'] = item && [...acc[key]['arrContractId'], item?.contract_code_id] || acc[key]['arrContractId']
             }
 
             return acc
@@ -2137,8 +2139,8 @@ export class SummaryNominationReportService {
               const baseutilization = parseToNumber(acc[key]['utilization'] || '0')
               const utilization = parseToNumber(item['utilization'] || '0')
               acc[key]['utilization'] = (baseutilization ?? 0) + (utilization ?? 0)
-              acc[key]['arrNom_'] = [...acc[key]['arrNom_'], item?.arrNom]
-              acc[key]['arrContractId_'] = [...acc[key]['arrContractId_'], item?.arrContractId]
+              acc[key]['arrNom_'] = item && [...acc[key]['arrNom_'], item?.arrNom] || acc[key]['arrNom_']
+              acc[key]['arrContractId_'] = item && [...acc[key]['arrContractId_'], item?.arrContractId] || acc[key]['arrContractId_']
             }
 
             return acc
@@ -2182,8 +2184,8 @@ export class SummaryNominationReportService {
               const baseutilization = parseToNumber(acc[key]['utilization'] || '0')
               const utilization = parseToNumber(item['utilization'] || '0')
               acc[key]['utilization'] = (baseutilization ?? 0) + (utilization ?? 0)
-              acc[key]['arrNom_'] = [...acc[key]['arrNom_'], item?.arrNom]
-              acc[key]['arrContractId_'] = [...acc[key]['arrContractId_'], item?.arrContractId]
+              acc[key]['arrNom_'] = item && [...acc[key]['arrNom_'], item?.arrNom] || acc[key]['arrNom_']
+              acc[key]['arrContractId_'] = item && [...acc[key]['arrContractId_'], item?.arrContractId] || acc[key]['arrContractId_']
             }
 
             return acc
@@ -2227,38 +2229,38 @@ export class SummaryNominationReportService {
 
       switch (checkDy) {
         case 0:
-          totalW = all?.sunday || 0
-          utilizationW = all?.sunday_utilization || 0
+          totalW = all && all?.sunday || 0
+          utilizationW = all && all?.sunday_utilization || 0
           break
 
         case 1:
-          totalW = all?.monday || 0
-          utilizationW = all?.monday_utilization || 0
+          totalW = all && all?.monday || 0
+          utilizationW = all && all?.monday_utilization || 0
           break
 
         case 2:
-          totalW = all?.tuesday || 0
-          utilizationW = all?.tuesday_utilization || 0
+          totalW = all && all?.tuesday || 0
+          utilizationW = all && all?.tuesday_utilization || 0
           break
 
         case 3:
-          totalW = all?.wednesday || 0
-          utilizationW = all?.wednesday_utilization || 0
+          totalW = all && all?.wednesday || 0
+          utilizationW = all && all?.wednesday_utilization || 0
           break
 
         case 4:
-          totalW = all?.thursday || 0
-          utilizationW = all?.thursday_utilization || 0
+          totalW = all && all?.thursday || 0
+          utilizationW = all && all?.thursday_utilization || 0
           break
 
         case 5:
-          totalW = all?.friday || 0
-          utilizationW = all?.friday_utilization || 0
+          totalW = all && all?.friday || 0
+          utilizationW = all && all?.friday_utilization || 0
           break
 
         case 6:
-          totalW = all?.saturday || 0
-          utilizationW = all?.saturday_utilization || 0
+          totalW = all && all?.saturday || 0
+          utilizationW = all && all?.saturday_utilization || 0
           break
 
         default:
@@ -2467,45 +2469,45 @@ export class SummaryNominationReportService {
 
       switch (checkDy) {
         case 0:
-          totalW = all?.sunday || 0
+          totalW = all && all?.sunday || 0
           utilizationW = calcWeek(all?.sunday, nomPoint?.maximum_capacity, findHvsundayHv)
 
           break
 
         case 1:
-          totalW = all?.monday || 0
+          totalW = all && all?.monday || 0
           utilizationW = calcWeek(all?.monday, nomPoint?.maximum_capacity, findHvmondayHv)
-          // utilizationW = all?.monday_utilization || 0;
+          // utilizationW = all && all?.monday_utilization || 0;
           break
 
         case 2:
-          totalW = all?.tuesday || 0
+          totalW = all && all?.tuesday || 0
           utilizationW = calcWeek(all?.tuesday, nomPoint?.maximum_capacity, findHvtuesdayHv)
-          // utilizationW = all?.tuesday_utilization || 0;
+          // utilizationW = all && all?.tuesday_utilization || 0;
           break
 
         case 3:
-          totalW = all?.wednesday || 0
+          totalW = all && all?.wednesday || 0
           utilizationW = calcWeek(all?.wednesday, nomPoint?.maximum_capacity, findHvwednesdayHv)
-          // utilizationW = all?.wednesday_utilization || 0;
+          // utilizationW = all && all?.wednesday_utilization || 0;
           break
 
         case 4:
-          totalW = all?.thursday || 0
+          totalW = all && all?.thursday || 0
           utilizationW = calcWeek(all?.thursday, nomPoint?.maximum_capacity, findHvthursdayHv)
-          // utilizationW = all?.thursday_utilization || 0;
+          // utilizationW = all && all?.thursday_utilization || 0;
           break
 
         case 5:
-          totalW = all?.friday || 0
+          totalW = all && all?.friday || 0
           utilizationW = calcWeek(all?.friday, nomPoint?.maximum_capacity, findHvfridayHv)
-          // utilizationW = all?.friday_utilization || 0;
+          // utilizationW = all && all?.friday_utilization || 0;
           break
 
         case 6:
-          totalW = all?.saturday || 0
+          totalW = all && all?.saturday || 0
           utilizationW = calcWeek(all?.saturday, nomPoint?.maximum_capacity, findHvsaturdayHv)
-          // utilizationW = all?.saturday_utilization || 0;
+          // utilizationW = all && all?.saturday_utilization || 0;
           break
 
         default:
@@ -3261,14 +3263,14 @@ export class SummaryNominationReportService {
               query_shipper_nomination_file_renom_id: e?.query_shipper_nomination_file_renom_id,
               submitted_timestamp: e?.submitted_timestamp,
               nomination_full_json: nomination_full_json[0],
-              nomination_row_json: nx,
-              unix: nx['data_temp']['9'],
-              query_shipper_nomination_type_id: nx?.query_shipper_nomination_type_id,
-              query_shipper_nomination_type: nx?.query_shipper_nomination_type,
-              entry_exit_id: nx?.entry_exit_id,
-              nomination_point: nx['data_temp']['3'],
-              area_text: nx['data_temp']['2'],
-              zone_text: nx['data_temp']['0']
+              nomination_row_json: nx || null,
+              unix: nx && nx['data_temp']['9'] || null,
+              query_shipper_nomination_type_id: nx && nx?.query_shipper_nomination_type_id || null,
+              query_shipper_nomination_type: nx && nx?.query_shipper_nomination_type || null,
+              entry_exit_id: nx && nx?.entry_exit_id || null,
+              nomination_point: nx && nx['data_temp']['3'] || null,
+              area_text: nx && nx['data_temp']['2'] || null,
+              zone_text: nx && nx['data_temp']['0'] || null
             })
 
             return nx
@@ -3740,7 +3742,7 @@ export class SummaryNominationReportService {
     })
 
     // this.roundTo3
-    let dMMBTUD1 = dailyArrNomMMBTUD.map((e: any) => {
+    let dMMBTUD1 = (dailyArrNomMMBTUD || []).map((e: any) => {
       const nomPoint = nomData?.find((f: any) => {
         return f?.nomination_point === e?.nomination_point
       })
@@ -4042,25 +4044,25 @@ export class SummaryNominationReportService {
       // }
 
       const dayWeek = {
-        gas_day_sunday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(0, 'day').format('DD/MM/YYYY'),
+        gas_day_sunday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(0, 'day').format('DD/MM/YYYY'),
         sunday: this.roundTo6(e['nomination_row_json']?.['data_temp']?.['14'] || 0),
         sunday_utilization: calcWeek(sundayTotalCap, nomPoint?.maximum_capacity),
-        gas_day_monday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(1, 'day').format('DD/MM/YYYY'),
+        gas_day_monday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(1, 'day').format('DD/MM/YYYY'),
         monday: this.roundTo6(e['nomination_row_json']?.['data_temp']?.['15'] || 0),
         monday_utilization: calcWeek(mondayTotalCap, nomPoint?.maximum_capacity),
-        gas_day_tuesday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(2, 'day').format('DD/MM/YYYY'),
+        gas_day_tuesday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(2, 'day').format('DD/MM/YYYY'),
         tuesday: this.roundTo6(e['nomination_row_json']?.['data_temp']?.['16'] || 0),
         tuesday_utilization: calcWeek(tuesdayTotalCap, nomPoint?.maximum_capacity),
-        gas_day_wednesday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(3, 'day').format('DD/MM/YYYY'),
+        gas_day_wednesday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(3, 'day').format('DD/MM/YYYY'),
         wednesday: this.roundTo6(e['nomination_row_json']?.['data_temp']?.['17'] || 0),
         wednesday_utilization: calcWeek(wednesdayTotalCap, nomPoint?.maximum_capacity),
-        gas_day_thursday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(4, 'day').format('DD/MM/YYYY'),
+        gas_day_thursday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(4, 'day').format('DD/MM/YYYY'),
         thursday: this.roundTo6(e['nomination_row_json']?.['data_temp']?.['18'] || 0),
         thursday_utilization: calcWeek(thursdayTotalCap, nomPoint?.maximum_capacity),
-        gas_day_friday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(5, 'day').format('DD/MM/YYYY'),
+        gas_day_friday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(5, 'day').format('DD/MM/YYYY'),
         friday: this.roundTo6(e['nomination_row_json']?.['data_temp']?.['19'] || 0),
         friday_utilization: calcWeek(fridayTotalCap, nomPoint?.maximum_capacity),
-        gas_day_saturday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(6, 'day').format('DD/MM/YYYY'),
+        gas_day_saturday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(6, 'day').format('DD/MM/YYYY'),
         saturday: this.roundTo6(e['nomination_row_json']?.['data_temp']?.['20'] || 0),
         saturday_utilization: calcWeek(saturdayTotalCap, nomPoint?.maximum_capacity)
       }
@@ -4072,7 +4074,7 @@ export class SummaryNominationReportService {
     })
 
     // this.roundTo3
-    let wMMBTUD1 = weeklyArrNomMMBTUD.map((e: any) => {
+    let wMMBTUD1 = (weeklyArrNomMMBTUD || []).map((e: any) => {
       let sundayTotalCap = this.roundTo3(e['nomination_row_json']?.['data_temp']?.['14']?.replace(/,/g, '') || null)
       let mondayTotalCap = this.roundTo3(e['nomination_row_json']?.['data_temp']?.['15']?.replace(/,/g, '') || null)
       let tuesdayTotalCap = this.roundTo3(e['nomination_row_json']?.['data_temp']?.['16']?.replace(/,/g, '') || null)
@@ -4244,7 +4246,7 @@ export class SummaryNominationReportService {
 
               return calcFD
             } else {
-              let calcFD = this.roundTo6((parseToNumber(e['nomination_row_json']?.['data_temp']?.[key]) || 0) / hv)
+              let calcFD = e !== null && e !== undefined && this.roundTo6((parseToNumber(e['nomination_row_json']?.['data_temp']?.[key]) || 0) / hv) || null
 
               return Number.isFinite(calcFD) ? calcFD : null
             }
@@ -4265,7 +4267,7 @@ export class SummaryNominationReportService {
         }
 
         const dayWeek = {
-          gas_day_sunday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(0, 'day').format('DD/MM/YYYY'),
+          gas_day_sunday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(0, 'day').format('DD/MM/YYYY'),
           sunday: calcMMBTUDtoMMSCFD('14', findHvsundayHv),
           sunday_utilization: calcWeek(calcMMBTUDtoMMSCFD('14', findHvsundayHv), nomPoint?.maximum_capacity, findHvsundayHv),
           monday: calcMMBTUDtoMMSCFD('15', findHvmondayHv),
@@ -4449,19 +4451,19 @@ export class SummaryNominationReportService {
       let parkUnparkInstructedFlows = e['nomination_row_json']?.['data_temp']?.['5']
 
       const dayWeek = {
-        gas_day_sunday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(0, 'day').format('DD/MM/YYYY'),
+        gas_day_sunday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(0, 'day').format('DD/MM/YYYY'),
         sunday: e['nomination_row_json']?.['data_temp']?.['14'] || 0,
-        gas_day_monday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(1, 'day').format('DD/MM/YYYY'),
+        gas_day_monday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(1, 'day').format('DD/MM/YYYY'),
         monday: e['nomination_row_json']?.['data_temp']?.['15'] || 0,
-        gas_day_tuesday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(2, 'day').format('DD/MM/YYYY'),
+        gas_day_tuesday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(2, 'day').format('DD/MM/YYYY'),
         tuesday: e['nomination_row_json']?.['data_temp']?.['16'] || 0,
-        gas_day_wednesday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(3, 'day').format('DD/MM/YYYY'),
+        gas_day_wednesday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(3, 'day').format('DD/MM/YYYY'),
         wednesday: e['nomination_row_json']?.['data_temp']?.['17'] || 0,
-        gas_day_thursday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(4, 'day').format('DD/MM/YYYY'),
+        gas_day_thursday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(4, 'day').format('DD/MM/YYYY'),
         thursday: e['nomination_row_json']?.['data_temp']?.['18'] || 0,
-        gas_day_friday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(5, 'day').format('DD/MM/YYYY'),
+        gas_day_friday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(5, 'day').format('DD/MM/YYYY'),
         friday: e['nomination_row_json']?.['data_temp']?.['19'] || 0,
-        gas_day_saturday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(6, 'day').format('DD/MM/YYYY'),
+        gas_day_saturday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(6, 'day').format('DD/MM/YYYY'),
         saturday: e['nomination_row_json']?.['data_temp']?.['20'] || 0
       }
 
@@ -4648,19 +4650,19 @@ export class SummaryNominationReportService {
       let parkUnparkInstructedFlows = e['nomination_row_json']?.['data_temp']?.['5']
 
       const dayWeek = {
-        gas_day_sunday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(0, 'day').format('DD/MM/YYYY'),
+        gas_day_sunday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(0, 'day').format('DD/MM/YYYY'),
         sunday: e['nomination_row_json']?.['data_temp']?.['14'] || 0,
-        gas_day_monday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(1, 'day').format('DD/MM/YYYY'),
+        gas_day_monday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(1, 'day').format('DD/MM/YYYY'),
         monday: e['nomination_row_json']?.['data_temp']?.['15'] || 0,
-        gas_day_tuesday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(2, 'day').format('DD/MM/YYYY'),
+        gas_day_tuesday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(2, 'day').format('DD/MM/YYYY'),
         tuesday: e['nomination_row_json']?.['data_temp']?.['16'] || 0,
-        gas_day_wednesday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(3, 'day').format('DD/MM/YYYY'),
+        gas_day_wednesday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(3, 'day').format('DD/MM/YYYY'),
         wednesday: e['nomination_row_json']?.['data_temp']?.['17'] || 0,
-        gas_day_thursday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(4, 'day').format('DD/MM/YYYY'),
+        gas_day_thursday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(4, 'day').format('DD/MM/YYYY'),
         thursday: e['nomination_row_json']?.['data_temp']?.['18'] || 0,
-        gas_day_friday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(5, 'day').format('DD/MM/YYYY'),
+        gas_day_friday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(5, 'day').format('DD/MM/YYYY'),
         friday: e['nomination_row_json']?.['data_temp']?.['19'] || 0,
-        gas_day_saturday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(6, 'day').format('DD/MM/YYYY'),
+        gas_day_saturday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(6, 'day').format('DD/MM/YYYY'),
         saturday: e['nomination_row_json']?.['data_temp']?.['20'] || 0
       }
 
@@ -4696,11 +4698,11 @@ export class SummaryNominationReportService {
     console.timeEnd('sum G3')
     console.time('sum G4')
 
-    const groupByKeysALL = (item: any) => `${item.gas_day_text}${item.nomination_point}`
+    const groupByKeysALL = (item: any) => `${item?.gas_day_text}${item?.nomination_point}`
 
-    const groupByKeys = (item: any) => `${item.gas_day_text}${item.nomination_point}|${item?.nomination_code}`
+    const groupByKeys = (item: any) => `${item?.gas_day_text}${item?.nomination_point}|${item?.nomination_code}`
 
-    const groupByKeysParkUnMin_ = (item: any) => `${item.gas_day_text}${item.parkUnparkInstructedFlows}|${item?.nomination_code}|${item?.zone_text}`
+    const groupByKeysParkUnMin_ = (item: any) => `${item?.gas_day_text}${item?.parkUnparkInstructedFlows}|${item?.nomination_code}|${item?.zone_text}`
 
     const horuss = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H7', 'H8', 'H9', 'H10', 'H11', 'H12', 'H13', 'H14', 'H15', 'H16', 'H17', 'H18', 'H19', 'H20', 'H21', 'H22', 'H23', 'H24']
     const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
@@ -4740,10 +4742,10 @@ export class SummaryNominationReportService {
               const baseutilization = parseToNumber(acc[key]['utilization'] || '0')
               const utilization = parseToNumber(item['utilization'] || '0')
               acc[key]['utilization'] = (baseutilization ?? 0) + (utilization ?? 0)
-              acc[key]['arrContractId'] = [...acc[key]['arrContractId'], ...item?.arrContractId]
-              acc[key]['arrNom'] = [...acc[key]['arrNom'], ...item?.arrNom]
-              acc[key]['arrNom_'] = [...acc[key]['arrNom_'], item?.arrNom]
-              acc[key]['arrContractId_'] = [...acc[key]['arrContractId_'], item?.arrContractId]
+              acc[key]['arrContractId'] = item && [...acc[key]['arrContractId'], ...item?.arrContractId] || acc[key]['arrContractId']
+              acc[key]['arrNom'] = item && [...acc[key]['arrNom'], ...item?.arrNom] || acc[key]['arrNom']
+              acc[key]['arrNom_'] = item && [...acc[key]['arrNom_'], item?.arrNom] || acc[key]['arrNom_']
+              acc[key]['arrContractId_'] = item && [...acc[key]['arrContractId_'], item?.arrContractId] || acc[key]['arrContractId_']
             }
 
             return acc
@@ -4788,7 +4790,7 @@ export class SummaryNominationReportService {
               const baseutilization = parseToNumber(acc[key]['utilization'] || '0')
               const utilization = parseToNumber(item['utilization'] || '0')
               acc[key]['utilization'] = (baseutilization ?? 0) + (utilization ?? 0)
-              acc[key]['arrContractId'] = (item?.arrContractId && [...acc[key]['arrContractId'], ...item?.arrContractId]) || acc[key]['arrContractId']
+              acc[key]['arrContractId'] = item && ((item?.arrContractId && [...acc[key]['arrContractId'], ...item?.arrContractId]) || acc[key]['arrContractId']) || null
               acc[key]['arrNom'] = (item?.arrNom && [...acc[key]['arrNom'], ...item?.arrNom]) || acc[key]['arrNom']
             }
 
@@ -4799,60 +4801,8 @@ export class SummaryNominationReportService {
       )
     }
 
-    // New
-    // const fnGroupByKeysALL = (nData: any, DH: any) => {
-    //   return Object.values(
-    //     (nData || []).reduce(
-    //       (acc, item) => {
-    //         const key = groupByKeysALL(item)
-
-    //         if (!acc[key]) {
-    //           // clone object สำหรับกลุ่มใหม่
-    //           acc[key] = {
-    //             ...item,
-    //             id: key,
-    //             arrNom: [item],
-    //             arrContractId: [item?.contract_code_id]
-    //           }
-    //         } else {
-    //           for (const nDH of DH) {
-    //             // รวมค่า number ในแต่ละวัน (string → number → string)
-    //             acc[key]['id'] = key
-    //             const base = parseToNumber(acc[key][nDH] || '0')
-    //             const current = parseToNumber(item[nDH] || '0')
-    //             acc[key][nDH] = base + current // จัด spacing เหมือนเดิม
-    //           }
-    //           const basetotalCap = parseToNumber(acc[key]['totalCap'] || '0')
-    //           const totalCap = parseToNumber(item['totalCap'] || '0')
-    //           const basetotal = parseToNumber(acc[key]['total'] || '0')
-    //           const total = parseToNumber(item['total'] || '0')
-    //           acc[key]['totalCap'] = basetotalCap + totalCap
-    //           acc[key]['total'] = basetotal + total
-
-    //           const baseutilization = parseToNumber(acc[key]['utilization'] || '0')
-    //           const utilization = parseToNumber(item['utilization'] || '0')
-    //           acc[key]['utilization'] = (baseutilization ?? 0) + (utilization ?? 0)
-    //           acc[key]['arrNom'] = [...acc[key]['arrNom'], item]
-    //           acc[key]['arrContractId'] = [...acc[key]['arrContractId'], item?.contract_code_id]
-    //         }
-
-    //         return acc
-    //       },
-    //       {} as Record<string, any>
-    //     )
-    //   )
-    // }
-
     const fnGroupByKeysALL = (nData: any, DH: any) => {
-      // const toNumberSafe = (value: any) => {
-      //     const num = Number(String(value ?? 0).replace(/,/g, "").trim());
-      //     return Number.isNaN(num) ? 0 : num;
-      //   };
-
-      //   const roundTo2 = (value: any) => {
-      //     const num = toNumberSafe(value);
-      //     return Number(num.toFixed(2));
-      //   };
+     
       const utilizationKeys = ['utilization', 'sunday_utilization', 'monday_utilization', 'tuesday_utilization', 'wednesday_utilization', 'thursday_utilization', 'friday_utilization', 'saturday_utilization']
     
       const result = Object.values(
@@ -4887,7 +4837,7 @@ export class SummaryNominationReportService {
               }
 
               acc[key]['arrNom'] = [...acc[key]['arrNom'], item]
-              acc[key]['arrContractId'] = [...acc[key]['arrContractId'], item?.contract_code_id]
+              acc[key]['arrContractId'] = item && [...acc[key]['arrContractId'], item?.contract_code_id] || acc[key]['arrContractId']
             }
 
             return acc
@@ -4952,7 +4902,7 @@ export class SummaryNominationReportService {
               const utilization = parseToNumber(item['utilization'] || '0')
               acc[key]['utilization'] = (baseutilization ?? 0) + (utilization ?? 0)
               acc[key]['arrNom'] = [...acc[key]['arrNom'], item]
-              acc[key]['arrContractId'] = [...acc[key]['arrContractId'], item?.contract_code_id]
+              acc[key]['arrContractId'] = item && [...acc[key]['arrContractId'], item?.contract_code_id] || acc[key]['arrContractId']
             }
 
             return acc
@@ -4997,8 +4947,8 @@ export class SummaryNominationReportService {
               const baseutilization = parseToNumber(acc[key]['utilization'] || '0')
               const utilization = parseToNumber(item['utilization'] || '0')
               acc[key]['utilization'] = (baseutilization ?? 0) + (utilization ?? 0)
-              acc[key]['arrNom_'] = [...acc[key]['arrNom_'], item?.arrNom]
-              acc[key]['arrContractId_'] = [...acc[key]['arrContractId_'], item?.arrContractId]
+              acc[key]['arrNom_'] = item && [...acc[key]['arrNom_'], item?.arrNom] || acc[key]['arrNom_']
+              acc[key]['arrContractId_'] = item && [...acc[key]['arrContractId_'], item?.arrContractId] || acc[key]['arrContractId_']
             }
 
             return acc
@@ -5041,7 +4991,7 @@ export class SummaryNominationReportService {
               const utilization = parseToNumber(item['utilization'] || '0')
               acc[key]['utilization'] = (baseutilization ?? 0) + (utilization ?? 0)
               acc[key]['arrNom'] = [...acc[key]['arrNom'], item]
-              acc[key]['arrContractId'] = [...acc[key]['arrContractId'], item?.contract_code_id]
+              acc[key]['arrContractId'] = item && [...acc[key]['arrContractId'], item?.contract_code_id] || acc[key]['arrContractId']
             }
 
             return acc
@@ -5130,31 +5080,31 @@ export class SummaryNominationReportService {
 
       switch (checkDy) {
         case 0:
-          totalW = all?.sunday || 0
+          totalW = all && all?.sunday || 0
           break
 
         case 1:
-          totalW = all?.monday || 0
+          totalW = all && all?.monday || 0
           break
 
         case 2:
-          totalW = all?.tuesday || 0
+          totalW = all && all?.tuesday || 0
           break
 
         case 3:
-          totalW = all?.wednesday || 0
+          totalW = all && all?.wednesday || 0
           break
 
         case 4:
-          totalW = all?.thursday || 0
+          totalW = all && all?.thursday || 0
           break
 
         case 5:
-          totalW = all?.friday || 0
+          totalW = all && all?.friday || 0
           break
 
         case 6:
-          totalW = all?.saturday || 0
+          totalW = all && all?.saturday || 0
           break
 
         default:
@@ -5251,31 +5201,31 @@ export class SummaryNominationReportService {
 
       switch (checkDy) {
         case 0:
-          totalW = all?.sunday || 0
+          totalW = all && all?.sunday || 0
           break
 
         case 1:
-          totalW = all?.monday || 0
+          totalW = all && all?.monday || 0
           break
 
         case 2:
-          totalW = all?.tuesday || 0
+          totalW = all && all?.tuesday || 0
           break
 
         case 3:
-          totalW = all?.wednesday || 0
+          totalW = all && all?.wednesday || 0
           break
 
         case 4:
-          totalW = all?.thursday || 0
+          totalW = all && all?.thursday || 0
           break
 
         case 5:
-          totalW = all?.friday || 0
+          totalW = all && all?.friday || 0
           break
 
         case 6:
-          totalW = all?.saturday || 0
+          totalW = all && all?.saturday || 0
           break
 
         default:
@@ -5379,31 +5329,31 @@ export class SummaryNominationReportService {
 
       switch (checkDy) {
         case 0:
-          totalW = all?.sunday || 0
+          totalW = all && all?.sunday || 0
           break
 
         case 1:
-          totalW = all?.monday || 0
+          totalW = all && all?.monday || 0
           break
 
         case 2:
-          totalW = all?.tuesday || 0
+          totalW = all && all?.tuesday || 0
           break
 
         case 3:
-          totalW = all?.wednesday || 0
+          totalW = all && all?.wednesday || 0
           break
 
         case 4:
-          totalW = all?.thursday || 0
+          totalW = all && all?.thursday || 0
           break
 
         case 5:
-          totalW = all?.friday || 0
+          totalW = all && all?.friday || 0
           break
 
         case 6:
-          totalW = all?.saturday || 0
+          totalW = all && all?.saturday || 0
           break
 
         default:
@@ -5502,31 +5452,31 @@ export class SummaryNominationReportService {
 
       switch (checkDy) {
         case 0:
-          totalW = all?.sunday || 0
+          totalW = all && all?.sunday || 0
           break
 
         case 1:
-          totalW = all?.monday || 0
+          totalW = all && all?.monday || 0
           break
 
         case 2:
-          totalW = all?.tuesday || 0
+          totalW = all && all?.tuesday || 0
           break
 
         case 3:
-          totalW = all?.wednesday || 0
+          totalW = all && all?.wednesday || 0
           break
 
         case 4:
-          totalW = all?.thursday || 0
+          totalW = all && all?.thursday || 0
           break
 
         case 5:
-          totalW = all?.friday || 0
+          totalW = all && all?.friday || 0
           break
 
         case 6:
-          totalW = all?.saturday || 0
+          totalW = all && all?.saturday || 0
           break
 
         default:
@@ -5625,38 +5575,38 @@ export class SummaryNominationReportService {
 
       switch (checkDy) {
         case 0:
-          totalW = all?.sunday || 0
-          utilizationW = all?.sunday_utilization || 0
+          totalW = all && all?.sunday || 0
+          utilizationW = all && all?.sunday_utilization || 0
           break
 
         case 1:
-          totalW = all?.monday || 0
-          utilizationW = all?.monday_utilization || 0
+          totalW = all && all?.monday || 0
+          utilizationW = all && all?.monday_utilization || 0
           break
 
         case 2:
-          totalW = all?.tuesday || 0
-          utilizationW = all?.tuesday_utilization || 0
+          totalW = all && all?.tuesday || 0
+          utilizationW = all && all?.tuesday_utilization || 0
           break
 
         case 3:
-          totalW = all?.wednesday || 0
-          utilizationW = all?.wednesday_utilization || 0
+          totalW = all && all?.wednesday || 0
+          utilizationW = all && all?.wednesday_utilization || 0
           break
 
         case 4:
-          totalW = all?.thursday || 0
-          utilizationW = all?.thursday_utilization || 0
+          totalW = all && all?.thursday || 0
+          utilizationW = all && all?.thursday_utilization || 0
           break
 
         case 5:
-          totalW = all?.friday || 0
-          utilizationW = all?.friday_utilization || 0
+          totalW = all && all?.friday || 0
+          utilizationW = all && all?.friday_utilization || 0
           break
 
         case 6:
-          totalW = all?.saturday || 0
-          utilizationW = all?.saturday_utilization || 0
+          totalW = all && all?.saturday || 0
+          utilizationW = all && all?.saturday_utilization || 0
           break
 
         default:
@@ -5811,45 +5761,45 @@ export class SummaryNominationReportService {
 
       switch (checkDy) {
         case 0:
-          totalW = all?.sunday || 0
+          totalW = all && all?.sunday || 0
           utilizationW = calcWeek(all?.sunday, nomPoint?.maximum_capacity, findHvsundayHv)
 
           break
 
         case 1:
-          totalW = all?.monday || 0
+          totalW = all && all?.monday || 0
           utilizationW = calcWeek(all?.monday, nomPoint?.maximum_capacity, findHvmondayHv)
-          // utilizationW = all?.monday_utilization || 0;
+          // utilizationW = all && all?.monday_utilization || 0;
           break
 
         case 2:
-          totalW = all?.tuesday || 0
+          totalW = all && all?.tuesday || 0
           utilizationW = calcWeek(all?.tuesday, nomPoint?.maximum_capacity, findHvtuesdayHv)
-          // utilizationW = all?.tuesday_utilization || 0;
+          // utilizationW = all && all?.tuesday_utilization || 0;
           break
 
         case 3:
-          totalW = all?.wednesday || 0
+          totalW = all && all?.wednesday || 0
           utilizationW = calcWeek(all?.wednesday, nomPoint?.maximum_capacity, findHvwednesdayHv)
-          // utilizationW = all?.wednesday_utilization || 0;
+          // utilizationW = all && all?.wednesday_utilization || 0;
           break
 
         case 4:
-          totalW = all?.thursday || 0
+          totalW = all && all?.thursday || 0
           utilizationW = calcWeek(all?.thursday, nomPoint?.maximum_capacity, findHvthursdayHv)
-          // utilizationW = all?.thursday_utilization || 0;
+          // utilizationW = all && all?.thursday_utilization || 0;
           break
 
         case 5:
-          totalW = all?.friday || 0
+          totalW = all && all?.friday || 0
           utilizationW = calcWeek(all?.friday, nomPoint?.maximum_capacity, findHvfridayHv)
-          // utilizationW = all?.friday_utilization || 0;
+          // utilizationW = all && all?.friday_utilization || 0;
           break
 
         case 6:
-          totalW = all?.saturday || 0
+          totalW = all && all?.saturday || 0
           utilizationW = calcWeek(all?.saturday, nomPoint?.maximum_capacity, findHvsaturdayHv)
-          // utilizationW = all?.saturday_utilization || 0;
+          // utilizationW = all && all?.saturday_utilization || 0;
           break
 
         default:
@@ -5941,38 +5891,38 @@ export class SummaryNominationReportService {
 
       switch (checkDy) {
         case 0:
-          totalW = all?.sunday || 0
-          utilizationW = all?.sunday_utilization || 0
+          totalW = all && all?.sunday || 0
+          utilizationW = all && all?.sunday_utilization || 0
           break
 
         case 1:
-          totalW = all?.monday || 0
-          utilizationW = all?.monday_utilization || 0
+          totalW = all && all?.monday || 0
+          utilizationW = all && all?.monday_utilization || 0
           break
 
         case 2:
-          totalW = all?.tuesday || 0
-          utilizationW = all?.tuesday_utilization || 0
+          totalW = all && all?.tuesday || 0
+          utilizationW = all && all?.tuesday_utilization || 0
           break
 
         case 3:
-          totalW = all?.wednesday || 0
-          utilizationW = all?.wednesday_utilization || 0
+          totalW = all && all?.wednesday || 0
+          utilizationW = all && all?.wednesday_utilization || 0
           break
 
         case 4:
-          totalW = all?.thursday || 0
-          utilizationW = all?.thursday_utilization || 0
+          totalW = all && all?.thursday || 0
+          utilizationW = all && all?.thursday_utilization || 0
           break
 
         case 5:
-          totalW = all?.friday || 0
-          utilizationW = all?.friday_utilization || 0
+          totalW = all && all?.friday || 0
+          utilizationW = all && all?.friday_utilization || 0
           break
 
         case 6:
-          totalW = all?.saturday || 0
-          utilizationW = all?.saturday_utilization || 0
+          totalW = all && all?.saturday || 0
+          utilizationW = all && all?.saturday_utilization || 0
           break
 
         default:
@@ -6044,8 +5994,8 @@ export class SummaryNominationReportService {
     console.time('sum G5')
 
     // area___
-    const groupByKeysALLArea = (item: any) => `${item.gas_day_text}-${item.area_text}`
-    const groupByKeysArea = (item: any) => `${item.gas_day_text}-${item.area_text}-${item?.contract_code_id}`
+    const groupByKeysALLArea = (item: any) => `${item?.gas_day_text}-${item?.area_text}`
+    const groupByKeysArea = (item: any) => `${item?.gas_day_text}-${item?.area_text}-${item?.contract_code_id}`
     // New__
     const fnGroupByKeysALLArea = (nData: any) => {
       return Object.values(
@@ -6055,7 +6005,6 @@ export class SummaryNominationReportService {
             acc[key] = {
               gas_day_text: item.gas_day_text,
               area_text: item.area_text,
-              // nomination_point: item.nomination_point,
               data: []
             }
           }
@@ -6075,7 +6024,6 @@ export class SummaryNominationReportService {
             acc[key] = {
               gas_day_text: item.gas_day_text,
               area_text: item.area_text,
-              // nomination_point: item.nomination_point,
               data: []
             }
           }
@@ -6089,14 +6037,14 @@ export class SummaryNominationReportService {
 
     const dArea = fnGroupByKeysALLArea(dMMBTUDArea)
     console.log('[A1] dArea : ', dArea?.filter((f:any) => f?.area_text === "A1"));
-    const dAreaFil = dArea.map((e: any) => {
+    const dAreaFil = (dArea || []).map((e: any) => {
       const fareaData =
         areaData?.find((f: any) => {
           return f?.name === e?.area_text
         })?.area_nominal_capacity || 0
       let totalCap = this.roundTo3(e['data']?.reduce((acc, item) => acc + (item?.total || 0), 0) || 0)
 
-      let utilization = this.roundTo2(Number(totalCap ?? 0) !== 0 && Number(fareaData ?? 0) !== 0 ? ((totalCap ?? 0) / Number(fareaData)) * 100 : 0)
+      let utilization = Number(fareaData) > 0 ? this.roundTo2(((Number(totalCap) || 0) / Number(fareaData)) * 100) : 0
       // let utilization = (Number(totalCap) / (Number(nomPoint?.maximum_capacity ?? 0) * Number(hv))) * 100;
 
       const hourDay = {
@@ -6127,7 +6075,7 @@ export class SummaryNominationReportService {
       }
 
       // delete e["data"]
-      const {data, ...nE} = e
+      const {data, ...nE} = (e || null)
       return {
         ...nE,
         totalCap,
@@ -6181,31 +6129,31 @@ export class SummaryNominationReportService {
       };
 
       const dayWeek = {
-        gas_day_sunday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(0, 'day').format('DD/MM/YYYY'),
+        gas_day_sunday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(0, 'day').format('DD/MM/YYYY'),
         sunday: sundayTotalCap,
         sunday_utilization: calcWeek(sundayTotalCap, fareaData),
-        gas_day_monday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(1, 'day').format('DD/MM/YYYY'),
+        gas_day_monday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(1, 'day').format('DD/MM/YYYY'),
         monday: mondayTotalCap,
         monday_utilization: calcWeek(mondayTotalCap, fareaData),
-        gas_day_tuesday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(2, 'day').format('DD/MM/YYYY'),
+        gas_day_tuesday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(2, 'day').format('DD/MM/YYYY'),
         tuesday: tuesdayTotalCap,
         tuesday_utilization: calcWeek(tuesdayTotalCap, fareaData),
-        gas_day_wednesday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(3, 'day').format('DD/MM/YYYY'),
+        gas_day_wednesday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(3, 'day').format('DD/MM/YYYY'),
         wednesday: wednesdayTotalCap,
         wednesday_utilization: calcWeek(wednesdayTotalCap, fareaData),
-        gas_day_thursday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(4, 'day').format('DD/MM/YYYY'),
+        gas_day_thursday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(4, 'day').format('DD/MM/YYYY'),
         thursday: thursdayTotalCap,
         thursday_utilization: calcWeek(thursdayTotalCap, fareaData),
-        gas_day_friday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(5, 'day').format('DD/MM/YYYY'),
+        gas_day_friday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(5, 'day').format('DD/MM/YYYY'),
         friday: fridayTotalCap,
         friday_utilization: calcWeek(fridayTotalCap, fareaData),
-        gas_day_saturday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(6, 'day').format('DD/MM/YYYY'),
+        gas_day_saturday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(6, 'day').format('DD/MM/YYYY'),
         saturday: saturdayTotalCap,
         saturday_utilization: calcWeek(saturdayTotalCap, fareaData)
       }
 
       // delete e["data"]
-      const {data, ...nE} = e
+      const {data, ...nE} = (e || null)
       return {
         ...nE,
         totalCap,
@@ -6268,31 +6216,31 @@ export class SummaryNominationReportService {
       }
 
       const dayWeek = {
-        gas_day_sunday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(0, 'day').format('DD/MM/YYYY'),
+        gas_day_sunday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(0, 'day').format('DD/MM/YYYY'),
         sunday: sundayTotalCap,
         sunday_utilization: calcWeek(sundayTotalCap_o, fareaData),
-        gas_day_monday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(1, 'day').format('DD/MM/YYYY'),
+        gas_day_monday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(1, 'day').format('DD/MM/YYYY'),
         monday: mondayTotalCap,
         monday_utilization: calcWeek(sundayTotalCap_o, fareaData),
-        gas_day_tuesday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(2, 'day').format('DD/MM/YYYY'),
+        gas_day_tuesday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(2, 'day').format('DD/MM/YYYY'),
         tuesday: tuesdayTotalCap,
         tuesday_utilization: calcWeek(tuesdayTotalCap_o, fareaData),
-        gas_day_wednesday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(3, 'day').format('DD/MM/YYYY'),
+        gas_day_wednesday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(3, 'day').format('DD/MM/YYYY'),
         wednesday: wednesdayTotalCap,
         wednesday_utilization: calcWeek(wednesdayTotalCap_o, fareaData),
-        gas_day_thursday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(4, 'day').format('DD/MM/YYYY'),
+        gas_day_thursday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(4, 'day').format('DD/MM/YYYY'),
         thursday: thursdayTotalCap,
         thursday_utilization: calcWeek(thursdayTotalCap_o, fareaData),
-        gas_day_friday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(5, 'day').format('DD/MM/YYYY'),
+        gas_day_friday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(5, 'day').format('DD/MM/YYYY'),
         friday: fridayTotalCap,
         friday_utilization: calcWeek(fridayTotalCap_o, fareaData),
-        gas_day_saturday: getTodayNowDDMMYYYYDfault(e?.gas_day_text).add(6, 'day').format('DD/MM/YYYY'),
+        gas_day_saturday: getTodayNowDDMMYYYYDfault(e && e?.gas_day_text || undefined).add(6, 'day').format('DD/MM/YYYY'),
         saturday: saturdayTotalCap,
         saturday_utilization: calcWeek(saturdayTotalCap_o, fareaData)
       }
 
       // delete e["data"]
-      const {data, ...nE} = e
+      const {data, ...nE} = (e || null)
       return {
         ...nE,
         totalCap,
@@ -6311,38 +6259,38 @@ export class SummaryNominationReportService {
 
       switch (checkDy) {
         case 0:
-          totalW = all?.sunday || 0
-          utilizationW = all?.sunday_utilization || 0
+          totalW = all && all?.sunday || 0
+          utilizationW = all && all?.sunday_utilization || 0
           break
 
         case 1:
-          totalW = all?.monday || 0
-          utilizationW = all?.monday_utilization || 0
+          totalW = all && all?.monday || 0
+          utilizationW = all && all?.monday_utilization || 0
           break
 
         case 2:
-          totalW = all?.tuesday || 0
-          utilizationW = all?.tuesday_utilization || 0
+          totalW = all && all?.tuesday || 0
+          utilizationW = all && all?.tuesday_utilization || 0
           break
 
         case 3:
-          totalW = all?.wednesday || 0
-          utilizationW = all?.wednesday_utilization || 0
+          totalW = all && all?.wednesday || 0
+          utilizationW = all && all?.wednesday_utilization || 0
           break
 
         case 4:
-          totalW = all?.thursday || 0
-          utilizationW = all?.thursday_utilization || 0
+          totalW = all && all?.thursday || 0
+          utilizationW = all && all?.thursday_utilization || 0
           break
 
         case 5:
-          totalW = all?.friday || 0
-          utilizationW = all?.friday_utilization || 0
+          totalW = all && all?.friday || 0
+          utilizationW = all && all?.friday_utilization || 0
           break
 
         case 6:
-          totalW = all?.saturday || 0
-          utilizationW = all?.saturday_utilization || 0
+          totalW = all && all?.saturday || 0
+          utilizationW = all && all?.saturday_utilization || 0
           break
 
         default:
@@ -6470,7 +6418,7 @@ export class SummaryNominationReportService {
       const imbalance_percent = this.roundTo3((imbalance / tentry) * 100)
 
       // delete e["data"]
-      const {data, ...nE} = e
+      const {data, ...nE} = (e || null)
       return {
         ...nE,
         park,
@@ -6542,7 +6490,7 @@ export class SummaryNominationReportService {
       const imbalance_percent = (index: any) => this.roundTo3((imbalance(index) / tentry(index)) * 100)
 
       // delete e["data"]
-      const {data, ...nE} = e
+      const {data, ...nE} = (e || null)
       return [
         {
           // ...nE,
@@ -6694,7 +6642,7 @@ export class SummaryNominationReportService {
       const imbalance_percent = (index: any) => this.roundTo3((imbalance(index) / tentry(index)) * 100)
 
       // delete e["data"]
-      const {data, ...nE} = e
+      const {data, ...nE} = (e || null)
       return [
         {
           // ...nE,
@@ -6811,7 +6759,7 @@ export class SummaryNominationReportService {
         acc[groupKey] = {
           area_text: item.area_text,
           zone_text: item.zone_text,
-          nomination_point: item.nomination_point,
+          nomination_point: item && item.nomination_point || "",
           entry_exit_id: item.entry_exit_id,
           customerType: item.customerType,
           unix: item.unix,
@@ -6853,7 +6801,7 @@ export class SummaryNominationReportService {
       // excel  wi 11 hv 12 sg 13
 
       const _calc_vi_all =
-        item?.arrNom?.reduce((accIn, currIn) => {
+        (item && item?.arrNom || []).reduce((accIn, currIn) => {
           let resultIn = 0
           if (currIn?.nomination_type_id === 1) {
             // day
@@ -6870,7 +6818,7 @@ export class SummaryNominationReportService {
 
       const _calc_hv_x_vi_all =
         this.normalizeNumber(
-          item?.arrNom?.reduce((accIn, currIn) => {
+          (item && item?.arrNom || []).reduce((accIn, currIn) => {
             let resultIn = 0
             let hv_ = 0
             let vi_ = 0
@@ -6897,7 +6845,7 @@ export class SummaryNominationReportService {
 
       const _calc_sg_x_vi_all =
         this.normalizeNumber(
-          item?.arrNom?.reduce((accIn, currIn) => {
+          (item && item?.arrNom || []).reduce((accIn, currIn) => {
             let resultIn = 0
             let vi_ = 0
             let sg_ = 0
@@ -6995,7 +6943,7 @@ export class SummaryNominationReportService {
         acc[groupKey] = {
           area_text: item.area_text,
           zone_text: item.zone_text,
-          nomination_point: item.nomination_point,
+          nomination_point: item && item.nomination_point || "",
           entry_exit_id: item.entry_exit_id,
           customerType: item.customerType,
           unix: item.unix,
@@ -7037,7 +6985,7 @@ export class SummaryNominationReportService {
       // excel  wi 11 hv 12 sg 13
 
       const _calc_vi_all =
-        item?.arrNom?.reduce((accIn, currIn) => {
+        (item && item?.arrNom || []).reduce((accIn, currIn) => {
           let resultIn = 0
           if (currIn?.nomination_type_id === 1) {
             // day
@@ -7054,7 +7002,7 @@ export class SummaryNominationReportService {
 
       const _calc_hv_x_vi_all =
         this.normalizeNumber(
-          item?.arrNom?.reduce((accIn, currIn) => {
+          (item && item?.arrNom || []).reduce((accIn, currIn) => {
             let resultIn = 0
             let hv_ = 0
             let vi_ = 0
@@ -7081,7 +7029,7 @@ export class SummaryNominationReportService {
 
       const _calc_sg_x_vi_all =
         this.normalizeNumber(
-          item?.arrNom?.reduce((accIn, currIn) => {
+          (item && item?.arrNom || []).reduce((accIn, currIn) => {
             let resultIn = 0
             let vi_ = 0
             let sg_ = 0
@@ -7251,7 +7199,7 @@ export class SummaryNominationReportService {
         acc[groupKey] = {
           area_text: item.area_text,
           zone_text: item.zone_text,
-          nomination_point: item.nomination_point,
+          nomination_point: item && item.nomination_point || "",
           entry_exit_id: item.entry_exit_id,
           customerType: item.customerType,
           unix: item.unix,
@@ -7278,7 +7226,7 @@ export class SummaryNominationReportService {
       }
 
       const _calc_vi_all =
-        item?.arrNom?.reduce((accIn, currIn) => {
+        (item && item?.arrNom || []).reduce((accIn, currIn) => {
           let resultIn = 0
           if (currIn?.nomination_type_id === 1) {
             // day
@@ -7295,7 +7243,7 @@ export class SummaryNominationReportService {
 
       const _calc_hv_x_vi_all =
         this.normalizeNumber(
-          item?.arrNom?.reduce((accIn, currIn) => {
+          (item && item?.arrNom || []).reduce((accIn, currIn) => {
             let resultIn = 0
             let hv_ = 0
             let vi_ = 0
@@ -7322,7 +7270,7 @@ export class SummaryNominationReportService {
 
       const _calc_sg_x_vi_all =
         this.normalizeNumber(
-          item?.arrNom?.reduce((accIn, currIn) => {
+          (item && item?.arrNom || []).reduce((accIn, currIn) => {
             let resultIn = 0
             let vi_ = 0
             let sg_ = 0
@@ -7532,7 +7480,7 @@ export class SummaryNominationReportService {
         acc[groupKey] = {
           area_text: item.area_text,
           zone_text: item.zone_text,
-          nomination_point: item.nomination_point,
+          nomination_point: item && item.nomination_point || "",
           entry_exit_id: item.entry_exit_id,
           customerType: item.customerType,
           unix: item.unix,
@@ -7559,7 +7507,7 @@ export class SummaryNominationReportService {
       }
 
       const _calc_vi_all =
-        item?.arrNom?.reduce((accIn, currIn) => {
+        (item && item?.arrNom || []).reduce((accIn, currIn) => {
           let resultIn = 0
           if (currIn?.nomination_type_id === 1) {
             // day
@@ -7576,7 +7524,7 @@ export class SummaryNominationReportService {
 
       const _calc_hv_x_vi_all =
         this.normalizeNumber(
-          item?.arrNom?.reduce((accIn, currIn) => {
+          (item && item?.arrNom || []).reduce((accIn, currIn) => {
             let resultIn = 0
             let hv_ = 0
             let vi_ = 0
@@ -7603,7 +7551,7 @@ export class SummaryNominationReportService {
 
       const _calc_sg_x_vi_all =
         this.normalizeNumber(
-          item?.arrNom?.reduce((accIn, currIn) => {
+          (item && item?.arrNom || []).reduce((accIn, currIn) => {
             let resultIn = 0
             let vi_ = 0
             let sg_ = 0
@@ -7687,7 +7635,7 @@ export class SummaryNominationReportService {
         acc[groupKey] = {
           area_text: item.area_text,
           zone_text: item.zone_text,
-          nomination_point: item.nomination_point,
+          nomination_point: item && item.nomination_point || "",
           entry_exit_id: item.entry_exit_id,
           customerType: item.customerType,
           unix: item.unix,
@@ -7714,7 +7662,7 @@ export class SummaryNominationReportService {
       }
 
       const _calc_vi_all =
-        item?.arrNom?.reduce((accIn, currIn) => {
+        (item && item?.arrNom || []).reduce((accIn, currIn) => {
           let resultIn = 0
           if (currIn?.nomination_type_id === 1) {
             // day
@@ -7731,7 +7679,7 @@ export class SummaryNominationReportService {
 
       const _calc_hv_x_vi_all =
         this.normalizeNumber(
-          item?.arrNom?.reduce((accIn, currIn) => {
+          (item && item?.arrNom || []).reduce((accIn, currIn) => {
             let resultIn = 0
             let hv_ = 0
             let vi_ = 0
@@ -7758,7 +7706,7 @@ export class SummaryNominationReportService {
 
       const _calc_sg_x_vi_all =
         this.normalizeNumber(
-          item?.arrNom?.reduce((accIn, currIn) => {
+          (item && item?.arrNom || []).reduce((accIn, currIn) => {
             let resultIn = 0
             let vi_ = 0
             let sg_ = 0
@@ -7981,7 +7929,7 @@ export class SummaryNominationReportService {
       }
     })
    
-    const UlitAllfDWallMMSCFDOnce_ = this.fnALLNOMUutilization(fDWallMMSCFDOnce, 'mmscf', areaData, fDWallMMSCFDOnce, nomData, D_EW_OBJ, W_EW_OBJ)
+    const UlitAllfDWallMMSCFDOnce_ = this.fnALLNOMUutilization(fDWallMMSCFDOnce, 'mmscf', areaData, null, nomData, D_EW_OBJ, W_EW_OBJ)
     
     const UlitAllfDWallMMSCFDOnce = UlitAllfDWallMMSCFDOnce_?.map((e: any) => {
       const {utilization: utilization_, total: total_, totalCap: totalCap_, arrNom, wi, hv, sg, entry_exit_id, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, ...nE} = e
@@ -8016,7 +7964,7 @@ export class SummaryNominationReportService {
       let utilization = utilization_
 
       if (entry_exit_id === 2) {
-        const {hourDay: hourDay_n, total: total_n, totalCap: totalCap_n, utilization: utilization_n} = this.fnDayExitMMSCFNewCalc(hv, arrNom, nomData, e?.nomination_point)
+        const {hourDay: hourDay_n, total: total_n, totalCap: totalCap_n, utilization: utilization_n} = this.fnDayExitMMSCFNewCalc(hv, arrNom, nomData, e && e?.nomination_point || "")
  
         hourDay = hourDay_n
         utilization = utilization_n
@@ -8322,7 +8270,7 @@ export class SummaryNominationReportService {
         acc[groupKey] = {
           area_text: item.area_text,
           zone_text: item.zone_text,
-          nomination_point: item.nomination_point,
+          nomination_point: item && item.nomination_point || "",
           entry_exit_id: item.entry_exit_id,
           customerType: item.customerType,
           unix: item.unix,
@@ -8364,7 +8312,7 @@ export class SummaryNominationReportService {
       // excel  wi 11 hv 12 sg 13
 
       const _calc_vi_all =
-        item?.arrNom?.reduce((accIn, currIn) => {
+        (item && item?.arrNom || []).reduce((accIn, currIn) => {
           let resultIn = 0
           if (currIn?.nomination_type_id === 1) {
             // day
@@ -8379,7 +8327,7 @@ export class SummaryNominationReportService {
           return accIn + resultIn
         }, 0) ?? 0
 
-      const _calc_hv_x_vi_all = item?.arrNom?.reduce((accIn, currIn) => {
+      const _calc_hv_x_vi_all = (item && item?.arrNom || []).reduce((accIn, currIn) => {
         let resultIn = 0
         let hv_ = 0
         let vi_ = 0
@@ -8403,7 +8351,7 @@ export class SummaryNominationReportService {
         return accIn + resultIn
       }, 0)
 
-      const _calc_sg_x_vi_all = item?.arrNom?.reduce((accIn, currIn) => {
+      const _calc_sg_x_vi_all = (item && item?.arrNom || []).reduce((accIn, currIn) => {
         let resultIn = 0
         let vi_ = 0
         let sg_ = 0
@@ -8507,7 +8455,7 @@ export class SummaryNominationReportService {
         acc[groupKey] = {
           area_text: item.area_text,
           zone_text: item.zone_text,
-          nomination_point: item.nomination_point,
+          nomination_point: item && item.nomination_point || "",
           entry_exit_id: item.entry_exit_id,
           customerType: item.customerType,
           unix: item.unix,
@@ -8549,7 +8497,7 @@ export class SummaryNominationReportService {
       // excel  wi 11 hv 12 sg 13
 
       const _calc_vi_all =
-        item?.arrNom?.reduce((accIn, currIn) => {
+        (item && item?.arrNom || []).reduce((accIn, currIn) => {
           let resultIn = 0
           if (currIn?.nomination_type_id === 1) {
             // day
@@ -8564,7 +8512,7 @@ export class SummaryNominationReportService {
           return accIn + resultIn
         }, 0) ?? 0
 
-      const _calc_hv_x_vi_all = item?.arrNom?.reduce((accIn, currIn) => {
+      const _calc_hv_x_vi_all = (item && item?.arrNom || []).reduce((accIn, currIn) => {
         let resultIn = 0
         let hv_ = 0
         let vi_ = 0
@@ -8588,7 +8536,7 @@ export class SummaryNominationReportService {
         return accIn + resultIn
       }, 0)
 
-      const _calc_sg_x_vi_all = item?.arrNom?.reduce((accIn, currIn) => {
+      const _calc_sg_x_vi_all = (item && item?.arrNom || []).reduce((accIn, currIn) => {
         let resultIn = 0
         let vi_ = 0
         let sg_ = 0
@@ -8692,7 +8640,7 @@ export class SummaryNominationReportService {
         acc[groupKey] = {
           area_text: item.area_text,
           zone_text: item.zone_text,
-          nomination_point: item.nomination_point,
+          nomination_point: item && item.nomination_point || "",
           entry_exit_id: item.entry_exit_id,
           customerType: item.customerType,
           unix: item.unix,
@@ -8734,7 +8682,7 @@ export class SummaryNominationReportService {
       // excel  wi 11 hv 12 sg 13
 
       const _calc_vi_all =
-        item?.arrNom?.reduce((accIn, currIn) => {
+        (item && item?.arrNom || []).reduce((accIn, currIn) => {
           let resultIn = 0
           if (currIn?.nomination_type_id === 1) {
             // day
@@ -8749,7 +8697,7 @@ export class SummaryNominationReportService {
           return accIn + resultIn
         }, 0) ?? 0
 
-      const _calc_hv_x_vi_all = item?.arrNom?.reduce((accIn, currIn) => {
+      const _calc_hv_x_vi_all = (item && item?.arrNom || []).reduce((accIn, currIn) => {
         let resultIn = 0
         let hv_ = 0
         let vi_ = 0
@@ -8773,7 +8721,7 @@ export class SummaryNominationReportService {
         return accIn + resultIn
       }, 0)
 
-      const _calc_sg_x_vi_all = item?.arrNom?.reduce((accIn, currIn) => {
+      const _calc_sg_x_vi_all = (item && item?.arrNom || []).reduce((accIn, currIn) => {
         let resultIn = 0
         let vi_ = 0
         let sg_ = 0
@@ -9083,7 +9031,7 @@ export class SummaryNominationReportService {
      // saturday
     console.log('[IND-E] wMMSCFD_tabnom_exit : ', wMMSCFD_tabnom_exit?.filter((f:any) => f?.nomination_point === "IND-E"));
     // console.log('[RWC2] wMMSCFD_tabnom_exit : ', wMMSCFD_tabnom_exit?.filter((f:any) => f?.nomination_point === "RWC2"));
-    const UlitAllfWeeklyMMSCFDOnce = this.fnALLNOMUutilizationWeekly(wMMSCFD_tabnom_exit, 'mmscf', areaData, wMMSCFD_tabnom_exit, nomData, W_EW_OBJ)
+    const UlitAllfWeeklyMMSCFDOnce = this.fnALLNOMUutilizationWeekly(wMMSCFD_tabnom_exit, 'mmscf', areaData, null, nomData, W_EW_OBJ)
     console.log('[IND-E] UlitAllfWeeklyMMSCFDOnce : ', UlitAllfWeeklyMMSCFDOnce?.filter((f:any) => f?.nomination_point === "IND-E"));
     // console.log('[RWC2] UlitAllfWeeklyMMSCFDOnce : ', UlitAllfWeeklyMMSCFDOnce?.filter((f:any) => f?.nomination_point === "RWC2"));
     // console.log('____UlitAllfWeeklyMMSCFDOnce : ', UlitAllfWeeklyMMSCFDOnce);
@@ -9115,7 +9063,7 @@ export class SummaryNominationReportService {
       return {...nE, customerType: e?.nomination_row_json?.data_temp?.["6"] || null}
     })
     // const UlitAllfDWallMMSCFDOnce_ = this.fnALLNOMUutilizationWeekly(UlitAllfDWallMMSCFDOnce, 'mmscf', areaData, wMMSCFD_tabnom_exit, nomData, W_EW_OBJ)
-    // const UlitAllfWeeklyMMSCFDOnce = this.fnALLNOMUutilizationWeekly(wMMSCFD_tabnom_exit, 'mmscf', areaData, wMMSCFD_tabnom_exit, nomData, W_EW_OBJ)
+    // const UlitAllfWeeklyMMSCFDOnce = this.fnALLNOMUutilizationWeekly(wMMSCFD_tabnom_exit, 'mmscf', areaData, null, nomData, W_EW_OBJ)
     // console.log('[SBK_CC4] UlitAllfWeeklyMMSCFDOnce : ', UlitAllfWeeklyMMSCFDOnce?.filter((f:any) => f?.nomination_point === "SBK_CC4"));
     const nominationAllMMSCFD = _.orderBy(
       UlitAllfDWallMMSCFDOnce?.map((e: any) => {

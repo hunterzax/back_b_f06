@@ -107,7 +107,7 @@ export class CapacityV2Controller {
 
     const resData = await this.capacityV2Service.checkAV(
         grpcTransformBUFF,
-        req?.user?.sub,
+        (req?.user?.sub || -1),
         file,
         token,
         isShipperID ? shipperNameOrID : undefined
@@ -166,7 +166,7 @@ export class CapacityV2Controller {
     const resData =
       await this.capacityV2Service.pathDetailCapacityRequestManagementTranformNewVersion(
         grpcTransformBUFF,
-        req?.user?.sub,
+        (req?.user?.sub || -1),
         file,
         token,
         isShipperID ? shipperNameOrID : undefined
@@ -302,7 +302,7 @@ export class CapacityV2Controller {
       process.env.SYSTEM_ACCOUNT_ID ?? 1,
       null,
       // grpcTransform,
-      // req?.user?.sub,
+      // (req?.user?.sub || -1),
       // file,
     );
 
@@ -407,7 +407,7 @@ export class CapacityV2Controller {
       await this.capacityV2Service.updateStatusCapacityRequestManagement(
         id,
         body,
-        req?.user?.sub,
+        (req?.user?.sub || -1),
         req,
         bools
       );
@@ -517,7 +517,7 @@ export class CapacityV2Controller {
       await this.capacityV2Service.extendCapacityRequestManagement(
         id,
         body,
-        req?.user?.sub,
+        (req?.user?.sub || -1),
         req,
       );
 
@@ -590,7 +590,7 @@ export class CapacityV2Controller {
     const editVersion = await this.capacityV2Service.editVersion(
       body,
       id,
-      req?.user?.sub,
+      (req?.user?.sub || -1),
     );
 
     // inapp
@@ -716,7 +716,7 @@ export class CapacityV2Controller {
     }
     const duplicateVersion = await this.capacityV2Service.duplicateVersion(
       id,
-      req?.user?.sub,
+      (req?.user?.sub || -1),
     );
 
     // inapp

@@ -50,8 +50,8 @@ export class AssetController {
 
   @UseGuards(AuthGuard)
   @Get('zone')
-  zone(@Req() req: any) {
-    return this.assetZoneService.zone()
+  zone(@Req() req: any, @Query() query: any) {
+    return this.assetZoneService.zone(query)
   }
 
   @UseGuards(AuthGuard)
@@ -82,14 +82,15 @@ export class AssetController {
       await this.assetZoneService.zoneMasterOnce(
         zoneMaster?.id
       )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `zone`,
-      'create',
-      his
-    )
+    // ใช้ร่วมกับ zone-quality ต้องปิดไว้
+    // await writeReq(
+    //   this.prisma,
+    //   'DAM',
+    //   req,
+    //   `zone`,
+    //   'create',
+    //   his
+    // )
 
     try {
       await middleNotiInapp(
@@ -127,7 +128,7 @@ export class AssetController {
     const zoneMaster =
       await this.assetZoneService.zoneMasterUpdate(
         body,
-        req?.user?.sub,
+        (req?.user?.sub || -1),
         id
       )
 
@@ -135,14 +136,16 @@ export class AssetController {
       await this.assetZoneService.zoneMasterOnce(
         zoneMaster?.id
       )
-    await writeReq(
-      this.prisma,
-      'DAM',
-      req,
-      `zone`,
-      'edit',
-      his
-    )
+
+    // ใช้ร่วมกับ zone-quality ต้องปิดไว้
+    // await writeReq(
+    //   this.prisma,
+    //   'DAM',
+    //   req,
+    //   `zone`,
+    //   'edit',
+    //   his
+    // )
     try {
       await middleNotiInapp(
         this.prisma,
@@ -179,7 +182,7 @@ export class AssetController {
     const zoneMasterQuality =
       await this.assetZoneService.zoneMasterQualityUpdate(
         body,
-        req?.user?.sub,
+        (req?.user?.sub || -1),
         id
       )
     const his =
@@ -190,8 +193,10 @@ export class AssetController {
       this.prisma,
       'DAM',
       req,
-      `zone-quality`,
-      'edit',
+      // `zone-quality`,
+      `zone`,
+      // 'edit',
+      'action',
       his
     )
     return zoneMasterQuality
@@ -292,7 +297,7 @@ export class AssetController {
     const area =
       await this.assetAreaService.areaUpdate(
         body,
-        req?.user?.sub,
+        (req?.user?.sub || -1),
         id
       )
     const his =
@@ -415,7 +420,7 @@ export class AssetController {
     const configMasterPathStatus =
       await this.assetConfigMasterPathService.configMasterPathStatus(
         body,
-        req?.user?.sub,
+        (req?.user?.sub || -1),
         id
       )
     const his =
@@ -470,7 +475,7 @@ export class AssetController {
     const configMasterPathEdit =
       await this.assetConfigMasterPathService.configMasterPathEdit(
         body,
-        req?.user?.sub,
+        (req?.user?.sub || -1),
         id
       )
     const his =
@@ -536,7 +541,7 @@ export class AssetController {
     const contractPointCreate =
       await this.assetContractPointService.contractPointCreate(
         body,
-        req?.user?.sub,
+        (req?.user?.sub || -1),
         req
       )
     const his =
@@ -590,7 +595,7 @@ export class AssetController {
     const contractPointEdit =
       await this.assetContractPointService.contractPointEdit(
         body,
-        req?.user?.sub,
+        (req?.user?.sub || -1),
         id,
         req
       )
@@ -750,7 +755,7 @@ export class AssetController {
     const nominationPointEdit =
       await this.assetNominationPointService.nominationPointEdit(
         body,
-        req?.user?.sub,
+        (req?.user?.sub || -1),
         id
       )
     const his =
@@ -818,7 +823,7 @@ export class AssetController {
     const nominationPointCreate =
       await this.assetNominationPointService.nominationPointNewPeriod(
         body,
-        req?.user?.sub,
+        (req?.user?.sub || -1),
         undefined,
         req
       )
@@ -862,6 +867,12 @@ export class AssetController {
         }
       )
     return nominationPointCreate
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('nomination-point-by-shipper-or-contract')
+  nominationPointData(@Query() query: any, @Req() req: any) {
+    return this.assetNominationPointService.nominationPointByShipperOrContract(query, req?.user?.sub)
   }
 
   // customer-type
@@ -1046,7 +1057,7 @@ export class AssetController {
     const nonTpaPointEdit =
       await this.assetNonTpaPointService.nonTpaPointEdit(
         body,
-        req?.user?.sub,
+        (req?.user?.sub || -1),
         id
       )
     const his =
@@ -1193,7 +1204,7 @@ export class AssetController {
     const meteringPointEdit =
       await this.assetMeteringPointService.meteringPointEdit(
         body,
-        req?.user?.sub,
+        (req?.user?.sub || -1),
         id
       )
     const his =
@@ -1400,7 +1411,7 @@ export class AssetController {
     const conceptPointEdit =
       await this.assetConceptPointService.conceptPointEdit(
         body,
-        req?.user?.sub,
+        (req?.user?.sub || -1),
         id
       )
     const his =
@@ -1434,6 +1445,23 @@ export class AssetController {
     @Req() req: any
   ) {
     return this.assetConceptPointService.limitConceptPoint()
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('limit-concept-point-history')
+  limitConceptPointHistory(@Query() query: any) {
+    const {limit, offset, q, groupId, conceptPointId, startDate, endDate, orderByName, orderBy} = query
+    return this.assetConceptPointService.limitConceptPointHistory({
+      limit: Number(limit ?? 100),
+      offset: Number(offset ?? 0),
+      q: q || '',
+      groupId: groupId || '',
+      conceptPointId: conceptPointId || '',
+      startDate: startDate || '',
+      endDate: endDate || '',
+      orderByName: orderByName || '',
+      orderBy: orderBy || ''
+    })
   }
 
   @UseGuards(AuthGuard)

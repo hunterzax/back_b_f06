@@ -66,7 +66,8 @@ const headNom = [
   'HV',
   'SG'
 ]
-const headNomSheet2 = ['Zone', 'Point', 'CO2', 'C1', 'C2', 'C3', 'iC4', 'nC4', 'iC5', 'nC5', 'C6', 'C7', 'C2+', 'N2', 'O2', 'H2S', 'S', 'Hg']
+// const headNomSheet2 = ['Zone', 'Point', 'CO2', 'C1', 'C2', 'C3', 'iC4', 'nC4', 'iC5', 'nC5', 'C6', 'C7', 'C2+', 'N2', 'O2', 'H2S', 'S', 'Hg']
+const headNomSheet2 = ['Zone', 'Point', 'CO2 (%mol)', 'C1 (%mol)', 'C2 (%mol)', 'C3 (%mol)', 'iC4 (%mol)', 'nC4 (%mol)', 'iC5 (%mol)', 'nC5 (%mol)', 'C6 (%mol)', 'C7 (%mol)', 'C2+ (%mol)', 'N2 (%mol)', 'O2 (%mol)', 'H2S (%mol)', 'S (%mol)', 'Hg (%mol)'] // https://app.clickup.com/t/9018502823/86etzcgr8
 
 const headNomSheet3 = [
   [], // Row 0
@@ -196,35 +197,6 @@ export class SubmissionFileRefactoredService {
   }
 
   /**
-   * ===== FILE VALIDATION METHODS =====
-   * Core validation functions for different file types and structures
-   */
-
-  /**
-   * Validates daily nomination data structure
-   * Checks that hour columns (14-37) contain sequential values 1-24
-   * and that column 38 contains 'Total'
-   *
-   * @param sheetData - The sheet data to validate
-   * @returns Boolean indicating if validation passed
-   */
-  validateDataDaily(sheetData: any) {
-    // Validate hour columns 14-37 contain values 1-24 sequentially
-    for (let i = 14; i <= 37; i++) {
-      if (sheetData[i.toString()] !== (i - 13).toString()) {
-        return false // Fail immediately if any hour doesn't match expected sequence
-      }
-    }
-
-    // Validate that column 38 contains 'Total'
-    if (sheetData['38'] !== 'Total') {
-      return false
-    }
-
-    return true // All validations passed
-  }
-
-  /**
    * Validates weekly nomination data structure
    * Checks that date columns (14-20) contain 7 consecutive days
    * starting from the provided startDateExConv
@@ -275,7 +247,7 @@ export class SubmissionFileRefactoredService {
     this.logger.log('[DEBUG][ckDateInfoNomDailyAndWeeklyNew] renom=', nominationDeadlineReceptionOfRenomination)
     this.logger.log('[DEBUG][ckDateInfoNomDailyAndWeeklyNew] todayDate=', dayjs().format('YYYY-MM-DD HH:mm:ss'))
 
-    if(process.env.NODE_ENV === 'development'){
+    if (process.env.NODE_ENV === 'development') {
       return false
     }
 
@@ -609,38 +581,38 @@ export class SubmissionFileRefactoredService {
     }
   }
 
-  validateDecimal3(value: any, point:any){
-  if (value === null || value === undefined || value === '') return;
+  validateDecimal3(value: any, point: any) {
+    if (value === null || value === undefined || value === '') return
 
-  const str = String(value);
+    const str = String(value)
 
-  // เช็ค format ตัวเลขก่อน (กันพวก abc)
-  if (!/^-?\d+(\.\d+)?$/.test(str)) {
-    throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              // error: 'contract code ไม่ตรง & shipper id ไม่ตรง',
-              error: `Point [${point}] (${value}) Total Invalid number format`
-            },
-            HttpStatus.BAD_REQUEST
-          )
+    // เช็ค format ตัวเลขก่อน (กันพวก abc)
+    if (!/^-?\d+(\.\d+)?$/.test(str)) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          // error: 'contract code ไม่ตรง & shipper id ไม่ตรง',
+          error: `Point [${point}] (${value}) Total Invalid number format`
+        },
+        HttpStatus.BAD_REQUEST
+      )
+    }
+
+    const decimalPart = str.split('.')[1]
+
+    if (decimalPart && decimalPart.length > 3) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          // error: 'contract code ไม่ตรง & shipper id ไม่ตรง',
+          error: `Point [${point}] (${value}) Total Decimal must not exceed 3 digits`
+        },
+        HttpStatus.BAD_REQUEST
+      )
+    }
+
+    return Number(value)
   }
-
-  const decimalPart = str.split('.')[1];
-
-  if (decimalPart && decimalPart.length > 3) {
-    throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              // error: 'contract code ไม่ตรง & shipper id ไม่ตรง',
-              error: `Point [${point}] (${value}) Total Decimal must not exceed 3 digits`
-            },
-            HttpStatus.BAD_REQUEST
-          )
-  }
-
-  return Number(value);
-};
 
   /**
    * Main upload file method for processing nomination files
@@ -654,1074 +626,987 @@ export class SubmissionFileRefactoredService {
    */
   // deadline
 
-
-
-
   // ....
   async uploadFile(file: any, fileOriginal: any, userId: any, comment: any, tabType: any) {
     let renom = null
     // ===== STEP 1: INITIAL SETUP =====
-    const {todayStart, todayEnd, nowAts, gAuserType} = await this.initialSetupService.executeInitialSetup(userId)
+    const {todayStart, todayEnd, nowAts, gAuserType, zoneQualityMaster} = await this.initialSetupService.executeInitialSetup(userId)
 
-    // ===== STEP 2: FILE TYPE VALIDATION =====
-    const {findData, checkType, nomination_type_id} = await this.fileTypeValidationService.executeFileTypeValidation(file, tabType)
+    // ===== STEP 2-3: FILE TYPE VALIDATION Head Table =====
+    let {findData, checkType, nomination_type_id, sheet1, sheet2, sheet3, startDateEx} = await this.fileTypeValidationService.executeFileTypeValidation(file, tabType, headNom, headNomSheet2)
 
-    // ===== STEP 3-6: EXTRACT SHEET DATA AND VALIDATE =====
-    let {sheet1, sheet2, sheet3, shipper, shipperCompare, contractCodeName, contractCodeNameCompare, shipper_id, contract_code_id, startDateEx, reserveBalancingGasContract} = await this.sheetDataExtractionService.executeSheetDataExtraction(findData, checkType, nomination_type_id)
-
-    // ** ยังไม่ใช้
-    // ==== STEP EXTRA 1: เอาไว้หา
-    // ---------------------
-    // ตัวอย่างการใช้งาน: kom
-    // const result = this.sheetDataExtractionService.analyzeEntryUnits(sheet1);
-
-    // result.completeGroups  // => กลุ่มที่มีทั้ง MMBTU/D และ MMSCFD
-    // result.incompleteRows  // => แถวที่ unit ไม่ครบ ให้เอาไปใช้ทำ response
+    // ===== STEP 4-6: EXTRACT SHEET DATA AND VALIDATE =====
+    let {shipper, shipperCompare, contractCodeName, contractCodeNameCompare, shipper_id, contract_code_id, reserveBalancingGasContract} = await this.sheetDataExtractionService.executeSheetDataExtraction(findData, checkType, nomination_type_id, sheet1, sheet2, sheet3)
 
     // ===== STEP 7-11: STATUS AND PERMISSION VALIDATION =====
     await this.statusValidationService.executeStatusValidation(shipper_id, shipperCompare, contract_code_id, contractCodeNameCompare, contractCodeName, shipper, gAuserType, sheet1, reserveBalancingGasContract)
+
     // ===== STEP 12-16: TEMPLATE AND CAPACITY VALIDATION =====
-    const {checkTemplate, contractCode, nominationDeadlineSubmission, nominationDeadlineReceptionOfRenomination} = !!reserveBalancingGasContract?.id
+    const {contractCode, nominationDeadlineSubmission, nominationDeadlineReceptionOfRenomination} = !!reserveBalancingGasContract?.id
       ? await this.templateValidationService.executeTemplateValidationReserveBalancingGasContract(shipper_id, reserveBalancingGasContract.id, nomination_type_id, gAuserType, todayStart, todayEnd, startDateEx, sheet1)
-      : await this.templateValidationService.executeTemplateValidation(shipper_id, contract_code_id, nomination_type_id, gAuserType, todayStart, todayEnd, startDateEx, sheet1)
+      : await this.templateValidationService.executeTemplateValidation(shipper_id, contract_code_id, nomination_type_id, gAuserType, todayStart, todayEnd, startDateEx, sheet1, contractCodeName)
 
     // ===== STEP 17-22: DATA PROCESSING SETUP AND VALIDATION =====
-    let {
-      startDateExConv,
-      // renom,
-      getsValue,
-      getsValueNotMatch,
-      getsValuePark,
-      getsValueSheet2,
-      caseData,
-      informationData,
-      fullDataRow,
-      flagEmtry,
-      // overuseQuantity,
-      // overMaximumHourCapacityRight,
-      nominationPoint,
-      nonTpa,
-      conceptPoint
-      // isEqualSheet2
-    } = await this.dataProcessingService.executeDataProcessing(startDateEx, todayStart, todayEnd, sheet2, nomination_type_id)
+    let {startDateExConv, getsValue, getsValueSheet2, caseData, informationData, fullDataRow, flagEmtry, nominationPoint, nonTpa, conceptPoint} = await this.dataProcessingService.executeDataProcessing(startDateEx, todayStart, todayEnd, sheet2, nomination_type_id)
 
-    if (!!checkType && !!sheet2) {
-      if (!!reserveBalancingGasContract?.id) {
-        if (reserveBalancingGasContract?.res_bal_gas_contract !== sheet1?.data[1][1] && reserveBalancingGasContract?.group?.id_name !== sheet1?.data[1][0]) {
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              // error: 'contract code ไม่ตรง & shipper id ไม่ตรง',
-              error: 'Contract Code & Shipper ID is incorrect.'
-            },
-            HttpStatus.BAD_REQUEST
-          )
-        } else if (reserveBalancingGasContract?.res_bal_gas_contract !== sheet1?.data[1][1]) {
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              // error: 'contract code ไม่ตรง',
-              error: 'Contract Code does not match'
-            },
-            HttpStatus.BAD_REQUEST
-          )
-        } else if (reserveBalancingGasContract?.group?.id_name !== sheet1?.data[1][0]) {
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              // error: 'shipper id ไม่ตรง',
-              error: 'Shipper ID does not match'
-            },
-            HttpStatus.BAD_REQUEST
-          )
+    // ===== STEP 23: Renom VALIDATION =====
+    if (checkType && checkType === 'Daily Nomination') {
+      renom = this.ckDateInfoNomDailyAndWeeklyNew(getTodayNow(), startDateExConv, nominationDeadlineSubmission, nominationDeadlineReceptionOfRenomination, 1)
+    } else {
+      renom = this.ckDateInfoNomDailyAndWeeklyNew(getTodayNow(), startDateExConv, nominationDeadlineSubmission, nominationDeadlineReceptionOfRenomination, 2)
+    }
+
+    // ===== STEP 24: DATA SHEET FORMAT =====
+    sheet1 = {
+      ...sheet1,
+      data: [
+        [],
+        this.uploadTemplateForShipperService.objToArr(sheet1?.data[0]),
+        this.uploadTemplateForShipperService.objToArr(sheet1?.data[1]),
+        [...this.uploadTemplateForShipperService.objToArr(sheet1?.data[2])],
+        ...sheet1?.data.slice(3).map((e: any) => this.uploadTemplateForShipperService.objToArr(e))
+      ]
+    }
+    sheet1.data = sheet1.data?.map((sd: any) => {
+      const sdA = sd?.map((sdA: any) => {
+        let valuesDa = sdA
+        valuesDa = valuesDa?.trim()?.replace(/,/g, '')
+        if (valuesDa && valuesDa.startsWith('(') && valuesDa.endsWith(')')) {
+          valuesDa = '-' + valuesDa.slice(1, -1)
         }
-      } else {
-        if (contractCode?.contract_code !== sheet1?.data[1][1] && contractCode?.group?.id_name !== sheet1?.data[1][0]) {
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              // error: 'contract code ไม่ตรง & shipper id ไม่ตรง',
-              error: 'Contract Code & Shipper ID is incorrect.'
-            },
-            HttpStatus.BAD_REQUEST
-          )
-        } else if (contractCode?.contract_code !== sheet1?.data[1][1]) {
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              // error: 'contract code ไม่ตรง',
-              error: 'Contract Code does not match'
-            },
-            HttpStatus.BAD_REQUEST
-          )
-        } else if (contractCode?.group?.id_name !== sheet1?.data[1][0]) {
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              // error: 'shipper id ไม่ตรง',
-              error: 'Shipper ID does not match'
-            },
-            HttpStatus.BAD_REQUEST
-          )
-        }
-      }
+        return valuesDa
+      })
+      return sdA
+    })
+    sheet2 = {
+      ...sheet2,
+      data: [[], [...this.uploadTemplateForShipperService.truncateArrayHeadSheet2(this.uploadTemplateForShipperService.objToArr(sheet2.data[0]))], ...sheet2?.data.slice(1).map((e: any) => this.uploadTemplateForShipperService.truncateArrayHeadSheet2(this.uploadTemplateForShipperService.objToArr(e)))]
+    }
+    sheet3 = {
+      ...sheet3,
+      data: headNomSheet3
+    }
+    let messageError: any = []
 
-      // check หัว 0-13 14++++
-      const isEqual = headNom.every((val, index) => val === sheet1?.data[2][index])
+    // ===== STEP 24-25: DATA PROCESSING NOM CONCEPT AND VALIDATION =====
+    if (checkType && checkType === 'Daily Nomination') {
+      // 'Daily Nomination'
 
-      if (!!!isEqual) {
-        throw new HttpException(
-          {
-            status: HttpStatus.BAD_REQUEST,
-            // error: 'Head Sheet 1 ไม่ตรง',
-            error: 'File template does not match the required format.'
-          },
-          HttpStatus.BAD_REQUEST
-        )
-      }
-      const isEqualSheet2 = headNomSheet2.every((val, index) => val === sheet2?.data[0][index])
-
-      if (!!!isEqualSheet2) {
-        throw new HttpException(
-          {
-            status: HttpStatus.BAD_REQUEST,
-            // error: 'Head Sheet 2 ไม่ตรง',
-            error: 'File template does not match the required format.'
-          },
-          HttpStatus.BAD_REQUEST
-        )
-      }
-
-      if (checkType === 'Daily Nomination') {
-        if (Number(nomination_type_id) !== 1) {
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              // error: 'nomination type ไม่ตรง',
-              // error: 'File template does not match the required format.',
-              error: 'Nomination Type is not match' // V.106 Add New Template Manual เคส Type ไม่ตรง (เลือก weekly  ปรับ Error Message https://app.clickup.com/t/86euzxxc2
-            },
-            HttpStatus.BAD_REQUEST
-          )
-        }
-        // 'Daily Nomination'
-        renom = this.ckDateInfoNomDailyAndWeeklyNew(getTodayNow(), startDateExConv, nominationDeadlineSubmission, nominationDeadlineReceptionOfRenomination, 1)
-
-        const ckDateHead = this.validateDataDaily(sheet1?.data[2])
-        if (!ckDateHead) {
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              // error: 'date head ไม่ตรงตามเงื่อนไข',
-              error: 'The hour in the template must start from 1 to 24.'
-            },
-            HttpStatus.BAD_REQUEST
-          )
-        }
-
-        sheet1 = {
-          ...sheet1,
-          data: [
-            [],
-            this.uploadTemplateForShipperService.objToArr(sheet1?.data[0]),
-            this.uploadTemplateForShipperService.objToArr(sheet1?.data[1]),
-            [
-              ...this.uploadTemplateForShipperService.objToArr(sheet1?.data[2])
-              // ...daily,
-            ],
-            ...sheet1?.data.slice(3).map((e: any) => this.uploadTemplateForShipperService.objToArr(e))
-          ]
-        }
-        sheet1.data = sheet1.data?.map((sd: any) => {
-          const sdA = sd?.map((sdA: any) => {
-            let valuesDa = sdA
-            valuesDa = valuesDa?.trim()?.replace(/,/g, '')
-            if (valuesDa && valuesDa.startsWith('(') && valuesDa.endsWith(')')) {
-              valuesDa = '-' + valuesDa.slice(1, -1)
-            }
-            return valuesDa
+      // สร้าง array สำหรับเก็บ error messages
+      const validateListForWiHvSg: string[] = []
+      for (let i = 0; i < sheet1?.data.length; i++) {
+        const zoneCk = sheet1?.data[i][0] || null
+        const supplyDemandCk = sheet1?.data[i][1] || null
+        const areaCk = sheet1?.data[i][2] || null
+        // const pointIdCk = sheet1?.data[i][3] || null;  // เดิมโรงงาน
+        const pointIdCk = sheet1?.data[i][3] || sheet1?.data[i][4] || sheet1?.data[i][5] || null
+        const wHvCk = sheet1?.data[i][4] || null
+        const parkUnparkInstructedFlowsCk = sheet1?.data[i][5] || null
+        const typeCk = sheet1?.data[i][6] || null
+        const areaCodeCk = sheet1?.data[i][7] || null
+        const subareaCodeCk = sheet1?.data[i][8] || null
+        const unitCk = sheet1?.data[i][9] || null
+        const entryExitCk = sheet1?.data[i][10] || null
+        const wiCk = sheet1?.data[i][11] || null
+        const hvCk = sheet1?.data[i][12] || null
+        const sgCk = sheet1?.data[i][13] || null
+        const hr1Ck = sheet1?.data[i][14] || null
+        const hr2Ck = sheet1?.data[i][15] || null
+        const hr3Ck = sheet1?.data[i][16] || null
+        const hr4Ck = sheet1?.data[i][17] || null
+        const hr5Ck = sheet1?.data[i][18] || null
+        const hr6Ck = sheet1?.data[i][19] || null
+        const hr7Ck = sheet1?.data[i][20] || null
+        const hr8Ck = sheet1?.data[i][21] || null
+        const hr9Ck = sheet1?.data[i][22] || null
+        const hr10Ck = sheet1?.data[i][23] || null
+        const hr11Ck = sheet1?.data[i][24] || null
+        const hr12Ck = sheet1?.data[i][25] || null
+        const hr13Ck = sheet1?.data[i][26] || null
+        const hr14Ck = sheet1?.data[i][27] || null
+        const hr15Ck = sheet1?.data[i][28] || null
+        const hr16Ck = sheet1?.data[i][29] || null
+        const hr17Ck = sheet1?.data[i][30] || null
+        const hr18Ck = sheet1?.data[i][31] || null
+        const hr19Ck = sheet1?.data[i][32] || null
+        const hr20Ck = sheet1?.data[i][33] || null
+        const hr21Ck = sheet1?.data[i][34] || null
+        const hr22Ck = sheet1?.data[i][35] || null
+        const hr23Ck = sheet1?.data[i][36] || null
+        const hr24Ck = sheet1?.data[i][37] || null
+        const totalCk = sheet1?.data[i][38] || null
+        if (i > 3) {
+          // https://app.clickup.com/t/9018502823/86ev29wzy
+          const ckDup = sheet1?.data?.filter((f:any) => {
+            return (
+              (f?.[0] || null) === zoneCk &&
+              (f?.[1] || null) === supplyDemandCk &&
+              (f?.[2] || null) === areaCk &&
+              (f?.[3] || null) === (sheet1?.data[i][3] || null) &&
+              (f?.[4] || null) === wHvCk &&
+              (f?.[5] || null) === parkUnparkInstructedFlowsCk &&
+              (f?.[6] || null) === typeCk &&
+              (f?.[7] || null) === areaCodeCk &&
+              (f?.[8] || null) === subareaCodeCk &&
+              (f?.[9] || null) === unitCk &&
+              (f?.[10] || null) === entryExitCk
+            )
           })
-          return sdA
-        })
-        sheet2 = {
-          ...sheet2,
-          data: [
-            [],
-            [...this.uploadTemplateForShipperService.truncateArrayHeadSheet2(this.uploadTemplateForShipperService.objToArr(sheet2.data[0]))],
-            ...sheet2?.data.slice(1).map((e: any) => this.uploadTemplateForShipperService.truncateArrayHeadSheet2(this.uploadTemplateForShipperService.objToArr(e)))
-          ]
-        }
-        sheet3 = {
-          ...sheet3,
-          data: headNomSheet3
-        }
-        // สร้าง array สำหรับเก็บ error messages
-        const validateListForWiHvSg: string[] = []
-        for (let i = 0; i < sheet1?.data.length; i++) {
-          const zoneCk = sheet1?.data[i][0] || null
-          const supplyDemandCk = sheet1?.data[i][1] || null
-          const areaCk = sheet1?.data[i][2] || null
-          // const pointIdCk = sheet1?.data[i][3] || null;  // เดิมโรงงาน
-          const pointIdCk = sheet1?.data[i][3] || sheet1?.data[i][4] || sheet1?.data[i][5] || null
-          const wHvCk = sheet1?.data[i][4] || null
-          const parkUnparkInstructedFlowsCk = sheet1?.data[i][5] || null
-          const typeCk = sheet1?.data[i][6] || null
-          const areaCodeCk = sheet1?.data[i][7] || null
-          const subareaCodeCk = sheet1?.data[i][8] || null
-          const unitCk = sheet1?.data[i][9] || null
-          const entryExitCk = sheet1?.data[i][10] || null
-          const wiCk = sheet1?.data[i][11] || null
-          const hvCk = sheet1?.data[i][12] || null
-          const sgCk = sheet1?.data[i][13] || null
-          const hr1Ck = sheet1?.data[i][14] || null
-          const hr2Ck = sheet1?.data[i][15] || null
-          const hr3Ck = sheet1?.data[i][16] || null
-          const hr4Ck = sheet1?.data[i][17] || null
-          const hr5Ck = sheet1?.data[i][18] || null
-          const hr6Ck = sheet1?.data[i][19] || null
-          const hr7Ck = sheet1?.data[i][20] || null
-          const hr8Ck = sheet1?.data[i][21] || null
-          const hr9Ck = sheet1?.data[i][22] || null
-          const hr10Ck = sheet1?.data[i][23] || null
-          const hr11Ck = sheet1?.data[i][24] || null
-          const hr12Ck = sheet1?.data[i][25] || null
-          const hr13Ck = sheet1?.data[i][26] || null
-          const hr14Ck = sheet1?.data[i][27] || null
-          const hr15Ck = sheet1?.data[i][28] || null
-          const hr16Ck = sheet1?.data[i][29] || null
-          const hr17Ck = sheet1?.data[i][30] || null
-          const hr18Ck = sheet1?.data[i][31] || null
-          const hr19Ck = sheet1?.data[i][32] || null
-          const hr20Ck = sheet1?.data[i][33] || null
-          const hr21Ck = sheet1?.data[i][34] || null
-          const hr22Ck = sheet1?.data[i][35] || null
-          const hr23Ck = sheet1?.data[i][36] || null
-          const hr24Ck = sheet1?.data[i][37] || null
-          const totalCk = sheet1?.data[i][38] || null
-          if (i > 3) {
-            if (zoneCk === '*') {
-              break
-            }
-
-            if(!!totalCk){
-              // 
-              this.validateDecimal3(totalCk, pointIdCk)
-            }
-
-
-            for (let iW = 1; iW <= 24; iW++) {
-              if (this.isMoreThan3Decimals(parseToNumber(sheet1?.data[i][14 + iW - 1] ?? 0))) {
-                throw new HttpException(
-                  {
-                    status: HttpStatus.BAD_REQUEST,
-                    error: `Point ${pointIdCk || '-'} | Unit ${unitCk || '-'} | Hour ${iW} | Value ${parseToNumber(sheet1?.data[i][14 + iW - 1] ?? 0)} | The value must contain 3 decimal places.`
-                  },
-                  HttpStatus.BAD_REQUEST
-                )
-              }
-            }
-
-            if (hr1Ck || hr2Ck || hr3Ck || hr4Ck || hr5Ck || hr6Ck || hr7Ck || hr8Ck || hr9Ck || hr10Ck || hr11Ck || hr12Ck || hr13Ck || hr14Ck || hr15Ck || hr16Ck || hr17Ck || hr18Ck || hr19Ck || hr20Ck || hr21Ck || hr22Ck || hr23Ck || hr24Ck) {
-              flagEmtry = false
-            }
-
-            fullDataRow.push({
-              ix: i,
-              row: sheet1?.data[i]
-            })
-
-            let checkNominationPoint = nominationPoint?.find((fnp: any) => {
-              return fnp?.nomination_point === pointIdCk
-            })
-            if (areaCk && !checkNominationPoint) {
-              console.log('1');
-              const nomName = sheet1?.data[i][3] || pointIdCk
-              const nomFind = await this.prisma.nomination_point.findFirst({
-                where:{
-                  nomination_point: nomName
-                }
-              })
-              if(nomFind){
-
-                throw new HttpException(
-                  {
-                    status: HttpStatus.FORBIDDEN,
-                    error: `${nomName} is not activated on Gas Day ${startDateEx} in the file.` // https://app.clickup.com/t/9018502823/86etzcgzm
-                  },
-                  HttpStatus.FORBIDDEN
-                )
-              }else{
-
-                throw new HttpException(
-                  {
-                    status: HttpStatus.FORBIDDEN,
-                    error: `Nomination Point [${sheet1?.data[i][3] || pointIdCk}] is incorrect.` // https://sharing.clickup.com//9018502823/t/h/86euxnaeg/SFVBI9PW12U844A // https://app.clickup.com/t/86euzxxhy
-                  },
-                  HttpStatus.FORBIDDEN
-                )
-              }
-            }
-
-            if (typeCk === 'NONTPA') {
-              const checkNonTPA = nonTpa.find((fn: any) => {
-                return fn?.non_tpa_point_name?.trimEnd() === pointIdCk?.trimEnd()
-              })
-              if (checkNonTPA) {
-                if (checkNonTPA?.nomination_point) {
-                  // ถ้าตรงทั้งหมดไปหาว่า Nomination Point นี้ใช้ Zone , Area, Entry/Exit และ Contract Point ที่มีอยู่ในสัญญาหรือไม่
-                  let checkNom = false
-                  if (!!reserveBalancingGasContract?.id) {
-                    const haveSameNomPoint = reserveBalancingGasContract.reserve_balancing_gas_contract_detail.some(
-                      (item: any) =>
-                        checkNonTPA.nomination_point?.nomination_point === item.nomination_point?.nomination_point &&
-                        checkNonTPA.nomination_point?.area?.name === item.area?.name &&
-                        checkNonTPA.nomination_point?.zone?.name === item.zone?.name &&
-                        checkNonTPA.nomination_point?.entry_exit?.name === item.entry_exit?.name
-                    )
-                    if (haveSameNomPoint) {
-                      checkNom = true
-                    }
-                  } else {
-                    for (let ifb = 0; ifb < (contractCode?.booking_version[0]?.booking_row_json || []).length; ifb++) {
-                      const findPoint = checkNonTPA?.nomination_point?.contract_point_list.find((inb: any) => {
-                        return inb?.contract_point === contractCode?.booking_version[0]?.booking_row_json[ifb]?.contract_point
-                      })
-                      if (findPoint) {
-                        if (findPoint?.area?.name === checkNonTPA?.nomination_point?.area?.name && findPoint?.zone?.name === checkNonTPA?.nomination_point?.zone?.name && findPoint?.entry_exit?.name === checkNonTPA?.nomination_point?.entry_exit?.name) {
-                          checkNom = true
-                        }
-                      }
-                    }
-                  }
-                  if (checkNom) {
-                    // เพิ่มเงื่อนไข (ยังไม่ได้ทำ)
-                    // https://app.clickup.com/t/86et0vtn2
-                    // v2.0.16 Value Non TPA มากกว่า Nom ไม่มี Error แจ้งเตือน
-
-                    caseData?.columnType.push({
-                      ix: i,
-                      row: sheet1?.data[i]
-                    })
-                  } else {
-                    console.log('2');
-                    throw new HttpException(
-                      {
-                        status: HttpStatus.FORBIDDEN,
-                        error: nonTpa?.find((f: any) => f?.non_tpa_point_name === (sheet1?.data[i][3] || pointIdCk)) ? `Non TPA Point: [${sheet1?.data[i][3] || pointIdCk}] has no related point in file` : `Nomination Point [${sheet1?.data[i][3] || pointIdCk}] is incorrect.` // https://app.clickup.com/t/86etzch1a
-                      },
-                      HttpStatus.FORBIDDEN
-                    )
-                  }
-                } else {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.FORBIDDEN,
-                      error: `${checkNonTPA?.nomination_point?.nomination_point || 'Nomination Point'} is not found in file for ${sheet1?.data[i][3]}`
-                    },
-                    HttpStatus.FORBIDDEN
-                  )
-                }
-              } else {
-                console.log('err 1');
-                throw new HttpException(
-                  {
-                    status: HttpStatus.FORBIDDEN,
-                    error: `${sheet1?.data[i][3]} is not activated on Gas Day ${startDateEx} in the file.`
-                  },
-                  HttpStatus.FORBIDDEN
-                )
-              }
-            } else if (checkNominationPoint) {
-              // ใช่ nom
-              // ใช่ nom
-              const supdemCk = supplyDemandCk === 'Supply' ? 'Entry' : 'Exit'
-              if (areaCk === checkNominationPoint?.area?.name && zoneCk === checkNominationPoint?.zone?.name && supdemCk === checkNominationPoint?.entry_exit?.name) {
-                let checkNom = false
-                if (!!reserveBalancingGasContract?.id) {
-                  const haveSameNomPoint = reserveBalancingGasContract.reserve_balancing_gas_contract_detail.some(
-                    (item: any) => checkNominationPoint.nomination_point === item.nomination_point?.nomination_point && checkNominationPoint.area?.name === item.area?.name && checkNominationPoint.zone?.name === item.zone?.name && checkNominationPoint.entry_exit?.name === item.entry_exit?.name
-                  )
-                  if (haveSameNomPoint) {
-                    checkNom = true
-                  }
-                } else {
-                  for (let ifb = 0; ifb < (contractCode?.booking_version[0]?.booking_row_json || []).length; ifb++) {
-                    const findPoint = checkNominationPoint?.contract_point_list.find((inb: any) => {
-                      return inb?.contract_point === contractCode?.booking_version[0]?.booking_row_json[ifb]?.contract_point
-                    })
-
-                    if (findPoint) {
-                      if (findPoint?.area?.name === checkNominationPoint?.area?.name && findPoint?.zone?.name === checkNominationPoint?.zone?.name && findPoint?.entry_exit?.name === checkNominationPoint?.entry_exit?.name) {
-                        checkNom = true
-                      }
-                    }
-                  }
-                }
-
-                if (checkNom) {
-                  // non ปกติ
-                  caseData?.columnPointId.push({
-                    ix: i,
-                    row: sheet1?.data[i]
-                  })
-                } else {
-                  // ไม่ตรงเงื่อนไขใน nomination deadline
-                  console.log('3');
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.FORBIDDEN,
-                      error: `Nomination Point [${sheet1?.data[i][3]}] is incorrect.` // https://app.clickup.com/t/86etzcgzh
-                    },
-                    HttpStatus.FORBIDDEN
-                  )
-                }
-              } else {
-                // ถ้าไม่ตรง
-
-                throw new HttpException(
-                  {
-                    status: HttpStatus.FORBIDDEN,
-                    error: `${areaCk}, ${zoneCk}, or ${supdemCk} for ${sheet1?.data[i][3]}  is incorrected`
-                  },
-                  HttpStatus.FORBIDDEN
-                )
-              }
-            } else {
-              // ไม่ใช่ nom
-              // if (!!sheet1?.data[i][0] && sheet1?.data[i][3]) { // เดิมโรงงาน
-              if (!!sheet1?.data[i][0] && (sheet1?.data[i][3] || sheet1?.data?.[i]?.[4] || sheet1?.data?.[i]?.[5])) {
-                // เดิมโรงงาน
-                // const findConcept = conceptPoint?.find((f: any) => {
-                //   return f?.concept_point === sheet1?.data[i][3];
-                // });
-
-                // R : Validate File Daily/Weekly > เคสที่เอา Limit Concept Point ของ Shipper รายนั้นออก ต้องไม่สามารถเอาไฟล์ที่มี concept point นั้นเข้าระบบได้ https://app.clickup.com/t/86etzcgza
-                const findConcept = conceptPoint?.find((f: any) => f?.concept_point === sheet1?.data?.[i]?.[3] || f?.concept_point === sheet1?.data?.[i]?.[4] || f?.concept_point === sheet1?.data?.[i]?.[5])
-
-                if (!!!findConcept) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.FORBIDDEN,
-                      // error: `${sheet1?.data[i][3]} is incorrected`,
-                      // error: `${sheet1?.data[i][3]} is activated for ${startDateEx} Click to continune`,
-                      error: `Concept Point [${sheet1?.data[i][3] || sheet1?.data[i][4] || sheet1?.data[i][5]}] is inactivated.`
-                    },
-                    HttpStatus.FORBIDDEN
-                  )
-                } else if (!findConcept?.limit_concept_point?.find((f: any) => f?.group?.id_name === shipper?.id_name)) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.FORBIDDEN,
-                      // error: `${sheet1?.data[i][3]} is incorrected`,
-                      // error: `${sheet1?.data[i][3]} is activated for ${startDateEx} Click to continune`,
-                      // error: `No permission for this Concept Point ${sheet1?.data[i][3]} ,Please set the limit first.`, // https://app.clickup.com/t/86etzch1z // https://app.clickup.com/t/86etzcgza // เดิมโรงงาน
-                      error: `No permission for this Concept Point ${sheet1?.data[i][3] || sheet1?.data[i][4] || sheet1?.data[i][5]} ,Please set the limit first.`
-                    },
-                    HttpStatus.FORBIDDEN
-                  )
-                }
-                caseData?.columnPointIdConcept.push({
-                  ix: i,
-                  row: sheet1?.data[i]
-                })
-              } else {
-                caseData?.columnOther.push({
-                  ix: i,
-                  row: sheet1?.data[i]
-                })
-              }
-            }
-
-            if (isMatch(unitCk, 'MMBTU/D')) {
-              if (wiCk || hvCk || sgCk) {
-                // validateListForWiHvSg.push(`WI, HV and SG must be empty when unit is MMBTU/D at row ${i+1}.`);
-                validateListForWiHvSg.push(`WI, HV and SG must be empty when unit is MMBTU/D at row ${i + 1} [${pointIdCk}].`)
-              }
+          if(ckDup?.length > 1){
+              messageError.push(`Duplicate value entries found for ${sheet1?.data[i][3] || pointIdCk}.`) // https://app.clickup.com/t/9018502823/86ev29wzy
+          }else{
+            if(parkUnparkInstructedFlowsCk === "Instructed_Entry"){
+              console.log('parkUnparkInstructedFlowsCk : ', parkUnparkInstructedFlowsCk);
+              console.log('ckDup : ', ckDup);
+              console.log('sheet1?.data : ', sheet1?.data);
+              console.log('- - -');
             }
           }
-        }
 
-        // ถ้ามี error messages ให้ throw exception พร้อมรายการ errors ทั้งหมด
-        if (validateListForWiHvSg.length > 0) {
-          const message = validateListForWiHvSg.join('<br/>')
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              error: message
-            },
-            HttpStatus.BAD_REQUEST
-          )
-        }
+          if (zoneCk === '*') {
+            break
+          }
 
-        for (let i = 0; i < sheet2?.data.length; i++) {
-          const zoneCk = sheet2?.data[i][0] || null
-          const pointIdCk = sheet2?.data[i][1] || null
+          if (!!totalCk) {
+            //
+            this.validateDecimal3(totalCk, pointIdCk)
+          }
 
-          if (i > 0 && !!zoneCk && !!pointIdCk) {
-            const ckContractPoint = await this.prisma.nomination_point.findFirst({
+          for (let iW = 1; iW <= 24; iW++) {
+            if (this.isMoreThan3Decimals(parseToNumber(sheet1?.data[i][14 + iW - 1] ?? 0))) {
+              messageError.push(`Point ${pointIdCk || '-'} | Unit ${unitCk || '-'} | Hour ${iW} | Value ${parseToNumber(sheet1?.data[i][14 + iW - 1] ?? 0)} | The value must contain 3 decimal places.`)
+              // throw new HttpException(
+              //   {
+              //     status: HttpStatus.BAD_REQUEST,
+              //     error: `Point ${pointIdCk || '-'} | Unit ${unitCk || '-'} | Hour ${iW} | Value ${parseToNumber(sheet1?.data[i][14 + iW - 1] ?? 0)} | The value must contain 3 decimal places.`
+              //   },
+              //   HttpStatus.BAD_REQUEST
+              // )
+            }
+          }
+          const ckflagEmtry = [hr1Ck, hr2Ck, hr3Ck, hr4Ck, hr5Ck, hr6Ck, hr7Ck, hr8Ck, hr9Ck, hr10Ck, hr11Ck, hr12Ck, hr13Ck, hr14Ck, hr15Ck, hr16Ck, hr17Ck, hr18Ck, hr19Ck, hr20Ck, hr21Ck, hr22Ck, hr23Ck, hr24Ck].every((item) => item === null)
+          if (ckflagEmtry) {
+            flagEmtry = true
+          }
+
+          fullDataRow.push({
+            ix: i,
+            row: sheet1?.data[i]
+          })
+
+          let checkNominationPoint = nominationPoint?.find((fnp: any) => {
+            return fnp?.nomination_point === pointIdCk
+          })
+          if (areaCk && !checkNominationPoint) {
+            console.log('1')
+            const nomName = sheet1?.data[i][3] || pointIdCk
+            const nomFind = await this.prisma.nomination_point.findFirst({
               where: {
-                zone: {
-                  name: zoneCk
-                },
-                nomination_point: pointIdCk
+                nomination_point: nomName
               }
             })
-            if (ckContractPoint) {
-              getsValueSheet2.push({
-                ix: i,
-                row: sheet1?.data[i]
-              })
-            }
-          }
-        }
-      } else {
-        if (Number(nomination_type_id) !== 2) {
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              // error: 'nomination type ไม่ตรง',
-              // error: 'File template does not match the required format.',
-              error: 'Nomination Type is not match' // V.106 Add New Template Manual เคส Type ไม่ตรง (เลือก weekly  ปรับ Error Message https://app.clickup.com/t/86euzxxc2
-            },
-            HttpStatus.BAD_REQUEST
-          )
-        }
-        // 'Weekly Nomination'
-
-        renom = this.ckDateInfoNomDailyAndWeeklyNew(getTodayNow(), startDateExConv, nominationDeadlineSubmission, nominationDeadlineReceptionOfRenomination, 2)
-
-        sheet1 = {
-          ...sheet1,
-          data: [
-            [],
-            this.uploadTemplateForShipperService.objToArr(sheet1?.data[0]),
-            this.uploadTemplateForShipperService.objToArr(sheet1?.data[1]),
-            [
-              ...this.uploadTemplateForShipperService.objToArr(sheet1?.data[2])
-              // ...weekly,
-            ],
-            ...sheet1?.data.slice(3).map((e: any) => this.uploadTemplateForShipperService.objToArr(e))
-          ]
-        }
-        sheet1.data = sheet1.data?.map((sd: any) => {
-          const sdA = sd?.map((sdA: any) => {
-            let valuesDa = sdA
-            valuesDa = valuesDa?.trim()?.replace(/,/g, '')
-            if (valuesDa && valuesDa.startsWith('(') && valuesDa.endsWith(')')) {
-              valuesDa = '-' + valuesDa.slice(1, -1)
-            }
-            return valuesDa
-          })
-          return sdA
-        })
-        sheet2 = {
-          ...sheet2,
-          data: [
-            [],
-            [...this.uploadTemplateForShipperService.truncateArrayHeadSheet2(this.uploadTemplateForShipperService.objToArr(sheet2.data[0]))],
-            ...sheet2?.data.slice(1).map((e: any) => this.uploadTemplateForShipperService.truncateArrayHeadSheet2(this.uploadTemplateForShipperService.objToArr(e)))
-          ]
-        }
-        sheet3 = {
-          ...sheet3,
-          data: headNomSheet3
-        }
-
-        // สร้าง array สำหรับเก็บ error messages
-        const validateListForWiHvSg: string[] = []
-        for (let i = 0; i < sheet1?.data.length; i++) {
-          const zoneCk = sheet1?.data[i][0] || null
-          const supplyDemandCk = sheet1?.data[i][1] || null
-          const areaCk = sheet1?.data[i][2] || null
-          // const pointIdCk = sheet1?.data[i][3] || null; // เดิมโรงงาน
-          const pointIdCk = sheet1?.data[i][3]?.trimEnd() || sheet1?.data[i][4]?.trimEnd() || sheet1?.data[i][5]?.trimEnd() || null
-          const wHvCk = sheet1?.data[i][4] || null
-          const parkUnparkInstructedFlowsCk = sheet1?.data[i][5] || null
-          const typeCk = sheet1?.data[i][6] || null
-          const areaCodeCk = sheet1?.data[i][7] || null
-          const subareaCodeCk = sheet1?.data[i][8] || null
-          const unitCk = sheet1?.data[i][9] || null
-          const entryExitCk = sheet1?.data[i][10] || null
-          const wiCk = sheet1?.data[i][11] || null
-          const hvCk = sheet1?.data[i][12] || null
-          const sgCk = sheet1?.data[i][13] || null
-          const day1Ck = sheet1?.data[i][14] || null
-          const day2Ck = sheet1?.data[i][15] || null
-          const day3Ck = sheet1?.data[i][16] || null
-          const day4Ck = sheet1?.data[i][17] || null
-          const day5Ck = sheet1?.data[i][18] || null
-          const day6Ck = sheet1?.data[i][19] || null
-          const day7Ck = sheet1?.data[i][20] || null
-
-          if (i > 3) {
-            if (zoneCk === '*') {
-              break
-            }
-
-            for (let iW = 1; iW <= 7; iW++) {
-              if (this.isMoreThan3Decimals(parseToNumber(sheet1?.data[i][14 + iW - 1] ?? 0))) {
-                throw new HttpException(
-                  {
-                    status: HttpStatus.BAD_REQUEST,
-                    error: `Point ${pointIdCk || '-'} | Unit ${unitCk || '-'} | ${sheet1?.data[3]?.[14 + iW - 1]} | Value ${parseToNumber(sheet1?.data[i][14 + iW - 1] ?? 0)} | The value must contain 3 decimal places.`
-                  },
-                  HttpStatus.BAD_REQUEST
-                )
-              }
-            }
-
-            if (day1Ck || day2Ck || day3Ck || day4Ck || day5Ck || day6Ck || day7Ck) {
-              flagEmtry = false
-            }
-
-            fullDataRow.push({
-              ix: i,
-              row: sheet1?.data[i]
-            })
-
-            let checkNominationPoint = nominationPoint?.find((fnp: any) => {
-              return fnp?.nomination_point === pointIdCk
-            })
-            if (areaCk && !checkNominationPoint) {
-              console.log('4');
-              const nomName = sheet1?.data[i][3] || pointIdCk
-              const nomFind = await this.prisma.nomination_point.findFirst({
-                where:{
-                  nomination_point: nomName
-                }
-              })
-              if(nomFind){
-                throw new HttpException(
-                  {
-                    status: HttpStatus.FORBIDDEN,
-                    error: `${nomName} is not activated on Gas Day ${sheet1?.data[3][14]} - ${sheet1?.data[3][20]} in the file.` // https://app.clickup.com/t/9018502823/86etzcgzm
-                  },
-                  HttpStatus.FORBIDDEN
-                )
-              }else{
-
-                throw new HttpException(
-                  {
-                    status: HttpStatus.FORBIDDEN,
-                    error: `Nomination Point [${sheet1?.data[i][3] || pointIdCk}] is incorrect.` // https://sharing.clickup.com//9018502823/t/h/86euxnaeg/SFVBI9PW12U844A
-                  },
-                  HttpStatus.FORBIDDEN
-                )
-              }
-            }
-            
-            if(areaCk && checkNominationPoint){
-                let checkNominationPointArr =  nominationPoint?.filter((fnp: any) => {
-                  return (
-                    fnp?.nomination_point === pointIdCk
-                  )
-                })?.flatMap((date_:any) => {
-                  const startDam = (dayjs(date_?.start_date).isBefore(dayjs(sheet1?.data[3][14], "DD/MM/YYYY"))) ? sheet1?.data[3][14] : dayjs(date_?.start_date)?.format("DD/MM/YYYY")
-                  const endDam = !!date_?.end_date ? dayjs(date_?.end_date)?.format("DD/MM/YYYY") : sheet1?.data[3][20]
-
-                  const start = dayjs(startDam, "DD/MM/YYYY");
-                  const end = dayjs(endDam, "DD/MM/YYYY");
-
-                  const dates: string[] = [];
-
-                  let current = start;
-                  while (current.isSameOrBefore(end)) {
-                    dates.push(current.format("DD/MM/YYYY"));
-                    current = current.add(1, "day");
-                  }
-                  return dates
-                })
-               if(checkNominationPointArr?.length > 0){
-                  let notDateArr = []
-
-                  const d0 = checkNominationPointArr?.includes(sheet1?.data[3][14])
-                  if(!d0 && sheet1?.data[i][14]) notDateArr?.push(sheet1?.data[3][14]) // วันไม่มีตรงใน week และ ค่าไม่ว่าง ไม่ให้เอาเข้า
-                  const d1 = checkNominationPointArr?.includes(sheet1?.data[3][15])
-                  if(!d1 && sheet1?.data[i][15]) notDateArr?.push(sheet1?.data[3][15]) // วันไม่มีตรงใน week และ ค่าไม่ว่าง ไม่ให้เอาเข้า
-                  const d2 = checkNominationPointArr?.includes(sheet1?.data[3][16])
-                  if(!d2 && sheet1?.data[i][16]) notDateArr?.push(sheet1?.data[3][16]) // วันไม่มีตรงใน week และ ค่าไม่ว่าง ไม่ให้เอาเข้า
-                  const d3 = checkNominationPointArr?.includes(sheet1?.data[3][17])
-                  if(!d3 && sheet1?.data[i][17]) notDateArr?.push(sheet1?.data[3][17]) // วันไม่มีตรงใน week และ ค่าไม่ว่าง ไม่ให้เอาเข้า
-                  const d4 = checkNominationPointArr?.includes(sheet1?.data[3][18])
-                  if(!d4 && sheet1?.data[i][18]) notDateArr?.push(sheet1?.data[3][18]) // วันไม่มีตรงใน week และ ค่าไม่ว่าง ไม่ให้เอาเข้า
-                  const d5 = checkNominationPointArr?.includes(sheet1?.data[3][19])
-                  if(!d5 && sheet1?.data[i][19]) notDateArr?.push(sheet1?.data[3][19]) // วันไม่มีตรงใน week และ ค่าไม่ว่าง ไม่ให้เอาเข้า
-                  const d6 = checkNominationPointArr?.includes(sheet1?.data[3][20])
-                  if(!d6 && sheet1?.data[i][20]) notDateArr?.push(sheet1?.data[3][20]) // วันไม่มีตรงใน week และ ค่าไม่ว่าง ไม่ให้เอาเข้า
-
-                  if(notDateArr?.length > 0){
-                    const nomName = sheet1?.data[i][3] || pointIdCk
-                    throw new HttpException(
-                      {
-                        status: HttpStatus.FORBIDDEN,
-                        error: `${nomName} is not activated on Gas Day ${notDateArr?.[0]} - ${notDateArr?.[notDateArr?.length - 1]} Please leave this field blank for that date.` // https://app.clickup.com/t/9018502823/86etzcgzm
-                      },
-                      HttpStatus.FORBIDDEN
-                    )
-                  }
-               }else{
-                  const nomName = sheet1?.data[i][3] || pointIdCk
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.FORBIDDEN,
-                      error: `${nomName} is not activated on Gas Day ${sheet1?.data[3][14]} - ${sheet1?.data[3][20]} Please leave this field blank for that date.` // https://app.clickup.com/t/9018502823/86etzcgzm
-                    },
-                    HttpStatus.FORBIDDEN
-                  )
-               }
+            if (nomFind) {
+              messageError.push(`${nomName} is not activated on Gas Day ${startDateEx} in the file.`)
 
               // throw new HttpException(
-              //         {
-              //           status: HttpStatus.FORBIDDEN,
-              //           error: `stop`
-              //         },
-              //         HttpStatus.FORBIDDEN
-              //       )
-              // const nomName = sheet1?.data[i][3] || pointIdCk
-  
+              //   {
+              //     status: HttpStatus.FORBIDDEN,
+              //     error: `${nomName} is not activated on Gas Day ${startDateEx} in the file.` // https://app.clickup.com/t/9018502823/86etzcgzm
+              //   },
+              //   HttpStatus.FORBIDDEN
+              // )
+            } else {
+              // messageError.push(`Nomination Point [${sheet1?.data[i][3] || pointIdCk}] is incorrect.`)
+              messageError.push(`Nomination Points [${sheet1?.data[i][3] || pointIdCk}] do not match the contract code.`) // https://app.clickup.com/t/9018502823/86ev5f6ve
+
+
+
+              // throw new HttpException(
+              //   {
+              //     status: HttpStatus.FORBIDDEN,
+              //     error: `Nomination Point [${sheet1?.data[i][3] || pointIdCk}] is incorrect.` // https://sharing.clickup.com//9018502823/t/h/86euxnaeg/SFVBI9PW12U844A // https://app.clickup.com/t/86euzxxhy
+              //   },
+              //   HttpStatus.FORBIDDEN
+              // )
             }
+            
+          }
+          
+          
 
-            if (typeCk === 'NONTPA') {
-              let notActiveAtDate = []
-              let defaultEndDate = ''
-              const firstNomValueColumn = 14 // คอลัมน์วันอาทิตย์
-              const lastNomValueColumn = 20 // คอลัมน์วันเสาร์
-              try {
-                for (let columnIndex = firstNomValueColumn; columnIndex <= lastNomValueColumn; columnIndex++) {
-                  const dateInWeek = getTodayNowDDMMYYYYDfault(sheet1.data[3][columnIndex])
-                  if (dateInWeek.isValid()) {
-                    const isExist = nonTpa.some((fn: any) => {
-                      const start = dayjs(fn?.start_date)
-                      const end = fn?.end_date ? dayjs(fn.end_date) : null
-                      const target = dateInWeek
-                      return fn?.non_tpa_point_name?.trimEnd() === pointIdCk?.trimEnd() && start.isValid() && (start.isBefore(target) || start.isSame(target, 'day')) && (!end || end.isAfter(target))
-                    })
-
-                    if (!isExist && !!sheet1?.data[i][columnIndex]) {
-                      // sheet1?.data[i][14]
-                      console.log(`sheet1?.data[i][${columnIndex}] : `, sheet1?.data[i][columnIndex]);
-                      notActiveAtDate.push(sheet1.data[3][columnIndex])
-                    }
-                  }
-                }
-
-                if (startDateExConv && startDateExConv.isValid()) {
-                  defaultEndDate = startDateExConv.add(1, 'week').endOf('day').format('DD/MM/YYYY')
-                }
-              } catch (error) {
-                notActiveAtDate = []
-                defaultEndDate = ''
-              }
-
-              if (notActiveAtDate.length > 0) {
-                console.log('err 2');
-                console.log('notActiveAtDate : ', notActiveAtDate);
-                // หา min/max ใน notActiveAtDate โดยใช้ dayjs กับ format 'DD/MM/YYYY'
-                let minNotActiveDate = null;
-                let maxNotActiveDate = null;
-                if (notActiveAtDate.length > 1) {
-                  minNotActiveDate = notActiveAtDate.reduce((min, curr) => {
-                    return dayjs(curr, 'DD/MM/YYYY').isBefore(dayjs(min, 'DD/MM/YYYY')) ? curr : min;
-                  }, notActiveAtDate[0]);
-                  maxNotActiveDate = notActiveAtDate.reduce((max, curr) => {
-                    return dayjs(curr, 'DD/MM/YYYY').isAfter(dayjs(max, 'DD/MM/YYYY')) ? curr : max;
-                  }, notActiveAtDate[0]);
-                }
-        
-                throw new HttpException(
-                  {
-                    status: HttpStatus.FORBIDDEN,
-                    error:
-                      notActiveAtDate.length === 7
-                        ? `${sheet1?.data[i][3]} is not activated on Gas Day ${sheet1.data[2][firstNomValueColumn] ?? startDateEx} - ${sheet1.data[2][lastNomValueColumn] ?? defaultEndDate} in the file.`
-                        : (minNotActiveDate && maxNotActiveDate) ? `${sheet1?.data[i][3]} is not activated on Gas Day ${minNotActiveDate} - ${maxNotActiveDate} in the file.`
-                        : `${sheet1?.data[i][3]} is not activated on Gas Day ${notActiveAtDate?.[0]} in the file.`
-                  },
-                  HttpStatus.FORBIDDEN
-                )
-              }
-
-              const checkNonTPA = nonTpa.find((fn: any) => {
-                return fn?.non_tpa_point_name?.trimEnd() === pointIdCk?.trimEnd()
-              })
-              if (checkNonTPA) {
-                if (checkNonTPA?.nomination_point) {
-                  // ถ้าตรงทั้งหมดไปหาว่า Nomination Point นี้ใช้ Zone , Area, Entry/Exit และ Contract Point ที่มีอยู่ในสัญญาหรือไม่
-                  let checkNom = false
-                  if (!!reserveBalancingGasContract?.id) {
-                    const haveSameNomPoint = reserveBalancingGasContract.reserve_balancing_gas_contract_detail.some(
-                      (item: any) =>
-                        checkNonTPA.nomination_point?.nomination_point === item.nomination_point?.nomination_point &&
-                        checkNonTPA.nomination_point?.area?.name === item.area?.name &&
-                        checkNonTPA.nomination_point?.zone?.name === item.zone?.name &&
-                        checkNonTPA.nomination_point?.entry_exit?.name === item.entry_exit?.name
-                    )
-                    if (haveSameNomPoint) {
-                      checkNom = true
-                    }
-                  } else {
-                    for (let ifb = 0; ifb < (contractCode?.booking_version[0]?.booking_row_json || []).length; ifb++) {
-                      const findPoint = checkNonTPA?.nomination_point?.contract_point_list.find((inb: any) => {
-                        return inb?.contract_point === contractCode?.booking_version[0]?.booking_row_json[ifb]?.contract_point
-                      })
-                      if (findPoint) {
-                        if (findPoint?.area?.name === checkNonTPA?.nomination_point?.area?.name && findPoint?.zone?.name === checkNonTPA?.nomination_point?.zone?.name && findPoint?.entry_exit?.name === checkNonTPA?.nomination_point?.entry_exit?.name) {
-                          checkNom = true
-                        }
-                      }
-                    }
-                  }
-                  if (checkNom) {
-                    caseData?.columnType.push({
-                      ix: i,
-                      row: sheet1?.data[i]
-                    })
-                  } else {
-                    console.log('5');
-                    throw new HttpException(
-                      {
-                        status: HttpStatus.FORBIDDEN,
-                        error: nonTpa?.find((f: any) => f?.non_tpa_point_name === (sheet1?.data[i][3] || pointIdCk)) ? `Non TPA Point: [${sheet1?.data[i][3] || pointIdCk}] has no related point in file` : `Nomination Point [${sheet1?.data[i][3] || pointIdCk}] is incorrect.` // https://app.clickup.com/t/86etzch1a
-                      },
-                      HttpStatus.FORBIDDEN
-                    )
-                  }
-                } else {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.FORBIDDEN,
-                      error: `${checkNonTPA?.nomination_point?.nomination_point || 'Nomination Point'} is not found in file for ${sheet1?.data[i][3]}`
-                    },
-                    HttpStatus.FORBIDDEN
-                  )
-                }
-              } else {
-                console.log('err 3');
-                throw new HttpException(
-                  {
-                    status: HttpStatus.FORBIDDEN,
-                    error: `${sheet1?.data[i][3]} is not activated on Gas Day in the file.`
-                  },
-                  HttpStatus.FORBIDDEN
-                )
-              }
-            } else if (checkNominationPoint) {
-              // ใช่ nom
-              const supdemCk = supplyDemandCk === 'Supply' ? 'Entry' : 'Exit'
-              if (areaCk === checkNominationPoint?.area?.name && zoneCk === checkNominationPoint?.zone?.name && supdemCk === checkNominationPoint?.entry_exit?.name) {
+          if (typeCk === 'NONTPA') {
+            const checkNonTPA = nonTpa.find((fn: any) => {
+              return fn?.non_tpa_point_name?.trimEnd() === pointIdCk?.trimEnd()
+            })
+            if (checkNonTPA) {
+              if (checkNonTPA?.nomination_point) {
+                // ถ้าตรงทั้งหมดไปหาว่า Nomination Point นี้ใช้ Zone , Area, Entry/Exit และ Contract Point ที่มีอยู่ในสัญญาหรือไม่
                 let checkNom = false
                 if (!!reserveBalancingGasContract?.id) {
                   const haveSameNomPoint = reserveBalancingGasContract.reserve_balancing_gas_contract_detail.some(
-                    (item: any) => checkNominationPoint.nomination_point === item.nomination_point?.nomination_point && checkNominationPoint.area?.name === item.area?.name && checkNominationPoint.zone?.name === item.zone?.name && checkNominationPoint.entry_exit?.name === item.entry_exit?.name
+                    (item: any) =>
+                      checkNonTPA.nomination_point?.nomination_point === item.nomination_point?.nomination_point &&
+                      checkNonTPA.nomination_point?.area?.name === item.area?.name &&
+                      checkNonTPA.nomination_point?.zone?.name === item.zone?.name &&
+                      checkNonTPA.nomination_point?.entry_exit?.name === item.entry_exit?.name
                   )
                   if (haveSameNomPoint) {
                     checkNom = true
                   }
                 } else {
                   for (let ifb = 0; ifb < (contractCode?.booking_version[0]?.booking_row_json || []).length; ifb++) {
-                    const findPoint = checkNominationPoint?.contract_point_list.find((inb: any) => {
+                    const findPoint = checkNonTPA?.nomination_point?.contract_point_list.find((inb: any) => {
                       return inb?.contract_point === contractCode?.booking_version[0]?.booking_row_json[ifb]?.contract_point
                     })
                     if (findPoint) {
-                      if (findPoint?.area?.name === checkNominationPoint?.area?.name && findPoint?.zone?.name === checkNominationPoint?.zone?.name && findPoint?.entry_exit?.name === checkNominationPoint?.entry_exit?.name) {
+                      if (findPoint?.area?.name === checkNonTPA?.nomination_point?.area?.name && findPoint?.zone?.name === checkNonTPA?.nomination_point?.zone?.name && findPoint?.entry_exit?.name === checkNonTPA?.nomination_point?.entry_exit?.name) {
                         checkNom = true
                       }
                     }
                   }
                 }
-
                 if (checkNom) {
-                  // non ปกติ
-                  caseData?.columnPointId.push({
+                  // เพิ่มเงื่อนไข (ยังไม่ได้ทำ)
+                  // https://app.clickup.com/t/86et0vtn2
+                  // v2.0.16 Value Non TPA มากกว่า Nom ไม่มี Error แจ้งเตือน
+
+                  caseData?.columnType.push({
                     ix: i,
                     row: sheet1?.data[i]
                   })
                 } else {
-                  console.log('6');
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.FORBIDDEN,
-                      error: `Nomination Point [${sheet1?.data[i][3] || pointIdCk}] is incorrect.` // https://app.clickup.com/t/86etzcgzh
-                    },
-                    HttpStatus.FORBIDDEN
-                  )
+                  // messageError.push(nonTpa?.find((f: any) => f?.non_tpa_point_name === (sheet1?.data[i][3] || pointIdCk)) ? `Non TPA Point: [${sheet1?.data[i][3] || pointIdCk}] has no related point in file` : `Nomination Point [${sheet1?.data[i][3] || pointIdCk}] is incorrect.`)
+                  messageError.push(nonTpa?.find((f: any) => f?.non_tpa_point_name === (sheet1?.data[i][3] || pointIdCk)) ? `Non TPA Point: [${sheet1?.data[i][3] || pointIdCk}] has no related point in file` : `Nomination Points [${sheet1?.data[i][3] || pointIdCk}] do not match the contract code.`) // https://app.clickup.com/t/9018502823/86ev5f6ve
+
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.FORBIDDEN,
+                  //     error: nonTpa?.find((f: any) => f?.non_tpa_point_name === (sheet1?.data[i][3] || pointIdCk)) ? `Non TPA Point: [${sheet1?.data[i][3] || pointIdCk}] has no related point in file` : `Nomination Point [${sheet1?.data[i][3] || pointIdCk}] is incorrect.` // https://app.clickup.com/t/86etzch1a
+                  //   },
+                  //   HttpStatus.FORBIDDEN
+                  // )
                 }
               } else {
-                // ถ้าไม่ตรง
-                throw new HttpException(
-                  {
-                    status: HttpStatus.FORBIDDEN,
-                    // error: `${sheet1?.data[i][3]} is activated for ${startDateEx} Click to continune`,
-                    error: `${areaCk}, ${zoneCk}, or ${supdemCk} for ${sheet1?.data[i][3] || pointIdCk}  is incorrected`
-                  },
-                  HttpStatus.FORBIDDEN
-                )
+                messageError.push(`${checkNonTPA?.nomination_point?.nomination_point || 'Nomination Point'} is not found in file for ${sheet1?.data[i][3]}`)
+
+                // throw new HttpException(
+                //   {
+                //     status: HttpStatus.FORBIDDEN,
+                //     error: `${checkNonTPA?.nomination_point?.nomination_point || 'Nomination Point'} is not found in file for ${sheet1?.data[i][3]}`
+                //   },
+                //   HttpStatus.FORBIDDEN
+                // )
               }
             } else {
-              // ไม่ใช่ nom
-              // if (!!sheet1?.data[i][0] && !!sheet1?.data[i][3]) {  // เดิมโรงงาน
-              if (!!sheet1?.data[i][0] && (!!sheet1?.data[i][3] || !!sheet1?.data[i][4] || !!sheet1?.data[i][5])) {
-                // เดิมโรงงาน
-                // const findConcept = conceptPoint?.find((f: any) => {
-                //   return f?.concept_point === sheet1?.data[i][3];
-                // });
+              messageError.push(`${sheet1?.data[i][3]} is not activated on Gas Day ${startDateEx} in the file.`)
 
-                // R : Validate File Daily/Weekly > เคสที่เอา Limit Concept Point ของ Shipper รายนั้นออก ต้องไม่สามารถเอาไฟล์ที่มี concept point นั้นเข้าระบบได้ https://app.clickup.com/t/86etzcgza
-                const findConcept = conceptPoint?.filter((f: any) => f?.concept_point === sheet1?.data?.[i]?.[3] || f?.concept_point === sheet1?.data?.[i]?.[4] || f?.concept_point === sheet1?.data?.[i]?.[5])
-
-                if ((findConcept?.length ?? 0) < 1) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.FORBIDDEN,
-                      // error: `${sheet1?.data[i][3]} is incorrected`,
-                      // error: `${sheet1?.data[i][3]} is activated for ${startDateEx} Click to continune`,
-                      error: `Concept Point [${sheet1?.data[i][3] || sheet1?.data[i][4] || sheet1?.data[i][5]}] is inactivated.`
-                    },
-                    HttpStatus.FORBIDDEN
-                  )
-                } else if (!(findConcept ?? []).some((f: any) => f?.limit_concept_point?.some((f: any) => f?.group?.id_name === shipper?.id_name))) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.FORBIDDEN,
-                      // error: `${sheet1?.data[i][3]} is incorrected`,
-                      // error: `${sheet1?.data[i][3]} is activated for ${startDateEx} Click to continune`,
-                      // error: `No permission for this Concept Point ${sheet1?.data[i][3]} ,Please set the limit first.`, // https://app.clickup.com/t/86etzch1z // https://app.clickup.com/t/86etzcgza // เดิมโรงงาน
-                      error: `No permission for this Concept Point ${sheet1?.data[i][3] || sheet1?.data[i][4] || sheet1?.data[i][5]}, Please set the limit first.`
-                    },
-                    HttpStatus.FORBIDDEN
-                  )
+              // throw new HttpException(
+              //   {
+              //     status: HttpStatus.FORBIDDEN,
+              //     error: `${sheet1?.data[i][3]} is not activated on Gas Day ${startDateEx} in the file.`
+              //   },
+              //   HttpStatus.FORBIDDEN
+              // )
+            }
+          } else if (checkNominationPoint) {
+            // ใช่ nom
+            const supdemCk = supplyDemandCk === 'Supply' ? 'Entry' : 'Exit'
+            if (areaCk === checkNominationPoint?.area?.name && zoneCk === checkNominationPoint?.zone?.name && supdemCk === checkNominationPoint?.entry_exit?.name) {
+              let checkNom = false
+              if (!!reserveBalancingGasContract?.id) {
+                const haveSameNomPoint = reserveBalancingGasContract.reserve_balancing_gas_contract_detail.some(
+                  (item: any) => checkNominationPoint.nomination_point === item.nomination_point?.nomination_point && checkNominationPoint.area?.name === item.area?.name && checkNominationPoint.zone?.name === item.zone?.name && checkNominationPoint.entry_exit?.name === item.entry_exit?.name
+                )
+                if (haveSameNomPoint) {
+                  checkNom = true
                 }
-                caseData?.columnPointIdConcept.push({
+              } else {
+                for (let ifb = 0; ifb < (contractCode?.booking_version[0]?.booking_row_json || []).length; ifb++) {
+                  const findPoint = checkNominationPoint?.contract_point_list.find((inb: any) => {
+                    return inb?.contract_point === contractCode?.booking_version[0]?.booking_row_json[ifb]?.contract_point
+                  })
+
+                  if (findPoint) {
+                    if (findPoint?.area?.name === checkNominationPoint?.area?.name && findPoint?.zone?.name === checkNominationPoint?.zone?.name && findPoint?.entry_exit?.name === checkNominationPoint?.entry_exit?.name) {
+                      checkNom = true
+                    }
+                  }
+                }
+              }
+
+              if (checkNom) {
+                // non ปกติ
+                caseData?.columnPointId.push({
                   ix: i,
                   row: sheet1?.data[i]
                 })
               } else {
+                // ไม่ตรงเงื่อนไขใน nomination deadline
+                // messageError.push(`Nomination Point [${sheet1?.data[i][3]}] is incorrect.`)
+                messageError.push(`Nomination Points [${sheet1?.data[i][3] || pointIdCk}] do not match the contract code.`) // https://app.clickup.com/t/9018502823/86ev5f6ve
+
+                // throw new HttpException(
+                //   {
+                //     status: HttpStatus.FORBIDDEN,
+                //     error: `Nomination Point [${sheet1?.data[i][3]}] is incorrect.` // https://app.clickup.com/t/86etzcgzh
+                //   },
+                //   HttpStatus.FORBIDDEN
+                // )
+              }
+            } else {
+              // ถ้าไม่ตรง
+              messageError.push(`${areaCk}, ${zoneCk}, or ${supdemCk} for ${sheet1?.data[i][3]}  is incorrected`)
+
+              // throw new HttpException(
+              //   {
+              //     status: HttpStatus.FORBIDDEN,
+              //     error: `${areaCk}, ${zoneCk}, or ${supdemCk} for ${sheet1?.data[i][3]}  is incorrected`
+              //   },
+              //   HttpStatus.FORBIDDEN
+              // )
+            }
+
+            // https://app.clickup.com/t/9018502823/86ev29wzz
+            if(sheet1?.data[i][3] && ((checkNominationPoint?.customer_type?.name || "") !== (typeCk || ""))){
+              messageError.push(`Customer Types for ${sheet1?.data[i][3]} do not match the settings in DAM > Nomination.`)
+            }
+
+          } else {
+            // ไม่ใช่ nom
+            // if (!!sheet1?.data[i][0] && sheet1?.data[i][3]) { // เดิมโรงงาน
+            if (!!sheet1?.data[i][0] && (sheet1?.data[i][3] || sheet1?.data?.[i]?.[4] || sheet1?.data?.[i]?.[5])) {
+              // เดิมโรงงาน
+              // const findConcept = conceptPoint?.find((f: any) => {
+              //   return f?.concept_point === sheet1?.data[i][3];
+              // });
+
+              // R : Validate File Daily/Weekly > เคสที่เอา Limit Concept Point ของ Shipper รายนั้นออก ต้องไม่สามารถเอาไฟล์ที่มี concept point นั้นเข้าระบบได้ https://app.clickup.com/t/86etzcgza
+              const findConcept = conceptPoint?.find((f: any) => f?.concept_point === sheet1?.data?.[i]?.[3] || f?.concept_point === sheet1?.data?.[i]?.[4] || f?.concept_point === sheet1?.data?.[i]?.[5])
+              let findNonTpa = undefined;
+
+              if (!!!findConcept) {
+                findNonTpa = nonTpa?.find((f: any) => f.non_tpa_point_name === sheet1?.data?.[i]?.[3] || f.non_tpa_point_name === sheet1?.data?.[i]?.[4] || f.non_tpa_point_name === sheet1?.data?.[i]?.[5])
+                if (!!!findNonTpa) {
+                messageError.push(`Concept Point [${sheet1?.data[i][3] || sheet1?.data[i][4] || sheet1?.data[i][5]}] is inactivated.`)
+                }
+                // else{
+                //   messageError.push(`Types for ${sheet1?.data[i][3] || sheet1?.data[i][4] || sheet1?.data[i][5]} do not match the settings in DAM > Non-TPA.`)
+                // }
+
+
+                // throw new HttpException(
+                //   {
+                //     status: HttpStatus.FORBIDDEN,
+
+                //     error: `Concept Point [${sheet1?.data[i][3] || sheet1?.data[i][4] || sheet1?.data[i][5]}] is inactivated.`
+                //   },
+                //   HttpStatus.FORBIDDEN
+                // )
+              } else if (!findConcept?.limit_concept_point?.find((f: any) => f?.group?.id_name === shipper?.id_name)) {
+                messageError.push(`No permission for this Concept Point ${sheet1?.data[i][3] || sheet1?.data[i][4] || sheet1?.data[i][5]} ,Please set the limit first.`)
+
+                // throw new HttpException(
+                //   {
+                //     status: HttpStatus.FORBIDDEN,
+
+                //     error: `No permission for this Concept Point ${sheet1?.data[i][3] || sheet1?.data[i][4] || sheet1?.data[i][5]} ,Please set the limit first.`
+                //   },
+                //   HttpStatus.FORBIDDEN
+                // )
+              }
+
+              if(!!!findNonTpa){
+              caseData?.columnPointIdConcept.push({
+                ix: i,
+                row: sheet1?.data[i]
+              })
+              }
+              else{
                 caseData?.columnOther.push({
                   ix: i,
                   row: sheet1?.data[i]
                 })
               }
-            }
-
-            if (isMatch(unitCk, 'MMBTU/D')) {
-              if (wiCk || hvCk || sgCk) {
-                // validateListForWiHvSg.push(`WI, HV and SG must be empty when unit is MMBTU/D at row ${i+1}.`);
-                validateListForWiHvSg.push(`WI, HV and SG must be empty when unit is MMBTU/D at row ${i + 1} [${pointIdCk}].`)
-              }
-            }
-          }
-        }
-
-        // ถ้ามี error messages ให้ throw exception พร้อมรายการ errors ทั้งหมด
-        if (validateListForWiHvSg.length > 0) {
-          const message = validateListForWiHvSg.join('<br/>')
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              error: message
-            },
-            HttpStatus.BAD_REQUEST
-          )
-        }
-
-        for (let i = 0; i < sheet2?.data.length; i++) {
-          const zoneCk = sheet2?.data[i][0] || null
-          const pointIdCk = sheet2?.data[i][1] || null
-
-          if (i > 0 && !!zoneCk && !!pointIdCk) {
-            const ckContractPoint = await this.prisma.nomination_point.findFirst({
-              where: {
-                zone: {
-                  name: zoneCk
-                },
-                nomination_point: pointIdCk
-              }
-            })
-            if (ckContractPoint) {
-              getsValueSheet2.push({
+            } else {
+              caseData?.columnOther.push({
                 ix: i,
                 row: sheet1?.data[i]
               })
             }
+          }
+
+          if (isMatch(unitCk, 'MMBTU/D')) {
+            if (wiCk || hvCk || sgCk) {
+              validateListForWiHvSg.push(`WI, HV and SG must be empty when unit is MMBTU/D at row ${i + 1} [${pointIdCk}].`)
+            }
+          }
+        }
+      }
+
+      // ถ้ามี error messages ให้ throw exception พร้อมรายการ errors ทั้งหมด
+      if (validateListForWiHvSg.length > 0) {
+        // messageError.push(null)
+        messageError = [...messageError, ...validateListForWiHvSg]
+
+        // const message = validateListForWiHvSg.join('<br/>')
+        // throw new HttpException(
+        //   {
+        //     status: HttpStatus.BAD_REQUEST,
+        //     error: message
+        //   },
+        //   HttpStatus.BAD_REQUEST
+        // )
+      }
+
+      for (let i = 0; i < sheet2?.data.length; i++) {
+        const zoneCk = sheet2?.data[i][0] || null
+        const pointIdCk = sheet2?.data[i][1] || null
+
+        if (i > 0 && !!zoneCk && !!pointIdCk) {
+          const ckContractPoint = await this.prisma.nomination_point.findFirst({
+            where: {
+              zone: {
+                name: zoneCk
+              },
+              nomination_point: pointIdCk
+            }
+          })
+          if (ckContractPoint) {
+            getsValueSheet2.push({
+              ix: i,
+              row: sheet1?.data[i]
+            })
           }
         }
       }
     } else {
-      if (!!checkType && !!sheet2) {
-        throw new HttpException(
-          {
-            status: HttpStatus.BAD_REQUEST,
-            // error: 'type ไม่ตรง & ไม่พบ Sheet 2',
-            error: 'File template does not match the required format.'
-          },
-          HttpStatus.BAD_REQUEST
-        )
+      // 'Weekly Nomination'
+
+      const sundayDayjs = dayjs(sheet1?.data[3][14], 'DD/MM/YYYY')
+      const mondayDayjs = dayjs(sheet1?.data[3][15], 'DD/MM/YYYY')
+      const tuesdayDayjs = dayjs(sheet1?.data[3][16], 'DD/MM/YYYY')
+      const wednesdayDayjs = dayjs(sheet1?.data[3][17], 'DD/MM/YYYY')
+      const thursdayDayjs = dayjs(sheet1?.data[3][18], 'DD/MM/YYYY')
+      const fridayDayjs = dayjs(sheet1?.data[3][19], 'DD/MM/YYYY')
+      const saturdayDayjs = dayjs(sheet1?.data[3][20], 'DD/MM/YYYY')
+
+      // สร้าง array สำหรับเก็บ error messages
+      const validateListForWiHvSg: string[] = []
+      for (let i = 0; i < sheet1?.data.length; i++) {
+        const zoneCk = sheet1?.data[i][0] || null
+        const supplyDemandCk = sheet1?.data[i][1] || null
+        const areaCk = sheet1?.data[i][2] || null
+        // const pointIdCk = sheet1?.data[i][3] || null; // เดิมโรงงาน
+        const pointIdCk = sheet1?.data[i][3]?.trimEnd() || sheet1?.data[i][4]?.trimEnd() || sheet1?.data[i][5]?.trimEnd() || null
+        const wHvCk = sheet1?.data[i][4] || null
+        const parkUnparkInstructedFlowsCk = sheet1?.data[i][5] || null
+        const typeCk = sheet1?.data[i][6] || null
+        const areaCodeCk = sheet1?.data[i][7] || null
+        const subareaCodeCk = sheet1?.data[i][8] || null
+        const unitCk = sheet1?.data[i][9] || null
+        const entryExitCk = sheet1?.data[i][10] || null
+        const wiCk = sheet1?.data[i][11] || null
+        const hvCk = sheet1?.data[i][12] || null
+        const sgCk = sheet1?.data[i][13] || null
+        const day1Ck = sheet1?.data[i][14] || null
+        const day2Ck = sheet1?.data[i][15] || null
+        const day3Ck = sheet1?.data[i][16] || null
+        const day4Ck = sheet1?.data[i][17] || null
+        const day5Ck = sheet1?.data[i][18] || null
+        const day6Ck = sheet1?.data[i][19] || null
+        const day7Ck = sheet1?.data[i][20] || null
+
+        if (i > 3) {
+          // https://app.clickup.com/t/9018502823/86ev29wzy
+          const ckDup = sheet1?.data?.filter((f:any) => {
+            return (
+              (f?.[0] || null) === zoneCk &&
+              (f?.[1] || null) === supplyDemandCk &&
+              (f?.[2] || null) === areaCk &&
+              (f?.[3] || null) === (sheet1?.data[i][3] || null) &&
+              (f?.[4] || null) === wHvCk &&
+              (f?.[5] || null) === parkUnparkInstructedFlowsCk &&
+              (f?.[6] || null) === typeCk &&
+              (f?.[7] || null) === areaCodeCk &&
+              (f?.[8] || null) === subareaCodeCk &&
+              (f?.[9] || null) === unitCk &&
+              (f?.[10] || null) === entryExitCk
+            )
+          })
+          if(ckDup?.length > 1){
+              messageError.push(`Duplicate value entries found for ${sheet1?.data[i][3] || pointIdCk}.`) // https://app.clickup.com/t/9018502823/86ev29wzy
+          }
+          
+          if (zoneCk === '*') {
+            break
+          }
+
+          for (let iW = 1; iW <= 7; iW++) {
+            if (this.isMoreThan3Decimals(parseToNumber(sheet1?.data[i][14 + iW - 1] ?? 0))) {
+              messageError.push(`Point ${pointIdCk || '-'} | Unit ${unitCk || '-'} | ${sheet1?.data[3]?.[14 + iW - 1]} | Value ${parseToNumber(sheet1?.data[i][14 + iW - 1] ?? 0)} | The value must contain 3 decimal places.`)
+              // throw new HttpException(
+              //   {
+              //     status: HttpStatus.BAD_REQUEST,
+              //     error: `Point ${pointIdCk || '-'} | Unit ${unitCk || '-'} | ${sheet1?.data[3]?.[14 + iW - 1]} | Value ${parseToNumber(sheet1?.data[i][14 + iW - 1] ?? 0)} | The value must contain 3 decimal places.`
+              //   },
+              //   HttpStatus.BAD_REQUEST
+              // )
+            }
+          }
+
+          const ckflagEmtry = [day1Ck, day2Ck, day3Ck, day4Ck, day5Ck, day6Ck, day7Ck].every((item) => item === null)
+          if (ckflagEmtry) {
+            flagEmtry = true
+          }
+
+          fullDataRow.push({
+            ix: i,
+            row: sheet1?.data[i]
+          })
+
+          let checkNominationPoint = nominationPoint?.find((fnp: any) => {
+            return fnp?.nomination_point === pointIdCk
+          })
+          if (areaCk && !checkNominationPoint) {
+            const nomName = sheet1?.data[i][3] || pointIdCk
+            const nomFind = await this.prisma.nomination_point.findFirst({
+              where: {
+                nomination_point: nomName
+              }
+            })
+            if (nomFind) {
+              messageError.push(`${nomName} is not activated on Gas Day ${sheet1?.data[3][14]} - ${sheet1?.data[3][20]} in the file.`)
+
+              // throw new HttpException(
+              //   {
+              //     status: HttpStatus.FORBIDDEN,
+              //     error: `${nomName} is not activated on Gas Day ${sheet1?.data[3][14]} - ${sheet1?.data[3][20]} in the file.` // https://app.clickup.com/t/9018502823/86etzcgzm
+              //   },
+              //   HttpStatus.FORBIDDEN
+              // )
+            } else {
+              // messageError.push(`Nomination Point [${sheet1?.data[i][3] || pointIdCk}] is incorrect.`)
+              messageError.push(`Nomination Points [${sheet1?.data[i][3] || pointIdCk}] do not match the contract code.`) // https://app.clickup.com/t/9018502823/86ev5f6ve
+
+              // throw new HttpException(
+              //   {
+              //     status: HttpStatus.FORBIDDEN,
+              //     error: `Nomination Point [${sheet1?.data[i][3] || pointIdCk}] is incorrect.` // https://sharing.clickup.com//9018502823/t/h/86euxnaeg/SFVBI9PW12U844A
+              //   },
+              //   HttpStatus.FORBIDDEN
+              // )
+            }
+          }
+
+          if (areaCk && checkNominationPoint) {
+            let checkNominationPointArr = nominationPoint
+              ?.filter((fnp: any) => {
+                return fnp?.nomination_point === pointIdCk
+              })
+              ?.flatMap((date_: any) => {
+                const startDam = dayjs(date_?.start_date).isBefore(sundayDayjs) ? sheet1?.data[3][14] : dayjs(date_?.start_date)?.format('DD/MM/YYYY')
+                const endDam = !!date_?.end_date ? dayjs(date_?.end_date)?.format('DD/MM/YYYY') : sheet1?.data[3][20]
+
+                const start = dayjs(startDam, 'DD/MM/YYYY')
+                const end = dayjs(endDam, 'DD/MM/YYYY')
+
+                const dates: string[] = []
+
+                let current = start
+                while (current.isSameOrBefore(end)) {
+                  dates.push(current.format('DD/MM/YYYY'))
+                  current = current.add(1, 'day')
+                }
+                return dates
+              })
+            if (checkNominationPointArr?.length > 0) {
+              let notDateArr = []
+              let notValueArr = []
+
+              const contractStart = dayjs(contractCodeName.contract_start_date).tz('Asia/Bangkok')
+              const contractEndDate = dayjs(contractCodeName.terminate_date ?? contractCodeName.extend_deadline ?? contractCodeName.contract_end_date).tz('Asia/Bangkok')
+
+              const d0 = checkNominationPointArr?.includes(sheet1?.data[3][14])
+              if (!d0 && sheet1?.data[i][14]) notDateArr.push(sheet1?.data[3][14]) // วันไม่มีตรงใน week และ ค่าไม่ว่าง ไม่ให้เอาเข้า
+              else if(d0 && !sheet1?.data[i][14] && sundayDayjs.isAfter(contractStart) && sundayDayjs.isBefore(contractEndDate)) notValueArr.push(sheet1?.data[3][14]) // วันมีตรงใน week และ ค่าว่าง ไม่ให้เอาเข้า
+              const d1 = checkNominationPointArr?.includes(sheet1?.data[3][15])
+              if (!d1 && sheet1?.data[i][15]) notDateArr.push(sheet1?.data[3][15]) // วันไม่มีตรงใน week และ ค่าไม่ว่าง ไม่ให้เอาเข้า
+              else if(d1 && !sheet1?.data[i][15] && mondayDayjs.isAfter(contractStart) && mondayDayjs.isBefore(contractEndDate)) notValueArr.push(sheet1?.data[3][15]) // วันมีตรงใน week และ ค่าว่าง ไม่ให้เอาเข้า
+              const d2 = checkNominationPointArr?.includes(sheet1?.data[3][16])
+              if (!d2 && sheet1?.data[i][16]) notDateArr.push(sheet1?.data[3][16]) // วันไม่มีตรงใน week และ ค่าไม่ว่าง ไม่ให้เอาเข้า
+              else if(d2 && !sheet1?.data[i][16] && tuesdayDayjs.isAfter(contractStart) && tuesdayDayjs.isBefore(contractEndDate)) notValueArr.push(sheet1?.data[3][16]) // วันมีตรงใน week และ ค่าว่าง ไม่ให้เอาเข้า
+              const d3 = checkNominationPointArr?.includes(sheet1?.data[3][17])
+              if (!d3 && sheet1?.data[i][17]) notDateArr.push(sheet1?.data[3][17]) // วันไม่มีตรงใน week และ ค่าไม่ว่าง ไม่ให้เอาเข้า
+              else if(d3 && !sheet1?.data[i][17] && wednesdayDayjs.isAfter(contractStart) && wednesdayDayjs.isBefore(contractEndDate)) notValueArr.push(sheet1?.data[3][17]) // วันมีตรงใน week และ ค่าว่าง ไม่ให้เอาเข้า
+              const d4 = checkNominationPointArr?.includes(sheet1?.data[3][18])
+              if (!d4 && sheet1?.data[i][18]) notDateArr.push(sheet1?.data[3][18]) // วันไม่มีตรงใน week และ ค่าไม่ว่าง ไม่ให้เอาเข้า
+              else if(d4 && !sheet1?.data[i][18] && thursdayDayjs.isAfter(contractStart) && thursdayDayjs.isBefore(contractEndDate)) notValueArr.push(sheet1?.data[3][18]) // วันมีตรงใน week และ ค่าว่าง ไม่ให้เอาเข้า
+              const d5 = checkNominationPointArr?.includes(sheet1?.data[3][19])
+              if (!d5 && sheet1?.data[i][19]) notDateArr.push(sheet1?.data[3][19]) // วันไม่มีตรงใน week และ ค่าไม่ว่าง ไม่ให้เอาเข้า
+              else if(d5 && !sheet1?.data[i][19] && fridayDayjs.isAfter(contractStart) && fridayDayjs.isBefore(contractEndDate)) notValueArr.push(sheet1?.data[3][19]) // วันมีตรงใน week และ ค่าว่าง ไม่ให้เอาเข้า
+              const d6 = checkNominationPointArr?.includes(sheet1?.data[3][20])
+              if (!d6 && sheet1?.data[i][20]) notDateArr.push(sheet1?.data[3][20]) // วันไม่มีตรงใน week และ ค่าไม่ว่าง ไม่ให้เอาเข้า
+              else if(d6 && !sheet1?.data[i][20] && saturdayDayjs.isAfter(contractStart) && saturdayDayjs.isBefore(contractEndDate)) notValueArr.push(sheet1?.data[3][20]) // วันมีตรงใน week และ ค่าว่าง ไม่ให้เอาเข้า
+
+              if (notDateArr.length > 0) {
+                const nomName = sheet1?.data[i][3] || pointIdCk
+                if(notDateArr.length > 1) {
+                  messageError.push(`${nomName} is not activated on Gas Day ${notDateArr[0]} - ${notDateArr[notDateArr.length - 1]} Please leave this field blank for that date.`)
+                }
+                else{
+                  messageError.push(`${nomName} is not activated on Gas Day ${notDateArr[0]} Please leave this field blank for that date.`)
+                }
+
+                // throw new HttpException(
+                //   {
+                //     status: HttpStatus.FORBIDDEN,
+                //     error: `${nomName} is not activated on Gas Day ${notDateArr?.[0]} - ${notDateArr?.[notDateArr?.length - 1]} Please leave this field blank for that date.` // https://app.clickup.com/t/9018502823/86etzcgzm
+                //   },
+                //   HttpStatus.FORBIDDEN
+                // )
+              }
+              if(notValueArr.length > 0) {
+                const nomName = sheet1?.data[i][3] || pointIdCk
+                if(notValueArr.length > 1) {
+                  messageError.push(`${nomName} can not be blank on Gas Day ${notValueArr[0]} - ${notValueArr[notValueArr.length - 1]}.`)
+                }
+                else{
+                  messageError.push(`${nomName} can not be blank on Gas Day ${notValueArr[0]}.`)
+                }
+              }
+            } else {
+              const nomName = sheet1?.data[i][3] || pointIdCk
+              messageError.push(`${nomName} is not activated on Gas Day ${sheet1?.data[3][14]} - ${sheet1?.data[3][20]} Please leave this field blank for that date.`)
+
+              // throw new HttpException(
+              //   {
+              //     status: HttpStatus.FORBIDDEN,
+              //     error: `${nomName} is not activated on Gas Day ${sheet1?.data[3][14]} - ${sheet1?.data[3][20]} Please leave this field blank for that date.` // https://app.clickup.com/t/9018502823/86etzcgzm
+              //   },
+              //   HttpStatus.FORBIDDEN
+              // )
+            }
+          }
+
+          if (typeCk === 'NONTPA') {
+            let notActiveAtDate = []
+            let defaultEndDate = ''
+            const firstNomValueColumn = 14 // คอลัมน์วันอาทิตย์
+            const lastNomValueColumn = 20 // คอลัมน์วันเสาร์
+            try {
+              for (let columnIndex = firstNomValueColumn; columnIndex <= lastNomValueColumn; columnIndex++) {
+                const dateInWeek = getTodayNowDDMMYYYYDfault(sheet1.data[3][columnIndex])
+                if (dateInWeek.isValid()) {
+                  const isExist = nonTpa.some((fn: any) => {
+                    const start = dayjs(fn?.start_date)
+                    const end = fn?.end_date ? dayjs(fn.end_date) : null
+                    const target = dateInWeek
+                    return fn?.non_tpa_point_name?.trimEnd() === pointIdCk?.trimEnd() && start.isValid() && (start.isBefore(target) || start.isSame(target, 'day')) && (!end || end.isAfter(target))
+                  })
+
+                  if (!isExist && !!sheet1?.data[i][columnIndex]) {
+                    sheet1 && notActiveAtDate.push(sheet1.data[3][columnIndex])
+                  }
+                }
+              }
+
+              if (startDateExConv && startDateExConv.isValid()) {
+                defaultEndDate = startDateExConv.add(1, 'week').endOf('day').format('DD/MM/YYYY')
+              }
+            } catch (error) {
+              notActiveAtDate = []
+              defaultEndDate = ''
+            }
+
+            if (notActiveAtDate.length > 0) {
+              let minNotActiveDate = null
+              let maxNotActiveDate = null
+              if (notActiveAtDate.length > 1) {
+                minNotActiveDate = notActiveAtDate.reduce((min, curr) => {
+                  return dayjs(curr, 'DD/MM/YYYY').isBefore(dayjs(min, 'DD/MM/YYYY')) ? curr : min
+                }, notActiveAtDate[0])
+                maxNotActiveDate = notActiveAtDate.reduce((max, curr) => {
+                  return dayjs(curr, 'DD/MM/YYYY').isAfter(dayjs(max, 'DD/MM/YYYY')) ? curr : max
+                }, notActiveAtDate[0])
+              }
+              messageError.push(
+                notActiveAtDate.length === 7
+                  ? `${sheet1?.data[i][3]} is not activated on Gas Day ${sheet1.data[2][firstNomValueColumn] ?? startDateEx} - ${sheet1.data[2][lastNomValueColumn] ?? defaultEndDate} in the file.`
+                  : minNotActiveDate && maxNotActiveDate
+                    ? `${sheet1?.data[i][3]} is not activated on Gas Day ${minNotActiveDate} - ${maxNotActiveDate} in the file.`
+                    : `${sheet1?.data[i][3]} is not activated on Gas Day ${notActiveAtDate?.[0]} in the file.`
+              )
+
+              // throw new HttpException(
+              //   {
+              //     status: HttpStatus.FORBIDDEN,
+              //     error:
+              //       notActiveAtDate.length === 7
+              //         ? `${sheet1?.data[i][3]} is not activated on Gas Day ${sheet1.data[2][firstNomValueColumn] ?? startDateEx} - ${sheet1.data[2][lastNomValueColumn] ?? defaultEndDate} in the file.`
+              //         : minNotActiveDate && maxNotActiveDate
+              //           ? `${sheet1?.data[i][3]} is not activated on Gas Day ${minNotActiveDate} - ${maxNotActiveDate} in the file.`
+              //           : `${sheet1?.data[i][3]} is not activated on Gas Day ${notActiveAtDate?.[0]} in the file.`
+              //   },
+              //   HttpStatus.FORBIDDEN
+              // )
+            }
+
+            const checkNonTPA = nonTpa.find((fn: any) => {
+              return fn?.non_tpa_point_name?.trimEnd() === pointIdCk?.trimEnd()
+            })
+            if (checkNonTPA) {
+              if (checkNonTPA?.nomination_point) {
+                // ถ้าตรงทั้งหมดไปหาว่า Nomination Point นี้ใช้ Zone , Area, Entry/Exit และ Contract Point ที่มีอยู่ในสัญญาหรือไม่
+                let checkNom = false
+                if (!!reserveBalancingGasContract?.id) {
+                  const haveSameNomPoint = reserveBalancingGasContract.reserve_balancing_gas_contract_detail.some(
+                    (item: any) =>
+                      checkNonTPA.nomination_point?.nomination_point === item.nomination_point?.nomination_point &&
+                      checkNonTPA.nomination_point?.area?.name === item.area?.name &&
+                      checkNonTPA.nomination_point?.zone?.name === item.zone?.name &&
+                      checkNonTPA.nomination_point?.entry_exit?.name === item.entry_exit?.name
+                  )
+                  if (haveSameNomPoint) {
+                    checkNom = true
+                  }
+                } else {
+                  for (let ifb = 0; ifb < (contractCode?.booking_version[0]?.booking_row_json || []).length; ifb++) {
+                    const findPoint = checkNonTPA?.nomination_point?.contract_point_list.find((inb: any) => {
+                      return inb?.contract_point === contractCode?.booking_version[0]?.booking_row_json[ifb]?.contract_point
+                    })
+                    if (findPoint) {
+                      if (findPoint?.area?.name === checkNonTPA?.nomination_point?.area?.name && findPoint?.zone?.name === checkNonTPA?.nomination_point?.zone?.name && findPoint?.entry_exit?.name === checkNonTPA?.nomination_point?.entry_exit?.name) {
+                        checkNom = true
+                      }
+                    }
+                  }
+                }
+                if (checkNom) {
+                  caseData?.columnType.push({
+                    ix: i,
+                    row: sheet1?.data[i]
+                  })
+                } else {
+                  // messageError.push(nonTpa?.find((f: any) => f?.non_tpa_point_name === (sheet1?.data[i][3] || pointIdCk)) ? `Non TPA Point: [${sheet1?.data[i][3] || pointIdCk}] has no related point in file` : `Nomination Point [${sheet1?.data[i][3] || pointIdCk}] is incorrect.`)
+                  messageError.push(nonTpa?.find((f: any) => f?.non_tpa_point_name === (sheet1?.data[i][3] || pointIdCk)) ? `Non TPA Point: [${sheet1?.data[i][3] || pointIdCk}] has no related point in file` : `Nomination Points [${sheet1?.data[i][3] || pointIdCk}] do not match the contract code.`) // https://app.clickup.com/t/9018502823/86ev5f6ve
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.FORBIDDEN,
+                  //     error: nonTpa?.find((f: any) => f?.non_tpa_point_name === (sheet1?.data[i][3] || pointIdCk)) ? `Non TPA Point: [${sheet1?.data[i][3] || pointIdCk}] has no related point in file` : `Nomination Point [${sheet1?.data[i][3] || pointIdCk}] is incorrect.` // https://app.clickup.com/t/86etzch1a
+                  //   },
+                  //   HttpStatus.FORBIDDEN
+                  // )
+                }
+              } else {
+                messageError.push(`${checkNonTPA?.nomination_point?.nomination_point || 'Nomination Point'} is not found in file for ${sheet1?.data[i][3]}`)
+
+                // throw new HttpException(
+                //   {
+                //     status: HttpStatus.FORBIDDEN,
+                //     error: `${checkNonTPA?.nomination_point?.nomination_point || 'Nomination Point'} is not found in file for ${sheet1?.data[i][3]}`
+                //   },
+                //   HttpStatus.FORBIDDEN
+                // )
+              }
+            } else {
+              messageError.push(`${sheet1?.data[i][3]} is not activated on Gas Day in the file.`)
+
+              // throw new HttpException(
+              //   {
+              //     status: HttpStatus.FORBIDDEN,
+              //     error: `${sheet1?.data[i][3]} is not activated on Gas Day in the file.`
+              //   },
+              //   HttpStatus.FORBIDDEN
+              // )
+            }
+          } else if (checkNominationPoint) {
+            // ใช่ nom
+            const supdemCk = supplyDemandCk === 'Supply' ? 'Entry' : 'Exit'
+            if (areaCk === checkNominationPoint?.area?.name && zoneCk === checkNominationPoint?.zone?.name && supdemCk === checkNominationPoint?.entry_exit?.name) {
+              let checkNom = false
+              if (!!reserveBalancingGasContract?.id) {
+                const haveSameNomPoint = reserveBalancingGasContract.reserve_balancing_gas_contract_detail.some(
+                  (item: any) => checkNominationPoint.nomination_point === item.nomination_point?.nomination_point && checkNominationPoint.area?.name === item.area?.name && checkNominationPoint.zone?.name === item.zone?.name && checkNominationPoint.entry_exit?.name === item.entry_exit?.name
+                )
+                if (haveSameNomPoint) {
+                  checkNom = true
+                }
+              } else {
+                for (let ifb = 0; ifb < (contractCode?.booking_version[0]?.booking_row_json || []).length; ifb++) {
+                  const findPoint = checkNominationPoint?.contract_point_list.find((inb: any) => {
+                    return inb?.contract_point === contractCode?.booking_version[0]?.booking_row_json[ifb]?.contract_point
+                  })
+                  if (findPoint) {
+                    if (findPoint?.area?.name === checkNominationPoint?.area?.name && findPoint?.zone?.name === checkNominationPoint?.zone?.name && findPoint?.entry_exit?.name === checkNominationPoint?.entry_exit?.name) {
+                      checkNom = true
+                    }
+                  }
+                }
+              }
+
+              if (checkNom) {
+                // non ปกติ
+                caseData?.columnPointId.push({
+                  ix: i,
+                  row: sheet1?.data[i]
+                })
+              } else {
+                // messageError.push(`Nomination Point [${sheet1?.data[i][3] || pointIdCk}] is incorrect.`)
+                messageError.push(`Nomination Points [${sheet1?.data[i][3] || pointIdCk}] do not match the contract code.`) // https://app.clickup.com/t/9018502823/86ev5f6ve
+
+                // throw new HttpException(
+                //   {
+                //     status: HttpStatus.FORBIDDEN,
+                //     error: `Nomination Point [${sheet1?.data[i][3] || pointIdCk}] is incorrect.` // https://app.clickup.com/t/86etzcgzh
+                //   },
+                //   HttpStatus.FORBIDDEN
+                // )
+              }
+
+              // https://app.clickup.com/t/9018502823/86ev29wzz
+              if(sheet1?.data[i][3] && ((checkNominationPoint?.customer_type?.name || "") !== (typeCk || ""))){
+                messageError.push(`Customer Types for ${sheet1?.data[i][3]} do not match the settings in DAM > Nomination.`)
+              }
+
+            } else {
+              // ถ้าไม่ตรง
+              messageError.push(`${areaCk}, ${zoneCk}, or ${supdemCk} for ${sheet1?.data[i][3] || pointIdCk}  is incorrected`)
+
+              // throw new HttpException(
+              //   {
+              //     status: HttpStatus.FORBIDDEN,
+              //     // error: `${sheet1?.data[i][3]} is activated for ${startDateEx} Click to continune`,
+              //     error: `${areaCk}, ${zoneCk}, or ${supdemCk} for ${sheet1?.data[i][3] || pointIdCk}  is incorrected`
+              //   },
+              //   HttpStatus.FORBIDDEN
+              // )
+            }
+          } else {
+            // ไม่ใช่ nom
+            // if (!!sheet1?.data[i][0] && !!sheet1?.data[i][3]) {  // เดิมโรงงาน
+            if (!!sheet1?.data[i][0] && (!!sheet1?.data[i][3] || !!sheet1?.data[i][4] || !!sheet1?.data[i][5])) {
+              // เดิมโรงงาน
+              // const findConcept = conceptPoint?.find((f: any) => {
+              //   return f?.concept_point === sheet1?.data[i][3];
+              // });
+
+              // R : Validate File Daily/Weekly > เคสที่เอา Limit Concept Point ของ Shipper รายนั้นออก ต้องไม่สามารถเอาไฟล์ที่มี concept point นั้นเข้าระบบได้ https://app.clickup.com/t/86etzcgza
+              const findConcept = conceptPoint?.filter((f: any) => f?.concept_point === sheet1?.data?.[i]?.[3] || f?.concept_point === sheet1?.data?.[i]?.[4] || f?.concept_point === sheet1?.data?.[i]?.[5])
+              let findNonTpa = undefined;
+
+              if ((findConcept?.length ?? 0) < 1) {
+                findNonTpa = nonTpa?.find((f: any) => f.non_tpa_point_name === sheet1?.data?.[i]?.[3] || f.non_tpa_point_name === sheet1?.data?.[i]?.[4] || f.non_tpa_point_name === sheet1?.data?.[i]?.[5])
+                if (!!!findNonTpa) {
+                messageError.push(`Concept Point [${sheet1?.data[i][3] || sheet1?.data[i][4] || sheet1?.data[i][5]}] is inactivated.`)
+                }
+                // else{
+                //   messageError.push(`Types for ${sheet1?.data[i][3] || sheet1?.data[i][4] || sheet1?.data[i][5]} do not match the settings in DAM > Non-TPA.`)
+                // }
+
+                // throw new HttpException(
+                //   {
+                //     status: HttpStatus.FORBIDDEN,
+                //     error: `Concept Point [${sheet1?.data[i][3] || sheet1?.data[i][4] || sheet1?.data[i][5]}] is inactivated.`
+                //   },
+                //   HttpStatus.FORBIDDEN
+                // )
+              } else if (!(findConcept ?? []).some((f: any) => f?.limit_concept_point?.some((f: any) => f?.group?.id_name === shipper?.id_name))) {
+                messageError.push(`No permission for this Concept Point ${sheet1?.data[i][3] || sheet1?.data[i][4] || sheet1?.data[i][5]}, Please set the limit first.`)
+
+                // throw new HttpException(
+                //   {
+                //     status: HttpStatus.FORBIDDEN,
+                //     error: `No permission for this Concept Point ${sheet1?.data[i][3] || sheet1?.data[i][4] || sheet1?.data[i][5]}, Please set the limit first.`
+                //   },
+                //   HttpStatus.FORBIDDEN
+                // )
+              }
+
+              if(!!!findNonTpa){
+              caseData?.columnPointIdConcept.push({
+                ix: i,
+                row: sheet1?.data[i]
+              })
+              }
+              else{
+                caseData?.columnOther.push({
+                  ix: i,
+                  row: sheet1?.data[i]
+                })
+              }
+            } else {
+              caseData?.columnOther.push({
+                ix: i,
+                row: sheet1?.data[i]
+              })
+            }
+          }
+
+          if (isMatch(unitCk, 'MMBTU/D')) {
+            if (wiCk || hvCk || sgCk) {
+              validateListForWiHvSg.push(`WI, HV and SG must be empty when unit is MMBTU/D at row ${i + 1} [${pointIdCk}].`)
+            }
+          }
+        }
       }
-      if (!!checkType) {
-        throw new HttpException(
-          {
-            status: HttpStatus.BAD_REQUEST,
-            // error: 'type ไม่ตรง',
-            error: 'File template does not match the required format.'
-          },
-          HttpStatus.BAD_REQUEST
-        )
-      } else {
-        throw new HttpException(
-          {
-            status: HttpStatus.BAD_REQUEST,
-            // error: 'ไม่พบ Sheet 2',
-            error: 'File template does not match the required format.'
-          },
-          HttpStatus.BAD_REQUEST
-        )
+
+      // ถ้ามี error messages ให้ throw exception พร้อมรายการ errors ทั้งหมด
+      if (validateListForWiHvSg.length > 0) {
+        messageError = [...messageError, ...validateListForWiHvSg]
+        // const message = validateListForWiHvSg.join('<br/>')
+        // throw new HttpException(
+        //   {
+        //     status: HttpStatus.BAD_REQUEST,
+        //     error: message
+        //   },
+        //   HttpStatus.BAD_REQUEST
+        // )
+      }
+      //
+
+      for (let i = 0; i < sheet2?.data.length; i++) {
+        const zoneCk = sheet2?.data[i][0] || null
+        const pointIdCk = sheet2?.data[i][1] || null
+
+        if (i > 0 && !!zoneCk && !!pointIdCk) {
+          const ckContractPoint = await this.prisma.nomination_point.findFirst({
+            where: {
+              zone: {
+                name: zoneCk
+              },
+              nomination_point: pointIdCk
+            }
+          })
+          if (ckContractPoint) {
+            getsValueSheet2.push({
+              ix: i,
+              row: sheet1?.data[i]
+            })
+          }
+        }
       }
     }
 
     // ===== STEP 26: FINAL DATA VALIDATION =====
-    console.log('STEP 26: FINAL DATA VALIDATION');
+    console.log('STEP 26: FINAL DATA VALIDATION')
     // Check if file contains at least one valid data entry
     if (flagEmtry) {
       //https://app.clickup.com/t/86euxv3c8
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          error: 'Invalid File : Values are missing. Please provide at least one valid entry'
-        },
-        HttpStatus.BAD_REQUEST
-      )
+      messageError.push(`Invalid File : Values are missing. Please provide at least one valid entry`)
+
+      // throw new HttpException(
+      //   {
+      //     status: HttpStatus.BAD_REQUEST,
+      //     error: 'Invalid File : Values are missing. Please provide at least one valid entry'
+      //   },
+      //   HttpStatus.BAD_REQUEST
+      // )
     }
 
-    const zoneQualityMaster = await this.prisma.zone.findMany({
-      where: {
-        AND: [
-          {
-            start_date: {
-              lte: todayEnd // start_date ต้องก่อนหรือเท่ากับสิ้นสุดวันนี้
-            }
-          },
-          {
-            OR: [
-              {
-                end_date: null
-              }, // ถ้า end_date เป็น null
-              {
-                end_date: {
-                  gte: todayStart
-                }
-              } // ถ้า end_date ไม่เป็น null ต้องหลังหรือเท่ากับเริ่มต้นวันนี้
-            ]
-          }
-        ]
-      },
-      include: {
-        zone_master_quality: true,
-        contract_point: true
-      }
-    })
-    
-    const validateDuplicatePoint = this.dataProcessingService.validateDuplicatePoint(caseData)
-    if(validateDuplicatePoint.length > 0){
+    const validateDuplicatePoint = this.dataProcessingService.validateDuplicatePoint(caseData, conceptPoint, !!!reserveBalancingGasContract?.id)
+    if (validateDuplicatePoint.length > 0) {
+      messageError = [...messageError, ...validateDuplicatePoint]
+
       throw new HttpException(
         {
           status: HttpStatus.BAD_REQUEST,
@@ -1734,22 +1619,10 @@ export class SubmissionFileRefactoredService {
     getsValue = [...caseData?.columnPointId]
 
     let checkEmtry = getsValue?.map((re: any) => re?.row?.map((rer: any) => false))
-    // console.log('checkEmtry : ', checkEmtry);
-    // console.log('getsValue : ', getsValue);
-
-    
-
-    // throw new HttpException(
-    //     {
-    //       status: HttpStatus.BAD_REQUEST,
-    //       error: 'test.',
-    //     },
-    //     HttpStatus.BAD_REQUEST,
-    //   );
 
     if (!!reserveBalancingGasContract?.id) {
       // ===== STEP 27: RESERVE BALANCING GAS CONTRACT DATA PROCESSING =====
-      console.log('RESEV.');
+      console.log('RESEV.')
       return await this.handleReserveBalancingGasContractService.processReserveBalancingGasContract({
         reserveBalancingGasContract: reserveBalancingGasContract,
         getsValue: getsValue,
@@ -1771,15 +1644,10 @@ export class SubmissionFileRefactoredService {
         renom: renom,
         informationData: informationData,
         queryShipperNominationFileService: this.queryShipperNominationFileService,
-        nonTpa: nonTpa
+        nonTpa: nonTpa,
+        messageError: messageError,
+        tabType: tabType,
       })
-      // throw new HttpException(
-      //   {
-      //     status: HttpStatus.BAD_REQUEST,
-      //     error: 'reserveBalancingGasContract',
-      //   },
-      //   HttpStatus.BAD_REQUEST,
-      // );
     } else {
       // ===== STEP 27: BOOKING DATA PROCESSING =====
 
@@ -1807,14 +1675,16 @@ export class SubmissionFileRefactoredService {
       let warningLogDay: any = []
       let warningLogDayWeek: any = []
       let warningLogDayWeekTemp: any = []
+      let warningOtherTypePoint: any[] = []
       let sheet1Quality: any = []
       let sheet2Quality: any = []
+
+      // throw new HttpException
 
       // ===== STEP 28: DAILY NOMINATION PROCESSING =====
 
       if (nomination_type_id === 1) {
         // daily
-        // if (filePeriodMode === 1 || filePeriodMode === 3) {
         if (contractCode?.term_type_id === 4) {
           // day
           const resultEntryExitUse = this.findExactMatchingKeyDDMMYYYY(startDateExConv, headerEntryCDBMMBTUH)
@@ -1822,13 +1692,14 @@ export class SubmissionFileRefactoredService {
           const resultEntryExitUsePerDay = this.findExactMatchingKeyDDMMYYYY(startDateExConv, headerEntryCDBMMBTUD)
           const resultEntryExitUseMMscfd = this.findExactMatchingKeyDDMMYYYY(startDateExConv, headerEntryCDBMMscfd)
           if (!!!resultEntryExitUse || !!!resultEntryExitUsePerDay) {
-            throw new HttpException(
-              {
-                status: HttpStatus.FORBIDDEN,
-                error: 'Nomination Point does not match the Contract Code.'
-              },
-              HttpStatus.FORBIDDEN
-            )
+            messageError.push('Nomination Point does not match the Contract Code.')
+            // throw new HttpException(
+            //   {
+            //     status: HttpStatus.FORBIDDEN,
+            //     error: 'Nomination Point does not match the Contract Code.'
+            //   },
+            //   HttpStatus.FORBIDDEN
+            // )
           }
 
           checksValue = getsValue.map((e: any, cI: any) => {
@@ -1837,13 +1708,12 @@ export class SubmissionFileRefactoredService {
             let overMaximumHourCapacityRight = null
             let valueCapa = 0
             let valueCapaPerDay = 0
-            // e[9]["MMBTU/D"]
 
             if (e['row'][10] === 'Entry' && e['row'][9] === 'MMBTU/D') {
               let checkNominationPoint = nominationPoint?.find((fnp: any) => {
                 return fnp?.nomination_point === e['row'][3]
               })
-              const find = entryValue.find((f: any) => {
+              const find = (entryValue || []).find((f: any) => {
                 return (
                   f['0'] ===
                   checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -1851,16 +1721,16 @@ export class SubmissionFileRefactoredService {
                   })?.contract_point
                 )
               })
-              // const find = entryValue.find((f:any) => { return f['0'] ===  e['row'][3] })
-              // valueCapa = !!find && !!resultEntryExitUse && find[resultEntryExitUse] || 0
               if (!find && resultEntryExitUse) {
-                throw new HttpException(
-                  {
-                    status: HttpStatus.BAD_REQUEST,
-                    error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
-                  },
-                  HttpStatus.BAD_REQUEST
-                )
+                messageError.push(`Point ${e['row'][3]} Incorrect Entry/Exit Type.`)
+
+                // throw new HttpException(
+                //   {
+                //     status: HttpStatus.BAD_REQUEST,
+                //     error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
+                //   },
+                //   HttpStatus.BAD_REQUEST
+                // )
               }
 
               valueCapa = find[resultEntryExitUse] === '0' || !!find[resultEntryExitUse] ? find[resultEntryExitUse] : null // new
@@ -1878,32 +1748,21 @@ export class SubmissionFileRefactoredService {
                 let currentCapacity = e['row'][index] === '0' || (!!e['row'][index] && Number(e['row'][index]?.trim()?.replace(/,/g, ''))) || null //new
                 let rIndex = e['row'][index] === '0' || !!e['row'][index] ? e['row'][index] : null
                 if ((valueCapa === null || valueCapaPerDay === null) && !!rIndex) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.FORBIDDEN,
-                      error: 'Nomination Point does not match the Contract Code.'
-                    },
-                    HttpStatus.FORBIDDEN
-                  )
+                  messageError.push(`Nomination Point does not match the Contract Code.`)
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.FORBIDDEN,
+                  //     error: 'Nomination Point does not match the Contract Code.'
+                  //   },
+                  //   HttpStatus.FORBIDDEN
+                  // )
                 }
 
                 if (!!e['row'][index]) {
                   checkEmtry[cI][index] = true
                 }
 
-                // https://app.clickup.com/t/86etrq2b6
-                if (e['row'][index] === 0) {
-                  // throw new HttpException(
-                  //   {
-                  //     status: HttpStatus.FORBIDDEN,
-                  //     error: 'Daily Nomination File must contain values.',
-                  //   },
-                  //   HttpStatus.FORBIDDEN,
-                  // );
-                }
-
                 if (currentCapacity !== null && !!valueCapa && !!valueCapaPerDay) {
-                  // overMaximumHourCapacityRight = true; // ตั้งค่าว่าเกินขีดจำกัด
                   const finds = warningLogHrTemp?.find((f: any) => {
                     return (
                       f?.nomination_point === e['row'][3] &&
@@ -1918,7 +1777,7 @@ export class SubmissionFileRefactoredService {
                   if (finds) {
                     warningLogHrTemp = warningLogHrTemp?.map((ehr: any) => {
                       let neHR = ehr
-                      if (finds?.hr === neHR?.hr && finds?.contractPoint === neHR?.contractPoint && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
+                      if (neHR && finds && finds.hr === neHR?.hr && finds.contractPoint === neHR?.contractPoint && finds.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
                         neHR.energy = +Number(currentCapacity)
                       }
                       return {
@@ -1939,39 +1798,21 @@ export class SubmissionFileRefactoredService {
                     })
                   }
                 }
-
-                // if (currentCapacity !== null && Number(currentCapacity) > parseToNumber(valueCapa)) {
-                //   overMaximumHourCapacityRight = true; // ตั้งค่าว่าเกินขีดจำกัด
-                //   warningLogHr.push(`Nominated max energy ${currentCapacity} exceeds contracted value ${parseToNumber(valueCapa)} for contract point ${(checkNominationPoint?.contract_point_list.find((cl: any) => { return cl?.contract_point === find['0'] }))?.contract_point || "-"} and hour ${index - 14 + 1}`);
-                // }
               })
-              // const sumValuesDaily = Array.from({ length: 24 }, (_, i) => i + 14).reduce((sum, index) => {
-              //   return sum + (Number(e['row'][index]?.trim()?.replace(/,/g, '')) || 0); // บวกค่า ถ้าเป็น undefined ให้ใช้ 0
-              // }, 0);
-
-              // if (sumValuesDaily > parseToNumber(valueCapa)) {
-              //   overuseQuantity = true
-              //   // warningLogDay.push(`Nominated energy ${sumValuesDaily && this.formatNumberThreeDecimal(sumValuesDaily) || 0} exceeds contracted value ${parseToNumber(valueCapa)} for contract point ${e['row'][3]} and gas day ${startDateEx}`);
-              //   warningLogDay.push(`Nominated Total energy ${sumValuesDaily && this.formatNumberThreeDecimal(sumValuesDaily) || 0} exceeds contracted value ${parseToNumber(valueCapaPerDay)} for contract point ${(checkNominationPoint?.contract_point_list.find((cl: any) => { return cl?.contract_point === find['0'] }))?.contract_point} and gas day ${startDateEx}`);
-              // }
 
               const findZone = zoneQualityMaster.find((f: any) => {
-                // return f?.name === e['row'][0] && f?.entry_exit_id === 1
                 return f?.name === e['row'][0] && f?.entry_exit_id === 2 // https://app.clickup.com/t/9018502823/86ey4naep
               })
 
               // https://app.clickup.com/t/9018502823/86euzxxt1
-              const v2_sat_heating_value_min = findZone?.zone_master_quality[0]?.v2_sat_heating_value_min;
-              const v2_sat_heating_value_max = findZone?.zone_master_quality[0]?.v2_sat_heating_value_max;
-              const v2_wobbe_index_min = findZone?.zone_master_quality[0]?.v2_wobbe_index_min;
-              const v2_wobbe_index_max = findZone?.zone_master_quality[0]?.v2_wobbe_index_max;
+              const v2_sat_heating_value_min = findZone?.zone_master_quality[0]?.v2_sat_heating_value_min
+              const v2_sat_heating_value_max = findZone?.zone_master_quality[0]?.v2_sat_heating_value_max
+              const v2_wobbe_index_min = findZone?.zone_master_quality[0]?.v2_wobbe_index_min
+              const v2_wobbe_index_max = findZone?.zone_master_quality[0]?.v2_wobbe_index_max
 
               // WI
               if ((parseToNumber(e['row'][11]) < parseToNumber(v2_wobbe_index_min) && v2_wobbe_index_min !== null) || (parseToNumber(e['row'][11]) > parseToNumber(v2_wobbe_index_max) && v2_wobbe_index_max !== null)) {
-               
-
-                const val_ = parseToNumber(e?.row?.[11])
-
+                const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[11]) || null
                 // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                 const validNumbers = Number.isFinite(val_)
                 if (validNumbers) {
@@ -1982,9 +1823,7 @@ export class SubmissionFileRefactoredService {
               }
               // HV
               if ((parseToNumber(e['row'][12]) < parseToNumber(v2_sat_heating_value_min) && v2_sat_heating_value_min !== null) || (parseToNumber(e['row'][12]) > parseToNumber(v2_sat_heating_value_max) && v2_sat_heating_value_max !== null)) {
-                
-                const val_ = parseToNumber(e?.row?.[12])
-
+                const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[12]) || null
                 // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                 const validNumbers = Number.isFinite(val_)
                 if (validNumbers) {
@@ -1993,13 +1832,12 @@ export class SubmissionFileRefactoredService {
                   )
                 }
               }
-            } //
-            else if (e['row'][10] === 'Entry' && isMatch(e['row'][9], 'MMscfd')) {
+            } else if (e['row'][10] === 'Entry' && isMatch(e['row'][9], 'MMscfd')) {
               let checkNominationPoint = nominationPoint?.find((fnp: any) => {
                 return fnp?.nomination_point === e['row'][3]
               })
 
-              const find = entryValue.find((f: any) => {
+              const find = (entryValue || []).find((f: any) => {
                 return (
                   f['0'] ===
                   checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -2009,13 +1847,14 @@ export class SubmissionFileRefactoredService {
               })
 
               if (!find && resultEntryExitUseMMscfh) {
-                throw new HttpException(
-                  {
-                    status: HttpStatus.BAD_REQUEST,
-                    error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
-                  },
-                  HttpStatus.BAD_REQUEST
-                )
+                messageError.push(`Point ${e['row'][3]} Incorrect Entry/Exit Type.`)
+                // throw new HttpException(
+                //   {
+                //     status: HttpStatus.BAD_REQUEST,
+                //     error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
+                //   },
+                //   HttpStatus.BAD_REQUEST
+                // )
               }
 
               valueCapa = resultEntryExitUseMMscfh ? (find[resultEntryExitUseMMscfh] === '0' || !!find[resultEntryExitUseMMscfh] ? find[resultEntryExitUseMMscfh] : null) : null
@@ -2047,7 +1886,7 @@ export class SubmissionFileRefactoredService {
                   if (finds) {
                     warningLogHrTemp = warningLogHrTemp?.map((ehr: any) => {
                       let neHR = ehr
-                      if (finds?.hr === neHR?.hr && finds?.contractPoint === neHR?.contractPoint && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
+                      if (neHR && finds && finds.hr === neHR?.hr && finds.contractPoint === neHR?.contractPoint && finds.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
                         neHR.energy = +Number(currentCapacity)
                       }
                       return {
@@ -2072,7 +1911,6 @@ export class SubmissionFileRefactoredService {
 
               if (e['row'][2] !== '') {
                 const findZone = zoneQualityMaster.find((f: any) => {
-                  // return f?.name === e['row'][0] && f?.entry_exit_id === 1
                   return f?.name === e['row'][0] && f?.entry_exit_id === 2 // https://app.clickup.com/t/9018502823/86ey4naep
                 })
 
@@ -2081,14 +1919,14 @@ export class SubmissionFileRefactoredService {
                 this.ensure3DecimalPlacesSG(e['row'][13], 'SG', e['row'][3] || e['row'][5])
 
                 // https://app.clickup.com/t/9018502823/86euzxxt1
-                const v2_sat_heating_value_min = findZone?.zone_master_quality[0]?.v2_sat_heating_value_min;
-                const v2_sat_heating_value_max = findZone?.zone_master_quality[0]?.v2_sat_heating_value_max;
-                const v2_wobbe_index_min = findZone?.zone_master_quality[0]?.v2_wobbe_index_min;
-                const v2_wobbe_index_max = findZone?.zone_master_quality[0]?.v2_wobbe_index_max;
+                const v2_sat_heating_value_min = findZone?.zone_master_quality[0]?.v2_sat_heating_value_min
+                const v2_sat_heating_value_max = findZone?.zone_master_quality[0]?.v2_sat_heating_value_max
+                const v2_wobbe_index_min = findZone?.zone_master_quality[0]?.v2_wobbe_index_min
+                const v2_wobbe_index_max = findZone?.zone_master_quality[0]?.v2_wobbe_index_max
 
                 // WI
                 if ((parseToNumber(e['row'][11]) < parseToNumber(v2_wobbe_index_min) && v2_wobbe_index_min !== null) || (parseToNumber(e['row'][11]) > parseToNumber(v2_wobbe_index_max) && v2_wobbe_index_max !== null)) {
-                  const val_ = parseToNumber(e?.row?.[11])
+                  const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[11]) || null
 
                   // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                   const validNumbers = Number.isFinite(val_)
@@ -2100,7 +1938,7 @@ export class SubmissionFileRefactoredService {
                 }
                 // HV
                 if ((parseToNumber(e['row'][12]) < parseToNumber(v2_sat_heating_value_min) && v2_sat_heating_value_min !== null) || (parseToNumber(e['row'][12]) > parseToNumber(v2_sat_heating_value_max) && v2_sat_heating_value_max !== null)) {
-                  const val_ = parseToNumber(e?.row?.[12])
+                  const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[12]) || null
 
                   // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                   const validNumbers = Number.isFinite(val_)
@@ -2115,7 +1953,7 @@ export class SubmissionFileRefactoredService {
               let checkNominationPoint = nominationPoint?.find((fnp: any) => {
                 return fnp?.nomination_point === e['row'][3]
               })
-              const find = exitValue.find((f: any) => {
+              const find = (exitValue || []).find((f: any) => {
                 return (
                   f['0'] ===
                   checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -2123,16 +1961,16 @@ export class SubmissionFileRefactoredService {
                   })?.contract_point
                 )
               })
-              // const find = exitValue.find((f:any) => { return f['0'] ===  e['row'][3] })
-              // valueCapa = !!find && !!resultEntryExitUse && find[resultEntryExitUse] || 0
+
               if (!find && resultEntryExitUse) {
-                throw new HttpException(
-                  {
-                    status: HttpStatus.BAD_REQUEST,
-                    error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
-                  },
-                  HttpStatus.BAD_REQUEST
-                )
+                messageError.push(`Point ${e['row'][3]} Incorrect Entry/Exit Type.`)
+                // throw new HttpException(
+                //   {
+                //     status: HttpStatus.BAD_REQUEST,
+                //     error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
+                //   },
+                //   HttpStatus.BAD_REQUEST
+                // )
               }
 
               valueCapa = find[resultEntryExitUse] === '0' || !!find[resultEntryExitUse] ? find[resultEntryExitUse] : null // new
@@ -2147,35 +1985,23 @@ export class SubmissionFileRefactoredService {
                 let currentCapacity = e['row'][index] === '0' || (!!e['row'][index] && Number(e['row'][index]?.trim()?.replace(/,/g, ''))) || null //new
                 let rIndex = e['row'][index] === '0' || !!e['row'][index] ? e['row'][index] : null
                 if (valueCapa === null && !!rIndex) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.FORBIDDEN,
-                      error: 'Nomination Point does not match the Contract Code.'
-                    },
-                    HttpStatus.FORBIDDEN
-                  )
+                  messageError.push(`Nomination Point does not match the Contract Code.`)
+
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.FORBIDDEN,
+                  //     error: 'Nomination Point does not match the Contract Code.'
+                  //   },
+                  //   HttpStatus.FORBIDDEN
+                  // )
                 }
 
                 if (!!e['row'][index]) {
                   checkEmtry[cI][index] = true
                 }
 
-                // https://app.clickup.com/t/86etrq2b6
-                if (e['row'][index] === 0) {
-                  // throw new HttpException(
-                  //   {
-                  //     status: HttpStatus.FORBIDDEN,
-                  //     error: 'Daily Nomination File must contain values.',
-                  //   },
-                  //   HttpStatus.FORBIDDEN,
-                  // );
-                }
-
-                // Weekly Nomination File must contain values.
-
                 // ถ้าค่าปัจจุบันเกินขีดจำกัด
                 if (currentCapacity !== null && !!valueCapa && !!valueCapaPerDay) {
-                  // overMaximumHourCapacityRight = true; // ตั้งค่าว่าเกินขีดจำกัด
                   const finds = warningLogHrTemp?.find((f: any) => {
                     return (
                       f?.nomination_point === e['row'][3] &&
@@ -2190,7 +2016,7 @@ export class SubmissionFileRefactoredService {
                   if (finds) {
                     warningLogHrTemp = warningLogHrTemp?.map((ehr: any) => {
                       let neHR = ehr
-                      if (finds?.hr === neHR?.hr && finds?.contractPoint === neHR?.contractPoint && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
+                      if (neHR && finds && finds.hr === neHR?.hr && finds.contractPoint === neHR?.contractPoint && finds.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
                         neHR.energy = +Number(currentCapacity)
                       }
                       return {
@@ -2211,19 +2037,12 @@ export class SubmissionFileRefactoredService {
                     })
                   }
                 }
-             
               })
-            
-              // const findZone = zoneQualityMaster.find((f: any) => {
-              //   return f?.name === e['row'][0] && f?.entry_exit_id === 2
-              // })
-
-             
             } else if (e['row'][10] === 'Exit' && isMatch(e['row'][9], 'MMscfd')) {
               let checkNominationPoint = nominationPoint?.find((fnp: any) => {
                 return fnp?.nomination_point === e['row'][3]
               })
-              const find = exitValue.find((f: any) => {
+              const find = (exitValue || []).find((f: any) => {
                 return (
                   f['0'] ===
                   checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -2232,13 +2051,15 @@ export class SubmissionFileRefactoredService {
                 )
               })
               if (!find && resultEntryExitUseMMscfh) {
-                throw new HttpException(
-                  {
-                    status: HttpStatus.BAD_REQUEST,
-                    error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
-                  },
-                  HttpStatus.BAD_REQUEST
-                )
+                messageError.push(`Point ${e['row'][3]} Incorrect Entry/Exit Type.`)
+
+                // throw new HttpException(
+                //   {
+                //     status: HttpStatus.BAD_REQUEST,
+                //     error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
+                //   },
+                //   HttpStatus.BAD_REQUEST
+                // )
               }
               valueCapa = resultEntryExitUseMMscfh ? (find[resultEntryExitUseMMscfh] === '0' || !!find[resultEntryExitUseMMscfh] ? find[resultEntryExitUseMMscfh] : null) : null
               valueCapaPerDay = resultEntryExitUseMMscfd ? (find[resultEntryExitUseMMscfd] === '0' || !!find[resultEntryExitUseMMscfd] ? find[resultEntryExitUseMMscfd] : null) : null
@@ -2254,7 +2075,6 @@ export class SubmissionFileRefactoredService {
 
                 // ถ้าค่าปัจจุบันเกินขีดจำกัด
                 if (currentCapacity !== null && !!valueCapa && valueCapa != null && !!valueCapaPerDay && valueCapaPerDay != null) {
-                  // overMaximumHourCapacityRight = true; // ตั้งค่าว่าเกินขีดจำกัด
                   const finds = warningLogHrTemp?.find((f: any) => {
                     return (
                       f?.nomination_point === e['row'][3] &&
@@ -2269,7 +2089,7 @@ export class SubmissionFileRefactoredService {
                   if (finds) {
                     warningLogHrTemp = warningLogHrTemp?.map((ehr: any) => {
                       let neHR = ehr
-                      if (finds?.hr === neHR?.hr && finds?.contractPoint === neHR?.contractPoint && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
+                      if (neHR && finds && finds.hr === neHR?.hr && finds.contractPoint === neHR?.contractPoint && finds.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
                         neHR.energy = +Number(currentCapacity)
                       }
                       return {
@@ -2291,11 +2111,6 @@ export class SubmissionFileRefactoredService {
                   }
                 }
               })
-
-              // const findZone = zoneQualityMaster.find((f: any) => {
-              //   return f?.name === e['row'][0] && f?.entry_exit_id === 2;
-              // });
-
             }
 
             return {
@@ -2321,13 +2136,14 @@ export class SubmissionFileRefactoredService {
           const resultEntryExitUsePerDay = this.findMatchingKeyMMYYYY(startDateExConv, headerEntryCDBMMBTUD)
           const resultEntryExitUseMMscfd = this.findMatchingKeyMMYYYY(startDateExConv, headerEntryCDBMMscfd)
           if (!!!resultEntryExitUse || !!!resultEntryExitUsePerDay) {
-            throw new HttpException(
-              {
-                status: HttpStatus.FORBIDDEN,
-                error: 'Nomination Point does not match the Contract Code.'
-              },
-              HttpStatus.FORBIDDEN
-            )
+            messageError.push(`Nomination Point does not match the Contract Code.`)
+            // throw new HttpException(
+            //   {
+            //     status: HttpStatus.FORBIDDEN,
+            //     error: 'Nomination Point does not match the Contract Code.'
+            //   },
+            //   HttpStatus.FORBIDDEN
+            // )
           }
 
           checksValue = getsValue.map((e: any, cI: any) => {
@@ -2341,7 +2157,7 @@ export class SubmissionFileRefactoredService {
               let checkNominationPoint = nominationPoint?.find((fnp: any) => {
                 return fnp?.nomination_point === e['row'][3]
               })
-              const find = entryValue.find((f: any) => {
+              const find = (entryValue || []).find((f: any) => {
                 return (
                   f['0'] ===
                   checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -2351,13 +2167,15 @@ export class SubmissionFileRefactoredService {
               })
 
               if (!find && resultEntryExitUse) {
-                throw new HttpException(
-                  {
-                    status: HttpStatus.BAD_REQUEST,
-                    error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
-                  },
-                  HttpStatus.BAD_REQUEST
-                )
+                messageError.push(`Point ${e['row'][3]} Incorrect Entry/Exit Type.`)
+
+                // throw new HttpException(
+                //   {
+                //     status: HttpStatus.BAD_REQUEST,
+                //     error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
+                //   },
+                //   HttpStatus.BAD_REQUEST
+                // )
               }
 
               valueCapa = find[resultEntryExitUse] === '0' || !!find[resultEntryExitUse] ? find[resultEntryExitUse] : null // new
@@ -2372,13 +2190,15 @@ export class SubmissionFileRefactoredService {
                 let currentCapacity = e['row'][index] === '0' || (!!e['row'][index] && Number(e['row'][index]?.trim()?.replace(/,/g, ''))) || null //new
                 let rIndex = e['row'][index] === '0' || !!e['row'][index] ? e['row'][index] : null
                 if (valueCapa === null && !!rIndex) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.FORBIDDEN,
-                      error: 'Nomination Point does not match the Contract Code.'
-                    },
-                    HttpStatus.FORBIDDEN
-                  )
+                  messageError.push(`Nomination Point does not match the Contract Code.`)
+
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.FORBIDDEN,
+                  //     error: 'Nomination Point does not match the Contract Code.'
+                  //   },
+                  //   HttpStatus.FORBIDDEN
+                  // )
                 }
 
                 if (!!e['row'][index]) {
@@ -2401,7 +2221,7 @@ export class SubmissionFileRefactoredService {
                   if (finds) {
                     warningLogHrTemp = warningLogHrTemp?.map((ehr: any) => {
                       let neHR = ehr
-                      if (finds?.hr === neHR?.hr && finds?.contractPoint === neHR?.contractPoint && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
+                      if (neHR && finds && finds.hr === neHR?.hr && finds.contractPoint === neHR?.contractPoint && finds.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
                         neHR.energy = +Number(currentCapacity)
                       }
                       return {
@@ -2425,19 +2245,18 @@ export class SubmissionFileRefactoredService {
               })
 
               const findZone = zoneQualityMaster.find((f: any) => {
-                // return f?.name === e['row'][0] && f?.entry_exit_id === 1
                 return f?.name === e['row'][0] && f?.entry_exit_id === 2 // https://app.clickup.com/t/9018502823/86ey4naep
               })
 
               // https://app.clickup.com/t/9018502823/86euzxxt1
-                const v2_sat_heating_value_min = findZone?.zone_master_quality[0]?.v2_sat_heating_value_min;
-                const v2_sat_heating_value_max = findZone?.zone_master_quality[0]?.v2_sat_heating_value_max;
-                const v2_wobbe_index_min = findZone?.zone_master_quality[0]?.v2_wobbe_index_min;
-                const v2_wobbe_index_max = findZone?.zone_master_quality[0]?.v2_wobbe_index_max;
+              const v2_sat_heating_value_min = findZone?.zone_master_quality[0]?.v2_sat_heating_value_min
+              const v2_sat_heating_value_max = findZone?.zone_master_quality[0]?.v2_sat_heating_value_max
+              const v2_wobbe_index_min = findZone?.zone_master_quality[0]?.v2_wobbe_index_min
+              const v2_wobbe_index_max = findZone?.zone_master_quality[0]?.v2_wobbe_index_max
 
               // WI
               if ((parseToNumber(e['row'][11]) < parseToNumber(v2_wobbe_index_min) && v2_wobbe_index_min !== null) || (parseToNumber(e['row'][11]) > parseToNumber(v2_wobbe_index_max) && v2_wobbe_index_max !== null)) {
-                const val_ = parseToNumber(e?.row?.[11])
+                const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[11]) || null
 
                 // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                 const validNumbers = Number.isFinite(val_)
@@ -2449,7 +2268,7 @@ export class SubmissionFileRefactoredService {
               }
               // HV
               if ((parseToNumber(e['row'][12]) < parseToNumber(v2_sat_heating_value_min) && v2_sat_heating_value_min !== null) || (parseToNumber(e['row'][12]) > parseToNumber(v2_sat_heating_value_max) && v2_sat_heating_value_max !== null)) {
-                const val_ = parseToNumber(e?.row?.[12])
+                const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[12]) || null
 
                 // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                 const validNumbers = Number.isFinite(val_)
@@ -2463,7 +2282,7 @@ export class SubmissionFileRefactoredService {
               let checkNominationPoint = nominationPoint?.find((fnp: any) => {
                 return fnp?.nomination_point === e['row'][3]
               })
-              const find = entryValue.find((f: any) => {
+              const find = (entryValue || []).find((f: any) => {
                 return (
                   f['0'] ===
                   checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -2473,13 +2292,15 @@ export class SubmissionFileRefactoredService {
               })
 
               if (!find && resultEntryExitUseMMscfh) {
-                throw new HttpException(
-                  {
-                    status: HttpStatus.BAD_REQUEST,
-                    error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
-                  },
-                  HttpStatus.BAD_REQUEST
-                )
+                messageError.push(`Point ${e['row'][3]} Incorrect Entry/Exit Type.`)
+
+                // throw new HttpException(
+                //   {
+                //     status: HttpStatus.BAD_REQUEST,
+                //     error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
+                //   },
+                //   HttpStatus.BAD_REQUEST
+                // )
               }
 
               valueCapa = resultEntryExitUseMMscfh ? (find[resultEntryExitUseMMscfh] === '0' || !!find[resultEntryExitUseMMscfh] ? find[resultEntryExitUseMMscfh] : null) : null
@@ -2509,7 +2330,7 @@ export class SubmissionFileRefactoredService {
                   if (finds) {
                     warningLogHrTemp = warningLogHrTemp?.map((ehr: any) => {
                       let neHR = ehr
-                      if (finds?.hr === neHR?.hr && finds?.contractPoint === neHR?.contractPoint && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
+                      if (neHR && finds && finds.hr === neHR?.hr && finds.contractPoint === neHR?.contractPoint && finds.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
                         neHR.energy = +Number(currentCapacity)
                       }
                       return {
@@ -2534,7 +2355,6 @@ export class SubmissionFileRefactoredService {
 
               if (e['row'][2] !== '') {
                 const findZone = zoneQualityMaster.find((f: any) => {
-                  // return f?.name === e['row'][0] && f?.entry_exit_id === 1
                   return f?.name === e['row'][0] && f?.entry_exit_id === 2 // https://app.clickup.com/t/9018502823/86ey4naep
                 })
 
@@ -2543,15 +2363,14 @@ export class SubmissionFileRefactoredService {
                 this.ensure3DecimalPlacesSG(e['row'][13], 'SG', e['row'][3] || e['row'][5])
 
                 // https://app.clickup.com/t/9018502823/86euzxxt1
-                const v2_sat_heating_value_min = findZone?.zone_master_quality[0]?.v2_sat_heating_value_min;
-                const v2_sat_heating_value_max = findZone?.zone_master_quality[0]?.v2_sat_heating_value_max;
-                const v2_wobbe_index_min = findZone?.zone_master_quality[0]?.v2_wobbe_index_min;
-                const v2_wobbe_index_max = findZone?.zone_master_quality[0]?.v2_wobbe_index_max;
+                const v2_sat_heating_value_min = findZone?.zone_master_quality[0]?.v2_sat_heating_value_min
+                const v2_sat_heating_value_max = findZone?.zone_master_quality[0]?.v2_sat_heating_value_max
+                const v2_wobbe_index_min = findZone?.zone_master_quality[0]?.v2_wobbe_index_min
+                const v2_wobbe_index_max = findZone?.zone_master_quality[0]?.v2_wobbe_index_max
 
                 // WI
                 if ((parseToNumber(e['row'][11]) < parseToNumber(v2_wobbe_index_min) && v2_wobbe_index_min !== null) || (parseToNumber(e['row'][11]) > parseToNumber(v2_wobbe_index_max) && v2_wobbe_index_max !== null)) {
-                  const val_ = parseToNumber(e?.row?.[11])
-
+                  const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[11]) || null
                   // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                   const validNumbers = Number.isFinite(val_)
                   if (validNumbers) {
@@ -2562,7 +2381,7 @@ export class SubmissionFileRefactoredService {
                 }
                 // HV
                 if ((parseToNumber(e['row'][12]) < parseToNumber(v2_sat_heating_value_min) && v2_sat_heating_value_min !== null) || (parseToNumber(e['row'][12]) > parseToNumber(v2_sat_heating_value_max) && v2_sat_heating_value_max !== null)) {
-                  const val_ = parseToNumber(e?.row?.[12])
+                  const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[12]) || null
 
                   // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                   const validNumbers = Number.isFinite(val_)
@@ -2577,7 +2396,7 @@ export class SubmissionFileRefactoredService {
               let checkNominationPoint = nominationPoint?.find((fnp: any) => {
                 return fnp?.nomination_point === e['row'][3]
               })
-              const find = exitValue.find((f: any) => {
+              const find = (exitValue || []).find((f: any) => {
                 return (
                   f['0'] ===
                   checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -2587,13 +2406,15 @@ export class SubmissionFileRefactoredService {
               })
 
               if (!find && resultEntryExitUse) {
-                throw new HttpException(
-                  {
-                    status: HttpStatus.BAD_REQUEST,
-                    error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
-                  },
-                  HttpStatus.BAD_REQUEST
-                )
+                messageError.push(`Point ${e['row'][3]} Incorrect Entry/Exit Type.`)
+
+                // throw new HttpException(
+                //   {
+                //     status: HttpStatus.BAD_REQUEST,
+                //     error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
+                //   },
+                //   HttpStatus.BAD_REQUEST
+                // )
               }
 
               valueCapa = find[resultEntryExitUse] === '0' || !!find[resultEntryExitUse] ? find[resultEntryExitUse] : null // new
@@ -2607,13 +2428,15 @@ export class SubmissionFileRefactoredService {
                 let currentCapacity = e['row'][index] === '0' || (!!e['row'][index] && Number(e['row'][index]?.trim()?.replace(/,/g, ''))) || null //new
                 let rIndex = e['row'][index] === '0' || !!e['row'][index] ? e['row'][index] : null
                 if (valueCapa === null && !!rIndex) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.FORBIDDEN,
-                      error: 'Nomination Point does not match the Contract Code.'
-                    },
-                    HttpStatus.FORBIDDEN
-                  )
+                  messageError.push(`Nomination Point does not match the Contract Code.`)
+
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.FORBIDDEN,
+                  //     error: 'Nomination Point does not match the Contract Code.'
+                  //   },
+                  //   HttpStatus.FORBIDDEN
+                  // )
                 }
 
                 if (!!e['row'][index]) {
@@ -2622,7 +2445,6 @@ export class SubmissionFileRefactoredService {
 
                 // ถ้าค่าปัจจุบันเกินขีดจำกัด
                 if (currentCapacity !== null && !!valueCapa && !!valueCapaPerDay) {
-                  // overMaximumHourCapacityRight = true; // ตั้งค่าว่าเกินขีดจำกัด
                   const finds = warningLogHrTemp?.find((f: any) => {
                     return (
                       f?.nomination_point === e['row'][3] &&
@@ -2637,7 +2459,7 @@ export class SubmissionFileRefactoredService {
                   if (finds) {
                     warningLogHrTemp = warningLogHrTemp?.map((ehr: any) => {
                       let neHR = ehr
-                      if (finds?.hr === neHR?.hr && finds?.contractPoint === neHR?.contractPoint && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
+                      if (neHR && finds && finds.hr === neHR?.hr && finds.contractPoint === neHR?.contractPoint && finds.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
                         neHR.energy = +Number(currentCapacity)
                       }
                       return {
@@ -2659,16 +2481,11 @@ export class SubmissionFileRefactoredService {
                   }
                 }
               })
-
-              // const findZone = zoneQualityMaster.find((f: any) => {
-              //   return f?.name === e['row'][0] && f?.entry_exit_id === 2
-              // })
-
             } else if (e['row'][10] === 'Exit' && isMatch(e['row'][9], 'MMscfd')) {
               let checkNominationPoint = nominationPoint?.find((fnp: any) => {
                 return fnp?.nomination_point === e['row'][3]
               })
-              const find = exitValue.find((f: any) => {
+              const find = (exitValue || []).find((f: any) => {
                 return (
                   f['0'] ===
                   checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -2678,13 +2495,15 @@ export class SubmissionFileRefactoredService {
               })
 
               if (!find && resultEntryExitUseMMscfh) {
-                throw new HttpException(
-                  {
-                    status: HttpStatus.BAD_REQUEST,
-                    error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
-                  },
-                  HttpStatus.BAD_REQUEST
-                )
+                messageError.push(`Point ${e['row'][3]} Incorrect Entry/Exit Type.`)
+
+                // throw new HttpException(
+                //   {
+                //     status: HttpStatus.BAD_REQUEST,
+                //     error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
+                //   },
+                //   HttpStatus.BAD_REQUEST
+                // )
               }
 
               valueCapa = resultEntryExitUseMMscfh ? (find[resultEntryExitUseMMscfh] === '0' || !!find[resultEntryExitUseMMscfh] ? find[resultEntryExitUseMMscfh] : null) : null
@@ -2714,7 +2533,7 @@ export class SubmissionFileRefactoredService {
                   if (finds) {
                     warningLogHrTemp = warningLogHrTemp?.map((ehr: any) => {
                       let neHR = ehr
-                      if (finds?.hr === neHR?.hr && finds?.contractPoint === neHR?.contractPoint && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
+                      if (neHR && finds && finds.hr === neHR?.hr && finds.contractPoint === neHR?.contractPoint && finds.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
                         neHR.energy = +Number(currentCapacity)
                       }
                       return {
@@ -2736,11 +2555,6 @@ export class SubmissionFileRefactoredService {
                   }
                 }
               })
-
-              // const findZone = zoneQualityMaster.find((f: any) => {
-              //   return f?.name === e['row'][0] && f?.entry_exit_id === 2;
-              // });
-
             }
 
             return {
@@ -2763,7 +2577,6 @@ export class SubmissionFileRefactoredService {
       } else {
         let weekBook = true
         // weekly
-        // if (filePeriodMode === 1 || filePeriodMode === 3) {
         if (contractCode?.term_type_id === 4) {
           // day
           const headDay = sheet1?.data[3]
@@ -2778,7 +2591,7 @@ export class SubmissionFileRefactoredService {
               let checkNominationPoint = nominationPoint?.find((fnp: any) => {
                 return fnp?.nomination_point === e['row'][3]
               })
-              const find = entryValue.find((f: any) => {
+              const find = (entryValue || []).find((f: any) => {
                 return (
                   f['0'] ===
                   checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -2807,13 +2620,15 @@ export class SubmissionFileRefactoredService {
                 }
                 // valueCapa = (!!find && !!resultEntryExitUse) && find[resultEntryExitUse] || 0
                 if (!find && resultEntryExitUse) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.BAD_REQUEST,
-                      error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
-                    },
-                    HttpStatus.BAD_REQUEST
-                  )
+                  messageError.push(`Point ${e['row'][3]} Incorrect Entry/Exit Type.`)
+
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.BAD_REQUEST,
+                  //     error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
+                  //   },
+                  //   HttpStatus.BAD_REQUEST
+                  // )
                 }
 
                 valueCapa = find[resultEntryExitUse] === '0' || !!find[resultEntryExitUse] ? find[resultEntryExitUse] : null // new
@@ -2824,42 +2639,33 @@ export class SubmissionFileRefactoredService {
 
                 let rIndex = e['row'][index] === '0' || !!e['row'][index] ? e['row'][index] : null
                 if (valueCapa === null && !!rIndex) {
-                  // headDayUse :  29/03/2026
-                  // valueCapa :  null
-                  // rIndex :  2000
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.FORBIDDEN,
-                      error: 'Nomination Point does not match the Contract Code.'
-                    },
-                    HttpStatus.FORBIDDEN
-                  )
+                  messageError.push(`Nomination Point does not match the Contract Code.`)
+
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.FORBIDDEN,
+                  //     error: 'Nomination Point does not match the Contract Code.'
+                  //   },
+                  //   HttpStatus.FORBIDDEN
+                  // )
                 }
 
-                // if (!!!valueCapa && currentCapacity > 0) {
-                //   throw new HttpException(
-                //     {
-                //       status: HttpStatus.FORBIDDEN,
-                //       error: `${e['row'][3]} is incorrect`,
-                //     },
-                //     HttpStatus.FORBIDDEN,
-                //   );
-                // }
                 const contractCodeEnd = dayjs(contractCodeName.terminate_date ?? contractCodeName.extend_deadline ?? contractCodeName.contract_end_date).tz('Asia/Bangkok')
                 if (!!!valueCapa && e['row'][index] !== '' && !headDayUseConv.isSame(contractCodeEnd, 'week')) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.FORBIDDEN,
-                      error: 'Nomination Point does not match the Contract Code.'
-                    },
-                    HttpStatus.FORBIDDEN
-                  )
+                  messageError.push(`Nomination Point does not match the Contract Code.`)
+
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.FORBIDDEN,
+                  //     error: 'Nomination Point does not match the Contract Code.'
+                  //   },
+                  //   HttpStatus.FORBIDDEN
+                  // )
                 }
 
                 // ถ้าค่าปัจจุบันเกินขีดจำกัด
 
                 if (currentCapacity !== null && !!valueCapa) {
-                  // overMaximumHourCapacityRight = true; // ตั้งค่าว่าเกินขีดจำกัด
                   const finds = warningLogDayWeekTemp?.find((f: any) => {
                     return (
                       f?.nomination_point === e['row'][3] &&
@@ -2874,7 +2680,7 @@ export class SubmissionFileRefactoredService {
                   if (finds) {
                     warningLogDayWeekTemp = warningLogDayWeekTemp?.map((ed: any) => {
                       let neD = ed
-                      if (finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
+                      if (finds && neD && finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
                         neD.energy = +Number(currentCapacity)
                       }
                       return {
@@ -2894,40 +2700,20 @@ export class SubmissionFileRefactoredService {
                     })
                   }
                 }
-
-                // if (
-                //   currentCapacity !== null &&
-                //   Number(currentCapacity) > parseToNumber(valueCapa)
-                // ) {
-                //   overMaximumHourCapacityRight = true; // ตั้งค่าว่าเกินขีดจำกัด
-                //   // warningLogDayWeek.push(`Nominated energy ${currentCapacity && this.formatNumberThreeDecimal(currentCapacity) || 0} exceeds contracted value ${parseToNumber(valueCapa)} for contract point ${e['row'][3]} and gas day ${headDayUse}`);
-                //   warningLogDayWeek.push(
-                //     `Nominated Total energy ${(currentCapacity && this.formatNumberThreeDecimal(parseToNumber(currentCapacity))) || 0} exceeds contracted value ${this.formatNumberThreeDecimal(parseToNumber(valueCapa))} for contract point ${
-                //       checkNominationPoint?.contract_point_list.find(
-                //         (cl: any) => {
-                //           return cl?.contract_point === find['0'];
-                //         },
-                //       )?.contract_point
-                //     } and gas day ${headDayUse}`,
-                //   );
-                // }
               })
               const findZone = zoneQualityMaster.find((f: any) => {
-                // return f?.name === e['row'][0] && f?.entry_exit_id === 1
                 return f?.name === e['row'][0] && f?.entry_exit_id === 2 // https://app.clickup.com/t/9018502823/86ey4naep
               })
 
               // https://app.clickup.com/t/9018502823/86euzxxt1
-                const v2_sat_heating_value_min = findZone?.zone_master_quality[0]?.v2_sat_heating_value_min;
-                const v2_sat_heating_value_max = findZone?.zone_master_quality[0]?.v2_sat_heating_value_max;
-                const v2_wobbe_index_min = findZone?.zone_master_quality[0]?.v2_wobbe_index_min;
-                const v2_wobbe_index_max = findZone?.zone_master_quality[0]?.v2_wobbe_index_max;
+              const v2_sat_heating_value_min = findZone?.zone_master_quality[0]?.v2_sat_heating_value_min
+              const v2_sat_heating_value_max = findZone?.zone_master_quality[0]?.v2_sat_heating_value_max
+              const v2_wobbe_index_min = findZone?.zone_master_quality[0]?.v2_wobbe_index_min
+              const v2_wobbe_index_max = findZone?.zone_master_quality[0]?.v2_wobbe_index_max
 
               // WI
               if ((parseToNumber(e['row'][11]) < parseToNumber(v2_wobbe_index_min) && v2_wobbe_index_min !== null) || (parseToNumber(e['row'][11]) > parseToNumber(v2_wobbe_index_max) && v2_wobbe_index_max !== null)) {
-               
-
-                const val_ = parseToNumber(e?.row?.[11])
+                const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[11]) || null
 
                 // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                 const validNumbers = Number.isFinite(val_)
@@ -2939,9 +2725,7 @@ export class SubmissionFileRefactoredService {
               }
               // HV
               if ((parseToNumber(e['row'][12]) < parseToNumber(v2_sat_heating_value_min) && v2_sat_heating_value_min !== null) || (parseToNumber(e['row'][12]) > parseToNumber(v2_sat_heating_value_max) && v2_sat_heating_value_max !== null)) {
-               
-
-                const val_ = parseToNumber(e?.row?.[12])
+                const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[12]) || null
 
                 // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                 const validNumbers = Number.isFinite(val_)
@@ -2955,7 +2739,7 @@ export class SubmissionFileRefactoredService {
               let checkNominationPoint = nominationPoint?.find((fnp: any) => {
                 return fnp?.nomination_point === e['row'][3]
               })
-              const find = entryValue.find((f: any) => {
+              const find = (entryValue || []).find((f: any) => {
                 return (
                   f['0'] ===
                   checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -2976,13 +2760,15 @@ export class SubmissionFileRefactoredService {
                 const resultEntryExitUseMMscfd = this.findExactMatchingKeyDDMMYYYY(headDayUseConv, headerEntryCDBMMscfd)
 
                 if (!find && resultEntryExitUseMMscfd) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.BAD_REQUEST,
-                      error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
-                    },
-                    HttpStatus.BAD_REQUEST
-                  )
+                  messageError.push(`Point ${e['row'][3]} Incorrect Entry/Exit Type.`)
+
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.BAD_REQUEST,
+                  //     error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
+                  //   },
+                  //   HttpStatus.BAD_REQUEST
+                  // )
                 }
 
                 valueCapa = resultEntryExitUseMMscfd ? (find[resultEntryExitUseMMscfd] === '0' || !!find[resultEntryExitUseMMscfd] ? find[resultEntryExitUseMMscfd] : null) : null
@@ -3004,7 +2790,7 @@ export class SubmissionFileRefactoredService {
                   if (finds) {
                     warningLogDayWeekTemp = warningLogDayWeekTemp?.map((ed: any) => {
                       let neD = ed
-                      if (finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
+                      if (finds && neD && finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
                         neD.energy = +Number(currentCapacity)
                       }
                       return {
@@ -3028,7 +2814,6 @@ export class SubmissionFileRefactoredService {
 
               if (e['row'][2] !== '') {
                 const findZone = zoneQualityMaster.find((f: any) => {
-                  // return f?.name === e['row'][0] && f?.entry_exit_id === 1
                   return f?.name === e['row'][0] && f?.entry_exit_id === 2 // https://app.clickup.com/t/9018502823/86ey4naep
                 })
 
@@ -3037,14 +2822,14 @@ export class SubmissionFileRefactoredService {
                 this.ensure3DecimalPlacesSG(e['row'][13], 'SG', e['row'][3] || e['row'][5])
 
                 // https://app.clickup.com/t/9018502823/86euzxxt1
-                const v2_sat_heating_value_min = findZone?.zone_master_quality[0]?.v2_sat_heating_value_min;
-                const v2_sat_heating_value_max = findZone?.zone_master_quality[0]?.v2_sat_heating_value_max;
-                const v2_wobbe_index_min = findZone?.zone_master_quality[0]?.v2_wobbe_index_min;
-                const v2_wobbe_index_max = findZone?.zone_master_quality[0]?.v2_wobbe_index_max;
+                const v2_sat_heating_value_min = findZone?.zone_master_quality[0]?.v2_sat_heating_value_min
+                const v2_sat_heating_value_max = findZone?.zone_master_quality[0]?.v2_sat_heating_value_max
+                const v2_wobbe_index_min = findZone?.zone_master_quality[0]?.v2_wobbe_index_min
+                const v2_wobbe_index_max = findZone?.zone_master_quality[0]?.v2_wobbe_index_max
 
                 // WI
                 if ((parseToNumber(e['row'][11]) < parseToNumber(v2_wobbe_index_min) && v2_wobbe_index_min !== null) || (parseToNumber(e['row'][11]) > parseToNumber(v2_wobbe_index_max) && v2_wobbe_index_max !== null)) {
-                  const val_ = parseToNumber(e?.row?.[11])
+                  const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[11]) || null
 
                   // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                   const validNumbers = Number.isFinite(val_)
@@ -3056,7 +2841,7 @@ export class SubmissionFileRefactoredService {
                 }
                 // HV
                 if ((parseToNumber(e['row'][12]) < parseToNumber(v2_sat_heating_value_min) && v2_sat_heating_value_min !== null) || (parseToNumber(e['row'][12]) > parseToNumber(v2_sat_heating_value_max) && v2_sat_heating_value_max !== null)) {
-                  const val_ = parseToNumber(e?.row?.[12])
+                  const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[12]) || null
 
                   // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                   const validNumbers = Number.isFinite(val_)
@@ -3071,7 +2856,7 @@ export class SubmissionFileRefactoredService {
               let checkNominationPoint = nominationPoint?.find((fnp: any) => {
                 return fnp?.nomination_point === e['row'][3]
               })
-              const find = exitValue.find((f: any) => {
+              const find = (exitValue || []).find((f: any) => {
                 return (
                   f['0'] ===
                   checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -3098,13 +2883,15 @@ export class SubmissionFileRefactoredService {
                   weekBook = false
                 }
                 if (!find && resultEntryExitUse) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.BAD_REQUEST,
-                      error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
-                    },
-                    HttpStatus.BAD_REQUEST
-                  )
+                  messageError.push(`Point ${e['row'][3]} Incorrect Entry/Exit Type.`)
+
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.BAD_REQUEST,
+                  //     error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
+                  //   },
+                  //   HttpStatus.BAD_REQUEST
+                  // )
                 }
                 valueCapa = find[resultEntryExitUse] === '0' || !!find[resultEntryExitUse] ? find[resultEntryExitUse] : null // new
                 valueCapaArr.push({
@@ -3114,17 +2901,18 @@ export class SubmissionFileRefactoredService {
 
                 let rIndex = e['row'][index] === '0' || !!e['row'][index] ? e['row'][index] : null
                 if (valueCapa === null && !!rIndex) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.FORBIDDEN,
-                      error: 'Nomination Point does not match the Contract Code.'
-                    },
-                    HttpStatus.FORBIDDEN
-                  )
+                  messageError.push(`Nomination Point does not match the Contract Code.`)
+
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.FORBIDDEN,
+                  //     error: 'Nomination Point does not match the Contract Code.'
+                  //   },
+                  //   HttpStatus.FORBIDDEN
+                  // )
                 }
 
                 if (currentCapacity !== null && !!valueCapa) {
-                  // overMaximumHourCapacityRight = true; // ตั้งค่าว่าเกินขีดจำกัด
                   const finds = warningLogDayWeekTemp?.find((f: any) => {
                     return (
                       f?.nomination_point === e['row'][3] &&
@@ -3139,7 +2927,7 @@ export class SubmissionFileRefactoredService {
                   if (finds) {
                     warningLogDayWeekTemp = warningLogDayWeekTemp?.map((ed: any) => {
                       let neD = ed
-                      if (finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
+                      if (finds && neD && finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
                         neD.energy = +Number(currentCapacity)
                       }
                       return {
@@ -3159,34 +2947,12 @@ export class SubmissionFileRefactoredService {
                     })
                   }
                 }
-
-                // if (
-                //   currentCapacity !== null &&
-                //   Number(currentCapacity) > parseToNumber(valueCapa)
-                // ) {
-                //   overMaximumHourCapacityRight = true; // ตั้งค่าว่าเกินขีดจำกัด
-                //   warningLogDayWeek.push(
-                //     `Nominated Total energy ${(currentCapacity && this.formatNumberThreeDecimal(parseToNumber(currentCapacity))) || 0} exceeds contracted value ${this.formatNumberThreeDecimal(parseToNumber(valueCapa))} for contract point ${
-                //       checkNominationPoint?.contract_point_list.find(
-                //         (cl: any) => {
-                //           return cl?.contract_point === find['0'];
-                //         },
-                //       )?.contract_point
-                //     } and gas day ${headDayUse}`,
-                //   );
-                // }
               })
-
-              // const findZone = zoneQualityMaster.find((f: any) => {
-              //   return f?.name === e['row'][0] && f?.entry_exit_id === 2
-              // })
-
-            
             } else if (e['row'][10] === 'Exit' && isMatch(e['row'][9], 'MMscfd')) {
               let checkNominationPoint = nominationPoint?.find((fnp: any) => {
                 return fnp?.nomination_point === e['row'][3]
               })
-              const find = exitValue.find((f: any) => {
+              const find = (exitValue || []).find((f: any) => {
                 return (
                   f['0'] ===
                   checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -3207,13 +2973,15 @@ export class SubmissionFileRefactoredService {
                 const resultEntryExitUseMMscfd = this.findExactMatchingKeyDDMMYYYY(headDayUseConv, headerEntryCDBMMscfd)
 
                 if (!find && resultEntryExitUseMMscfd) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.BAD_REQUEST,
-                      error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
-                    },
-                    HttpStatus.BAD_REQUEST
-                  )
+                  messageError.push(`Point ${e['row'][3]} Incorrect Entry/Exit Type.`)
+
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.BAD_REQUEST,
+                  //     error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
+                  //   },
+                  //   HttpStatus.BAD_REQUEST
+                  // )
                 }
 
                 valueCapa = resultEntryExitUseMMscfd ? (find[resultEntryExitUseMMscfd] === '0' || !!find[resultEntryExitUseMMscfd] ? find[resultEntryExitUseMMscfd] : null) : null
@@ -3233,7 +3001,7 @@ export class SubmissionFileRefactoredService {
                   if (finds) {
                     warningLogDayWeekTemp = warningLogDayWeekTemp?.map((ed: any) => {
                       let neD = ed
-                      if (finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
+                      if (finds && neD && finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
                         neD.energy = +Number(currentCapacity)
                       }
                       return {
@@ -3254,11 +3022,6 @@ export class SubmissionFileRefactoredService {
                   }
                 }
               })
-
-              // const findZone = zoneQualityMaster.find((f: any) => {
-              //   return f?.name === e['row'][0] && f?.entry_exit_id === 2;
-              // });
-
             }
 
             return {
@@ -3287,7 +3050,7 @@ export class SubmissionFileRefactoredService {
               let checkNominationPoint = nominationPoint?.find((fnp: any) => {
                 return fnp?.nomination_point === e['row'][3]
               })
-              const find = entryValue.find((f: any) => {
+              const find = (entryValue || []).find((f: any) => {
                 return (
                   f['0'] ===
                   checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -3315,13 +3078,15 @@ export class SubmissionFileRefactoredService {
                 }
 
                 if (!find && resultEntryExitUse) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.BAD_REQUEST,
-                      error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
-                    },
-                    HttpStatus.BAD_REQUEST
-                  )
+                  messageError.push(`Point ${e['row'][3]} Incorrect Entry/Exit Type.`)
+
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.BAD_REQUEST,
+                  //     error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
+                  //   },
+                  //   HttpStatus.BAD_REQUEST
+                  // )
                 }
 
                 valueCapa = find[resultEntryExitUse] === '0' || !!find[resultEntryExitUse] ? find[resultEntryExitUse] : null // new
@@ -3333,17 +3098,18 @@ export class SubmissionFileRefactoredService {
 
                 let rIndex = e['row'][index] === '0' || !!e['row'][index] ? e['row'][index] : null
                 if (valueCapa === null && !!rIndex) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.FORBIDDEN,
-                      error: 'Nomination Point does not match the Contract Code.'
-                    },
-                    HttpStatus.FORBIDDEN
-                  )
+                  messageError.push(`Nomination Point does not match the Contract Code.`)
+
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.FORBIDDEN,
+                  //     error: 'Nomination Point does not match the Contract Code.'
+                  //   },
+                  //   HttpStatus.FORBIDDEN
+                  // )
                 }
 
                 if (currentCapacity !== null && !!valueCapa) {
-                  // overMaximumHourCapacityRight = true; // ตั้งค่าว่าเกินขีดจำกัด
                   const finds = warningLogDayWeekTemp?.find((f: any) => {
                     return (
                       f?.nomination_point === e['row'][3] &&
@@ -3358,7 +3124,7 @@ export class SubmissionFileRefactoredService {
                   if (finds) {
                     warningLogDayWeekTemp = warningLogDayWeekTemp?.map((ed: any) => {
                       let neD = ed
-                      if (finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
+                      if (finds && neD && finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
                         neD.energy = +Number(currentCapacity)
                       }
                       return {
@@ -3378,41 +3144,21 @@ export class SubmissionFileRefactoredService {
                     })
                   }
                 }
-
-                // // ถ้าค่าปัจจุบันเกินขีดจำกัด
-                // if (
-                //   currentCapacity !== null &&
-                //   Number(currentCapacity) > parseToNumber(valueCapa)
-                // ) {
-                //   overMaximumHourCapacityRight = true; // ตั้งค่าว่าเกินขีดจำกัด
-                //   warningLogDayWeek.push(
-                //     `Nominated Total energy ${(currentCapacity && this.formatNumberThreeDecimal(parseToNumber(currentCapacity))) || 0} exceeds contracted value ${this.formatNumberThreeDecimal(parseToNumber(valueCapa))} for contract point ${
-                //       checkNominationPoint?.contract_point_list.find(
-                //         (cl: any) => {
-                //           return cl?.contract_point === find['0'];
-                //         },
-                //       )?.contract_point
-                //     } and gas day ${headDayUse}`,
-                //   );
-                // }
               })
 
               const findZone = zoneQualityMaster.find((f: any) => {
-                // return f?.name === e['row'][0] && f?.entry_exit_id === 1
                 return f?.name === e['row'][0] && f?.entry_exit_id === 2 // https://app.clickup.com/t/9018502823/86ey4naep
               })
 
               // https://app.clickup.com/t/9018502823/86euzxxt1
-                const v2_sat_heating_value_min = findZone?.zone_master_quality[0]?.v2_sat_heating_value_min;
-                const v2_sat_heating_value_max = findZone?.zone_master_quality[0]?.v2_sat_heating_value_max;
-                const v2_wobbe_index_min = findZone?.zone_master_quality[0]?.v2_wobbe_index_min;
-                const v2_wobbe_index_max = findZone?.zone_master_quality[0]?.v2_wobbe_index_max;
+              const v2_sat_heating_value_min = findZone?.zone_master_quality[0]?.v2_sat_heating_value_min
+              const v2_sat_heating_value_max = findZone?.zone_master_quality[0]?.v2_sat_heating_value_max
+              const v2_wobbe_index_min = findZone?.zone_master_quality[0]?.v2_wobbe_index_min
+              const v2_wobbe_index_max = findZone?.zone_master_quality[0]?.v2_wobbe_index_max
 
               // WI
               if ((parseToNumber(e['row'][11]) < parseToNumber(v2_wobbe_index_min) && v2_wobbe_index_min !== null) || (parseToNumber(e['row'][11]) > parseToNumber(v2_wobbe_index_max) && v2_wobbe_index_max !== null)) {
-               
-
-                const val_ = parseToNumber(e?.row?.[11])
+                const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[11]) || null
 
                 // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                 const validNumbers = Number.isFinite(val_)
@@ -3423,10 +3169,8 @@ export class SubmissionFileRefactoredService {
                 }
               }
               // HV
-              if ((parseToNumber(e['row'][12]) < parseToNumber(v2_sat_heating_value_min) && v2_sat_heating_value_min !== null ) || (parseToNumber(e['row'][12]) > parseToNumber(v2_sat_heating_value_max) && v2_sat_heating_value_max !== null)) {
-               
-
-                const val_ = parseToNumber(e?.row?.[12])
+              if ((parseToNumber(e['row'][12]) < parseToNumber(v2_sat_heating_value_min) && v2_sat_heating_value_min !== null) || (parseToNumber(e['row'][12]) > parseToNumber(v2_sat_heating_value_max) && v2_sat_heating_value_max !== null)) {
+                const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[12]) || null
 
                 // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                 const validNumbers = Number.isFinite(val_)
@@ -3440,7 +3184,7 @@ export class SubmissionFileRefactoredService {
               let checkNominationPoint = nominationPoint?.find((fnp: any) => {
                 return fnp?.nomination_point === e['row'][3]
               })
-              const find = entryValue.find((f: any) => {
+              const find = (entryValue || []).find((f: any) => {
                 return (
                   f['0'] ===
                   checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -3461,13 +3205,15 @@ export class SubmissionFileRefactoredService {
                 const resultEntryExitUseMMscfd = this.findMatchingKeyMMYYYY(headDayUseConv, headerEntryCDBMMscfd)
 
                 if (!find && resultEntryExitUseMMscfd) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.BAD_REQUEST,
-                      error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
-                    },
-                    HttpStatus.BAD_REQUEST
-                  )
+                  messageError.push(`Point ${e['row'][3]} Incorrect Entry/Exit Type.`)
+
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.BAD_REQUEST,
+                  //     error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
+                  //   },
+                  //   HttpStatus.BAD_REQUEST
+                  // )
                 }
 
                 valueCapa = resultEntryExitUseMMscfd ? (find[resultEntryExitUseMMscfd] === '0' || !!find[resultEntryExitUseMMscfd] ? find[resultEntryExitUseMMscfd] : null) : null
@@ -3487,7 +3233,7 @@ export class SubmissionFileRefactoredService {
                   if (finds) {
                     warningLogDayWeekTemp = warningLogDayWeekTemp?.map((ed: any) => {
                       let neD = ed
-                      if (finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
+                      if (finds && neD && finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
                         neD.energy = +Number(currentCapacity)
                       }
                       return {
@@ -3511,7 +3257,6 @@ export class SubmissionFileRefactoredService {
 
               if (e['row'][2] !== '') {
                 const findZone = zoneQualityMaster.find((f: any) => {
-                  // return f?.name === e['row'][0] && f?.entry_exit_id === 1
                   return f?.name === e['row'][0] && f?.entry_exit_id === 2 // https://app.clickup.com/t/9018502823/86ey4naep
                 })
 
@@ -3520,14 +3265,14 @@ export class SubmissionFileRefactoredService {
                 this.ensure3DecimalPlacesSG(e['row'][13], 'SG', e['row'][3] || e['row'][5])
 
                 // https://app.clickup.com/t/9018502823/86euzxxt1
-                const v2_sat_heating_value_min = findZone?.zone_master_quality[0]?.v2_sat_heating_value_min;
-                const v2_sat_heating_value_max = findZone?.zone_master_quality[0]?.v2_sat_heating_value_max;
-                const v2_wobbe_index_min = findZone?.zone_master_quality[0]?.v2_wobbe_index_min;
-                const v2_wobbe_index_max = findZone?.zone_master_quality[0]?.v2_wobbe_index_max;
+                const v2_sat_heating_value_min = findZone?.zone_master_quality[0]?.v2_sat_heating_value_min
+                const v2_sat_heating_value_max = findZone?.zone_master_quality[0]?.v2_sat_heating_value_max
+                const v2_wobbe_index_min = findZone?.zone_master_quality[0]?.v2_wobbe_index_min
+                const v2_wobbe_index_max = findZone?.zone_master_quality[0]?.v2_wobbe_index_max
 
                 // WI
                 if ((parseToNumber(e['row'][11]) < parseToNumber(v2_wobbe_index_min) && v2_wobbe_index_min !== null) || (parseToNumber(e['row'][11]) > parseToNumber(v2_wobbe_index_max) && v2_wobbe_index_max !== null)) {
-                  const val_ = parseToNumber(e?.row?.[11])
+                  const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[11]) || null
 
                   // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                   const validNumbers = Number.isFinite(val_)
@@ -3539,7 +3284,7 @@ export class SubmissionFileRefactoredService {
                 }
                 // HV
                 if ((parseToNumber(e['row'][12]) < parseToNumber(v2_sat_heating_value_min) && v2_sat_heating_value_min !== null) || (parseToNumber(e['row'][12]) > parseToNumber(v2_sat_heating_value_max) && v2_sat_heating_value_max !== null)) {
-                  const val_ = parseToNumber(e?.row?.[12])
+                  const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[12]) || null
 
                   // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                   const validNumbers = Number.isFinite(val_)
@@ -3554,7 +3299,7 @@ export class SubmissionFileRefactoredService {
               let checkNominationPoint = nominationPoint?.find((fnp: any) => {
                 return fnp?.nomination_point === e['row'][3]
               })
-              const find = exitValue.find((f: any) => {
+              const find = (exitValue || []).find((f: any) => {
                 return (
                   f['0'] ===
                   checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -3581,13 +3326,14 @@ export class SubmissionFileRefactoredService {
                   weekBook = false
                 }
                 if (!find && resultEntryExitUse) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.BAD_REQUEST,
-                      error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
-                    },
-                    HttpStatus.BAD_REQUEST
-                  )
+                  messageError.push(`Point ${e['row'][3]} Incorrect Entry/Exit Type.`)
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.BAD_REQUEST,
+                  //     error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
+                  //   },
+                  //   HttpStatus.BAD_REQUEST
+                  // )
                 }
                 valueCapa = find[resultEntryExitUse] === '0' || !!find[resultEntryExitUse] ? find[resultEntryExitUse] : null // new
                 valueCapaArr.push({
@@ -3597,17 +3343,18 @@ export class SubmissionFileRefactoredService {
 
                 let rIndex = e['row'][index] === '0' || !!e['row'][index] ? e['row'][index] : null
                 if (valueCapa === null && !!rIndex) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.FORBIDDEN,
-                      error: 'Nomination Point does not match the Contract Code.'
-                    },
-                    HttpStatus.FORBIDDEN
-                  )
+                  messageError.push(`Nomination Point does not match the Contract Code.`)
+
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.FORBIDDEN,
+                  //     error: 'Nomination Point does not match the Contract Code.'
+                  //   },
+                  //   HttpStatus.FORBIDDEN
+                  // )
                 }
 
                 if (currentCapacity !== null && !!valueCapa) {
-                  // overMaximumHourCapacityRight = true; // ตั้งค่าว่าเกินขีดจำกัด
                   const finds = warningLogDayWeekTemp?.find((f: any) => {
                     return (
                       f?.nomination_point === e['row'][3] &&
@@ -3622,7 +3369,7 @@ export class SubmissionFileRefactoredService {
                   if (finds) {
                     warningLogDayWeekTemp = warningLogDayWeekTemp?.map((ed: any) => {
                       let neD = ed
-                      if (finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
+                      if (finds && neD && finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
                         neD.energy = +Number(currentCapacity)
                       }
                       return {
@@ -3642,34 +3389,12 @@ export class SubmissionFileRefactoredService {
                     })
                   }
                 }
-
-                // // // ถ้าค่าปัจจุบันเกินขีดจำกัด
-                // if (
-                //   currentCapacity !== null &&
-                //   Number(currentCapacity) > parseToNumber(valueCapa)
-                // ) {
-                //   overMaximumHourCapacityRight = true; // ตั้งค่าว่าเกินขีดจำกัด
-                //   warningLogDayWeek.push(
-                //     `Nominated Total energy ${(currentCapacity && this.formatNumberThreeDecimal(parseToNumber(currentCapacity))) || 0} exceeds contracted value ${this.formatNumberThreeDecimal(parseToNumber(valueCapa))} for contract point ${
-                //       checkNominationPoint?.contract_point_list.find(
-                //         (cl: any) => {
-                //           return cl?.contract_point === find['0'];
-                //         },
-                //       )?.contract_point
-                //     } and gas day ${headDayUse}`,
-                //   );
-                // }
               })
-
-              // const findZone = zoneQualityMaster.find((f: any) => {
-              //   return f?.name === e['row'][0] && f?.entry_exit_id === 2
-              // })
-
             } else if (e['row'][10] === 'Exit' && isMatch(e['row'][9], 'MMscfd')) {
               let checkNominationPoint = nominationPoint?.find((fnp: any) => {
                 return fnp?.nomination_point === e['row'][3]
               })
-              const find = exitValue.find((f: any) => {
+              const find = (exitValue || []).find((f: any) => {
                 return (
                   f['0'] ===
                   checkNominationPoint?.contract_point_list.find((cl: any) => {
@@ -3689,13 +3414,15 @@ export class SubmissionFileRefactoredService {
                 const headDayUseConv = getTodayNowDDMMYYYYDfaultAdd7(headDayUse)
                 const resultEntryExitUseMMscfd = this.findMatchingKeyMMYYYY(headDayUseConv, headerEntryCDBMMscfd)
                 if (!find && resultEntryExitUseMMscfd) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.BAD_REQUEST,
-                      error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
-                    },
-                    HttpStatus.BAD_REQUEST
-                  )
+                  messageError.push(`Point ${e['row'][3]} Incorrect Entry/Exit Type.`)
+
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.BAD_REQUEST,
+                  //     error: `Point ${e['row'][3]} Incorrect Entry/Exit Type.`
+                  //   },
+                  //   HttpStatus.BAD_REQUEST
+                  // )
                 }
 
                 valueCapa = resultEntryExitUseMMscfd ? (find[resultEntryExitUseMMscfd] === '0' || !!find[resultEntryExitUseMMscfd] ? find[resultEntryExitUseMMscfd] : null) : null
@@ -3715,7 +3442,7 @@ export class SubmissionFileRefactoredService {
                   if (finds) {
                     warningLogDayWeekTemp = warningLogDayWeekTemp?.map((ed: any) => {
                       let neD = ed
-                      if (finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
+                      if (finds && neD && finds?.headDayUse === neD?.headDayUse && finds?.contractPoint === neD?.contractPoint && finds?.nomination_point === ed?.nomination_point && isMatch(finds.unit, ed.unit)) {
                         neD.energy = +Number(currentCapacity)
                       }
                       return {
@@ -3736,12 +3463,6 @@ export class SubmissionFileRefactoredService {
                   }
                 }
               })
-
-              // const findZone = zoneQualityMaster.find((f: any) => {
-              //   return f?.name === e['row'][0] && f?.entry_exit_id === 2;
-              // });
-
-            
             }
             return {
               ...e,
@@ -3759,23 +3480,25 @@ export class SubmissionFileRefactoredService {
         }
 
         if (weekBook) {
-          throw new HttpException(
-            {
-              status: HttpStatus.FORBIDDEN,
-              error: 'Nomination Point does not match the Contract Code.'
-            },
-            HttpStatus.FORBIDDEN
-          )
+          messageError.push(`Nomination Point does not match the Contract Code.`)
+
+          // throw new HttpException(
+          //   {
+          //     status: HttpStatus.FORBIDDEN,
+          //     error: 'Nomination Point does not match the Contract Code.'
+          //   },
+          //   HttpStatus.FORBIDDEN
+          // )
         }
       }
 
       let groupedBywarningLogHrTemp: any = Object.values(
         warningLogHrTemp.reduce((acc, item) => {
-          const key = `${item?.hr}|${item?.contractPoint}|${item?.value}|${item?.unit}`
+          const key = item && `${item?.hr}|${item?.contractPoint}|${item?.value}|${item?.unit}` || ""
           if (!acc[key]) {
             acc[key] = {
-              hr: item.hr,
-              contractPoint: item.contractPoint,
+              hr: item && item.hr || "",
+              contractPoint: item && item.contractPoint || null,
               value: item.value,
               valueDay: item.valueDay,
               unit: item.unit,
@@ -3789,7 +3512,6 @@ export class SubmissionFileRefactoredService {
 
       for (let ig = 0; ig < groupedBywarningLogHrTemp.length; ig++) {
         const energyValues = groupedBywarningLogHrTemp[ig]?.data?.reduce((accumulator, currentValue) => accumulator + parseToNumber(currentValue?.energy) || 0, 0)
-        // overMaximumHourCapacityRight = true
 
         if (parseToNumber3Decimal(energyValues) > parseToNumber3Decimal(groupedBywarningLogHrTemp[ig]?.value)) {
           if (isMatch(groupedBywarningLogHrTemp[ig]?.unit, 'MMscfd')) {
@@ -3809,7 +3531,7 @@ export class SubmissionFileRefactoredService {
           const key = `${item?.contractPoint}|${item?.value}|${item?.unit}`
           if (!acc[key]) {
             acc[key] = {
-              contractPoint: item.contractPoint,
+              contractPoint: item && item.contractPoint || null,
               value: item.value,
               valueDay: item.valueDay,
               unit: item.unit,
@@ -3826,13 +3548,8 @@ export class SubmissionFileRefactoredService {
           let cal_ =
             accumulator +
               currentValue?.data?.reduce((accumulator, currentValue) => {
-                // if(groupedBywarningLogTotalTemp[ig]?.contractPoint === "Exit-G" ){
-                // }
                 return accumulator + parseToNumber(currentValue?.energy) || 0
               }, 0) || 0
-
-          // if(groupedBywarningLogTotalTemp[ig]?.contractPoint === "Exit-G" ){
-          // }
 
           return cal_
         }, 0)
@@ -3856,7 +3573,7 @@ export class SubmissionFileRefactoredService {
           if (!acc[key]) {
             acc[key] = {
               headDayUse: item.headDayUse,
-              contractPoint: item.contractPoint,
+              contractPoint: item && item.contractPoint || null,
               value: item.value,
               unit: item.unit,
               data: []
@@ -3887,77 +3604,56 @@ export class SubmissionFileRefactoredService {
         }
       }
 
-      // throw new HttpException(
-      //   {
-      //     status: HttpStatus.BAD_REQUEST,
-      //     error: 'oks.',
-      //   },
-      //   HttpStatus.BAD_REQUEST,
-      // );
-      // warningLogDayWeekTemp
-
-      // https://app.clickup.com/t/86etrq2b6
-
-      if (checkEmtry?.filter((f: any) => f === true).length === getsValue.length) {
-        throw new HttpException(
-          {
-            status: HttpStatus.FORBIDDEN,
-            error: 'Nomination Point does not match Emtry All.'
-          },
-          HttpStatus.FORBIDDEN
-        )
+      // const otherTypeNameList = Array.from(new Set((caseData?.columnOther || []).map((columnOther: any) => columnOther[3] || columnOther[4] || columnOther[5] || '')))
+      const otherTypeIndexList = (caseData?.columnOther || []).map((columnOther: any) => columnOther.ix+1)
+      if(otherTypeIndexList.length > 0){
+        const otherTypeListText = otherTypeIndexList.length === 1
+          ? (otherTypeIndexList[0] ?? '')
+          : otherTypeIndexList.length === 2
+            ? `${otherTypeIndexList[0]} and ${otherTypeIndexList[1]}`
+            : `${otherTypeIndexList.slice(0, -1).join(', ')}, and ${otherTypeIndexList[otherTypeIndexList.length - 1]}`;
+        warningOtherTypePoint.push(`Row ${otherTypeListText} will not be used due to incomplete details.`)
       }
 
-      if(nomination_type_id === 1){ // https://app.clickup.com/t/9018502823/86exmx0wd
+      // https://app.clickup.com/t/86etrq2b6
+      if (checkEmtry?.filter((f: any) => f === true).length === getsValue.length) {
+        messageError.push(`Nomination Point does not match Emtry All.`)
+        // throw new HttpException(
+        //   {
+        //     status: HttpStatus.FORBIDDEN,
+        //     error: 'Nomination Point does not match Emtry All.'
+        //   },
+        //   HttpStatus.FORBIDDEN
+        // )
+      }
+
+      if (nomination_type_id === 1) {
+        // https://app.clickup.com/t/9018502823/86exmx0wd
         const validateListForEmptyValue = []
         getsValue?.map((item: any) => {
           item?.row?.slice(14)?.map((value: any, index: number) => {
-            if((value === '' || value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) && index < 24){
-              const pointName = (item.row[3] || item.row[4] || item.row[5])
+            if ((value === '' || value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) && index < 24) {
+              const pointName = item.row[3] || item.row[4] || item.row[5]
               const unit = item.row[9]
               const hour = index + 1
-              validateListForEmptyValue.push(`Missing hourly value. Please specify all hourly values. ${pointName ? `Check point ${pointName}` : ''} ${unit ? `Unit ${unit}` : ''} ${hour ? `at hour ${hour}` : ''}.`);
+              // validateListForEmptyValue.push(`Missing hourly value. Please specify all hourly values. ${pointName ? `Check point ${pointName}` : ''} ${unit ? `Unit ${unit}` : ''} ${hour ? `at hour ${hour}` : ''}.`)
+              messageError.push(`Missing hourly value. Please specify all hourly values. ${pointName ? `Check point ${pointName}` : ''} ${unit ? `Unit ${unit}` : ''} ${hour ? `at hour ${hour}` : ''}.`)
             }
           })
         })
-        if (validateListForEmptyValue.length > 0) {
-          this.logger.log(`[ERROR] ${validateListForEmptyValue.join('\n')}`)
-          const message = validateListForEmptyValue.join('<br/>')
-          throw new HttpException(
-            {
-              status: HttpStatus.BAD_REQUEST,
-              error: message
-            },
-            HttpStatus.BAD_REQUEST
-          )
-        }
 
-          // const checkEmptyOnce = getsValue?.map((item: any) => {
-          //   return item?.row
-          //     ?.slice(14)
-          //     ?.some(
-          //       (value: any) =>
-          //         value === '' ||
-          //         value === null ||
-          //         value === undefined ||
-          //         (typeof value === 'string' && value.trim() === '')
-          //     );
-          // });
-      
-          // console.log('checkEmptyOnce : ', checkEmptyOnce?.find((f:any) => f === true));
-          // if(!!checkEmptyOnce?.find((f:any) => f === true)){
-          //    throw new HttpException(
-          //     {
-          //       status: HttpStatus.FORBIDDEN,
-          //       error: 'Nomination Point does not match Empty.'
-          //     },
-          //     HttpStatus.FORBIDDEN
-          //   )
-          // }
-
-        }
-
-      // console.log('checkEmtry : ', checkEmtry);
+        // if (validateListForEmptyValue.length > 0) {
+        //   this.logger.log(`[ERROR] ${validateListForEmptyValue.join('\n')}`)
+        //   const message = validateListForEmptyValue.join('<br/>')
+        //   throw new HttpException(
+        //     {
+        //       status: HttpStatus.BAD_REQUEST,
+        //       error: message
+        //     },
+        //     HttpStatus.BAD_REQUEST
+        //   )
+        // }
+      }
 
       // sheet 2 check
       const indexSheetLastValue = sheet2.data.findIndex((row: any) => row.includes('*'))
@@ -3965,69 +3661,6 @@ export class SubmissionFileRefactoredService {
       for (let i = 0; i < sheet2?.data.length; i++) {
         if (i > 1 && i < indexSheetLastValue) {
           fullShee2Data.push(sheet2?.data[i])
-          const zone = sheet2?.data[i][0]
-          const contractPoint = sheet2?.data[i][1]
-          // CO2 2=>(v2_carbon_dioxide_min, v2_carbon_dioxide_max) Carbon dioxide
-          // C1 3=>(v2_methane_min, v2_methane_max) Methane
-          // C2 4=>
-          // C3 5=>
-          // iC4 6=>
-          // nC4 7=>
-          // iC5 8=>
-          // nC5 9=>
-          // C6 10=>
-          // C7 11=>
-          // C2+ 12=>(v2_c2_plus_min, v2_c2_plus_max) C2+
-          // N2 13=>(v2_nitrogen_min, v2_nitrogen_max) Nitrogen
-          // O2 14=>(v2_oxygen_min, v2_oxygen_max) Oxgen
-          // H2S 15=>(v2_hydrogen_sulfide_min, v2_hydrogen_sulfide_max) Hydrogen Sulfide
-          // S 16=>(v2_total_sulphur_min, v2_total_sulphur_max) Total Sulphur
-          // Hg 17=>(v2_mercury_min, v2_mercury_max) Mercury
-
-          // check จาก contract code ด้วย ยังไม่ได้ทำ
-          const ckContractPoint = await this.prisma.nomination_point.findFirst({
-            where: {
-              zone: {
-                name: zone
-              },
-              nomination_point: contractPoint
-            }
-          })
-          if (ckContractPoint) {
-            // const findZone = zoneQualityMaster.find((f: any) => { return f?.name === sheet2?.data[i][0] })
-            // // CO2
-            // if(Number(sheet2?.data[i][2]) < Number(findZone?.zone_master_quality[0]?.v2_carbon_dioxide_min) || Number(sheet2?.data[i][2]) > Number(findZone?.zone_master_quality[0]?.v2_carbon_dioxide_max) ){
-            //   sheet2Quality.push(`For nomination point ${sheet2?.data[i][1]}, WI value (${Number(sheet2?.data[i][2])}) is out of zone limits (${Number(findZone?.zone_master_quality[0]?.v2_carbon_dioxide_min)} to ${Number(findZone?.zone_master_quality[0]?.v2_carbon_dioxide_max)})`);
-            // }
-            // // C1
-            // if(Number(sheet2?.data[i][3]) < Number(findZone?.zone_master_quality[0]?.v2_methane_min) || Number(sheet2?.data[i][3]) > Number(findZone?.zone_master_quality[0]?.v2_methane_max) ){
-            //   sheet2Quality.push(`For nomination point ${sheet2?.data[i][1]}, WI value (${Number(sheet2?.data[i][3])}) is out of zone limits (${Number(findZone?.zone_master_quality[0]?.v2_methane_min)} to ${Number(findZone?.zone_master_quality[0]?.v2_methane_max)})`);
-            // }
-            // // C2+
-            // if(Number(sheet2?.data[i][12]) < Number(findZone?.zone_master_quality[0]?.v2_c2_plus_min) || Number(sheet2?.data[i][12]) > Number(findZone?.zone_master_quality[0]?.v2_c2_plus_max) ){
-            //   sheet2Quality.push(`For nomination point ${sheet2?.data[i][1]}, WI value (${Number(sheet2?.data[i][12])}) is out of zone limits (${Number(findZone?.zone_master_quality[0]?.v2_c2_plus_min)} to ${Number(findZone?.zone_master_quality[0]?.v2_c2_plus_max)})`);
-            // }
-            // // N2
-            // if(Number(sheet2?.data[i][13]) < Number(findZone?.zone_master_quality[0]?.v2_nitrogen_min) || Number(sheet2?.data[i][13]) > Number(findZone?.zone_master_quality[0]?.v2_nitrogen_max) ){
-            //   sheet2Quality.push(`For nomination point ${sheet2?.data[i][1]}, WI value (${Number(sheet2?.data[i][13])}) is out of zone limits (${Number(findZone?.zone_master_quality[0]?.v2_nitrogen_min)} to ${Number(findZone?.zone_master_quality[0]?.v2_nitrogen_max)})`);
-            // }
-            // // O2
-            // if(Number(sheet2?.data[i][14]) < Number(findZone?.zone_master_quality[0]?.v2_oxygen_min) || Number(sheet2?.data[i][14]) > Number(findZone?.zone_master_quality[0]?.v2_oxygen_max) ){
-            //   sheet2Quality.push(`For nomination point ${sheet2?.data[i][1]}, WI value (${Number(sheet2?.data[i][14])}) is out of zone limits (${Number(findZone?.zone_master_quality[0]?.v2_oxygen_min)} to ${Number(findZone?.zone_master_quality[0]?.v2_oxygen_max)})`);
-            // }
-            // // H2S
-            // if(Number(sheet2?.data[i][15]) < Number(findZone?.zone_master_quality[0]?.v2_hydrogen_sulfide_min) || Number(sheet2?.data[i][15]) > Number(findZone?.zone_master_quality[0]?.v2_hydrogen_sulfide_max) ){
-            //   sheet2Quality.push(`For nomination point ${sheet2?.data[i][1]}, WI value (${Number(sheet2?.data[i][15])}) is out of zone limits (${Number(findZone?.zone_master_quality[0]?.v2_hydrogen_sulfide_min)} to ${Number(findZone?.zone_master_quality[0]?.v2_hydrogen_sulfide_max)})`);
-            // }
-            // // S
-            // if(Number(sheet2?.data[i][16]) < Number(findZone?.zone_master_quality[0]?.v2_total_sulphur_min) || Number(sheet2?.data[i][16]) > Number(findZone?.zone_master_quality[0]?.v2_total_sulphur_max) ){
-            //   sheet2Quality.push(`For nomination point ${sheet2?.data[i][1]}, WI value (${Number(sheet2?.data[i][16])}) is out of zone limits (${Number(findZone?.zone_master_quality[0]?.v2_total_sulphur_min)} to ${Number(findZone?.zone_master_quality[0]?.v2_total_sulphur_max)})`);
-            // }
-            // // Hg
-            // if(Number(sheet2?.data[i][17]) < Number(findZone?.zone_master_quality[0]?.v2_mercury_min) || Number(sheet2?.data[i][17]) > Number(findZone?.zone_master_quality[0]?.v2_mercury_max) ){
-            //   sheet2Quality.push(`For nomination point ${sheet2?.data[i][1]}, WI value (${Number(sheet2?.data[i][17])}) is out of zone limits (${Number(findZone?.zone_master_quality[0]?.v2_mercury_min)} to ${Number(findZone?.zone_master_quality[0]?.v2_mercury_max)})`);
-            // }
-          }
         }
       }
 
@@ -4054,16 +3687,6 @@ export class SubmissionFileRefactoredService {
           columnOther: this.transformColumn(caseData?.columnOther)
         }
       }
-      // 1 = columnPointId
-      // 2 = columnPointIdConcept
-      // 3 = columnType มี NONTPA
-      // 4 = columnParkUnparkinstructedFlows
-      // 5 = columnWHV
-
-      // เพิ่มเงื่อนไข (ยังไม่ได้ทำ)
-      // https://app.clickup.com/t/86et0vtn2
-      // v2.0.16 Value Non TPA มากกว่า Nom ไม่มี Error แจ้งเตือน
-
       let nominationRowJson: any = [
         ...nominationFullJson?.typeDoc?.columnPointId.map((e: any) => {
           return {
@@ -4142,50 +3765,25 @@ export class SubmissionFileRefactoredService {
       function ensure4DecimalPlaces(numStr: any): any {
         const s = String(numStr).trim()
 
-        // (ถ้าคุณมี comma เช่น 1,234.5 ให้เปิดบรรทัดนี้)
-        // const s2 = s.replace(/,/g, "");
-
-        // รับเฉพาะรูปแบบตัวเลขปกติ เช่น -12, 12.3, 0.591, 12.
         if (!/^[+-]?\d+(\.\d*)?$/.test(s)) {
           throw new Error(`Invalid number format: "${numStr}"`)
         }
 
         const [intPart, fracPart = ''] = s.split('.')
         if (fracPart.length > 4) {
-          throw new HttpException(
-            {
-              status: HttpStatus.FORBIDDEN,
-              error: 'Invalid format: Column SG must have exactly 4 decimal places (e.g., 0.0000).'
-            },
-            HttpStatus.FORBIDDEN
-          )
+          messageError.push(`Invalid format: Column SG must have exactly 4 decimal places (e.g., 0.0000).`)
+          // throw new HttpException(
+          //   {
+          //     status: HttpStatus.FORBIDDEN,
+          //     error: 'Invalid format: Column SG must have exactly 4 decimal places (e.g., 0.0000).'
+          //   },
+          //   HttpStatus.FORBIDDEN
+          // )
         }
 
         return `${intPart}.${fracPart.padEnd(4, '0')}`
       }
 
-      // function ensure3DecimalPlacesCK(numStr: any): any {
-      //   const s = String(numStr).trim();
-
-      //   // รับเฉพาะรูปแบบตัวเลขปกติ เช่น -12, 12.3, 0.591, 12.
-      //   if (!/^[+-]?\d+(\.\d*)?$/.test(s)) {
-      //     throw new Error(`Invalid number format: "${numStr}"`);
-      //   }
-      //   const [intPart, fracPart = ""] = s.split(".");
-      //   if (fracPart.length > 3) {
-      //     throw new HttpException(
-      //       {
-      //         status: HttpStatus.FORBIDDEN,
-      //         error: 'Invalid format: must have exactly 3 decimal places (e.g., 0.000).',
-      //       },
-      //       HttpStatus.FORBIDDEN,
-      //     );
-      //   }
-
-      //   return numStr;
-      // }
-
-      // SG[13] เช็ค เติม 4 ตำแหน่ง ถ้าเกิน error
       nominationFullJson.valueData = nominationFullJson.valueData?.map((e_: any) => {
         // data
         let data_: any = e_
@@ -4197,10 +3795,8 @@ export class SubmissionFileRefactoredService {
         }
       })
       nominationRowJson = nominationRowJson?.map((e_: any) => {
-        // data
         const {data, ...nE_} = e_
         if (data[13]) {
-          // check
           data[13] = ensure4DecimalPlaces(data[13])
           return {
             ...nE_,
@@ -4217,13 +3813,14 @@ export class SubmissionFileRefactoredService {
       nominationRowJson = nominationRowJson?.map((e_: any) => {
         if (e_?.data[2] !== '' && e_?.data[9]?.toUpperCase() === 'MMSCFD' && e_?.data[10]?.toUpperCase() === 'ENTRY') {
           if (!!!e_?.data[11] || !!!e_?.data[12] || !!!e_?.data[13]) {
-            throw new HttpException(
-              {
-                status: HttpStatus.FORBIDDEN,
-                error: 'Missing required data: HV, WI, and SG must be provided for Entry points using MMSCFD unit.'
-              },
-              HttpStatus.FORBIDDEN
-            )
+            messageError.push(`Missing required data: HV, WI, and SG must be provided for Entry points using MMSCFD unit.`)
+            // throw new HttpException(
+            //   {
+            //     status: HttpStatus.FORBIDDEN,
+            //     error: 'Missing required data: HV, WI, and SG must be provided for Entry points using MMSCFD unit.'
+            //   },
+            //   HttpStatus.FORBIDDEN
+            // )
           }
         }
         return e_
@@ -4235,7 +3832,6 @@ export class SubmissionFileRefactoredService {
           AND: [
             {
               start_date: {
-                // lte: todayEnd, // start_date ต้องก่อนหรือเท่ากับสิ้นสุดวันนี้
                 lte: getTodayEndDDMMYYYYDfaultAdd7(startDateEx).toDate() // start_date ต้องก่อนหรือเท่ากับสิ้นสุดวันนี้
               }
             },
@@ -4244,7 +3840,6 @@ export class SubmissionFileRefactoredService {
                 {
                   end_date: null
                 }, // ถ้า end_date เป็น null
-                // { end_date: { gte: todayStart } }, // ถ้า end_date ไม่เป็น null ต้องหลังหรือเท่ากับเริ่มต้นวันนี้
                 {
                   end_date: {
                     gte: getTodayStartDDMMYYYYDfaultAdd7(startDateEx).toDate()
@@ -4275,14 +3870,14 @@ export class SubmissionFileRefactoredService {
                   return Number.isNaN(n)
                 }
                 if (isNotNumber(ee_)) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.FORBIDDEN,
-                      // error: `Point: ${e_?.data[3]} Value ${ee_} NOT Number.`,
-                      error: `Point ${e_?.data[3]}: Invalid input. Only numeric values are allowed in H1–H24 and Total columns.` // https://app.clickup.com/t/86euzxxgg
-                    },
-                    HttpStatus.FORBIDDEN
-                  )
+                  messageError.push(`Point ${e_?.data[3]}: Invalid input. Only numeric values are allowed in H1–H24 and Total columns.`)
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.FORBIDDEN,
+                  //     error: `Point ${e_?.data[3]}: Invalid input. Only numeric values are allowed in H1–H24 and Total columns.` // https://app.clickup.com/t/86euzxxgg
+                  //   },
+                  //   HttpStatus.FORBIDDEN
+                  // )
                 }
                 const n = Number(ee_)
 
@@ -4291,14 +3886,16 @@ export class SubmissionFileRefactoredService {
                 if (!fOther) {
                   // ห้ามมีติดลบ
                   if (isNegative) {
-                    throw new HttpException(
-                      {
-                        status: HttpStatus.FORBIDDEN,
-                        // error: `Point: ${e_?.data[3] || e_?.data[5]} [H${i - 14 + 1}] Value ${ee_} Positive.`,
-                        error: `Invalid Gas Quality data. Negative values are not allowed ${e_?.data[3] || e_?.data[5]}.` // https://app.clickup.com/t/86euzxxq9
-                      },
-                      HttpStatus.FORBIDDEN
-                    )
+                    messageError.push(`Invalid Gas Quality data. Negative values are not allowed ${e_?.data[3] || e_?.data[5]}.`)
+
+                    // throw new HttpException(
+                    //   {
+                    //     status: HttpStatus.FORBIDDEN,
+                    //     // error: `Point: ${e_?.data[3] || e_?.data[5]} [H${i - 14 + 1}] Value ${ee_} Positive.`,
+                    //     error: `Invalid Gas Quality data. Negative values are not allowed ${e_?.data[3] || e_?.data[5]}.` // https://app.clickup.com/t/86euzxxq9
+                    //   },
+                    //   HttpStatus.FORBIDDEN
+                    // )
                   }
                 }
                 nomSum = parseToNumber6Decimal(nomSum + n) // ปัดเศษเพื่อป้องกันการคำนวณผิดพลาดของ node ที่ตัวเลขจะเคลื่อนไป 0.00000000001 ส่วนที่ปัดเศษที่ตำแหน่งที่ 6 เพราะ nom file ไม่ให้มีตัวเลขทศนิยมมากกว่า 4 ตำแหน่ง
@@ -4319,14 +3916,15 @@ export class SubmissionFileRefactoredService {
                   return Number.isNaN(n)
                 }
                 if (isNotNumber(ee_)) {
-                  throw new HttpException(
-                    {
-                      status: HttpStatus.FORBIDDEN,
-                      // error: `Point: ${e_?.data[3]} Value ${ee_} NOT Number.`,
-                      error: `Point ${e_?.data[3]}: Invalid input. Only numeric values are allowed in each day columns.` // https://app.clickup.com/t/86euzxxgg
-                    },
-                    HttpStatus.FORBIDDEN
-                  )
+                  messageError.push(`Point ${e_?.data[3]}: Invalid input. Only numeric values are allowed in each day columns.`)
+
+                  // throw new HttpException(
+                  //   {
+                  //     status: HttpStatus.FORBIDDEN,
+                  //     error: `Point ${e_?.data[3]}: Invalid input. Only numeric values are allowed in each day columns.` // https://app.clickup.com/t/86euzxxgg
+                  //   },
+                  //   HttpStatus.FORBIDDEN
+                  // )
                 }
                 const n = Number(ee_)
                 const isNegative = Number.isFinite(n) && n < 0
@@ -4334,14 +3932,15 @@ export class SubmissionFileRefactoredService {
                 if (!fOther) {
                   // ห้ามมีติดลบ
                   if (isNegative) {
-                    throw new HttpException(
-                      {
-                        status: HttpStatus.FORBIDDEN,
-                        // error: `Point: ${e_?.data[3] || e_?.data[5]} [${dayjs(startDateEx, "DD/MM/YYYY").add(i - 14, "day").format("DD/MM/YYYY")}] Value ${ee_} Positive.`,
-                        error: `Invalid Gas Quality data. Negative values are not allowed ${e_?.data[3] || e_?.data[5]}.` // https://app.clickup.com/t/86euzxxq9
-                      },
-                      HttpStatus.FORBIDDEN
-                    )
+                    messageError.push(`Invalid Gas Quality data. Negative values are not allowed ${e_?.data[3] || e_?.data[5]}.`)
+
+                    // throw new HttpException(
+                    //   {
+                    //     status: HttpStatus.FORBIDDEN,
+                    //     error: `Invalid Gas Quality data. Negative values are not allowed ${e_?.data[3] || e_?.data[5]}.` // https://app.clickup.com/t/86euzxxq9
+                    //   },
+                    //   HttpStatus.FORBIDDEN
+                    // )
                   }
                 }
               } else {
@@ -4354,13 +3953,15 @@ export class SubmissionFileRefactoredService {
         if (String(tabType) === '1') {
           const total_ = Number(e_?.data?.[38])
           if (nomSum !== total_) {
-            throw new HttpException(
-              {
-                status: HttpStatus.FORBIDDEN,
-                error: `The total value should be equal to the summatory of 24 hours for ${e_?.data?.[3] || e_?.data?.[5]}.`
-              },
-              HttpStatus.FORBIDDEN
-            )
+            messageError.push(`The total value should be equal to the summatory of 24 hours for ${e_?.data?.[3] || e_?.data?.[5]}.`)
+
+            // throw new HttpException(
+            //   {
+            //     status: HttpStatus.FORBIDDEN,
+            //     error: `The total value should be equal to the summatory of 24 hours for ${e_?.data?.[3] || e_?.data?.[5]}.`
+            //   },
+            //   HttpStatus.FORBIDDEN
+            // )
           }
         }
 
@@ -4376,34 +3977,29 @@ export class SubmissionFileRefactoredService {
             point: e_?.data[3]
           }
         })
-      const unique_checkSheet1Entry = Array.from(new Map(checkSheet1Entry.map((o) => [`${o.zone}__${o.point}`, o])).values())
+        const unique_checkSheet1Entry = Array.from(new Map(checkSheet1Entry.map((o) => [`${o.zone}__${o.point}`, o])).values())
       // Validate มากเกินไม่ได้ ขาดไม่ได้
       if ([...new Set(nominationFullJsonSheet2?.valueData?.map((e_: any) => e_?.[1]))]?.length !== unique_checkSheet1Entry?.length) {
-        console.log('unique_checkSheet1Entry : ', unique_checkSheet1Entry);
-        console.log('nominationFullJsonSheet2 : ', nominationFullJsonSheet2);
         const diff = [...new Set(nominationFullJsonSheet2?.valueData?.map((e_: any) => e_?.[1]))].filter((item) => !unique_checkSheet1Entry?.map((e: any) => e?.point).includes(item))
-        if(nominationFullJsonSheet2?.valueData?.length > unique_checkSheet1Entry?.length){
+        if (nominationFullJsonSheet2?.valueData?.length > unique_checkSheet1Entry?.length) {
+          messageError.push(`Gas Quality data is not match ${diff?.join(',')}.`)
+          // throw new HttpException(
+          //   {
+          //     status: HttpStatus.FORBIDDEN,
+          //     error: `Gas Quality data is not match ${diff?.join(',')}.` // https://app.clickup.com/t/9018502823/86euzxxq9
+          //   },
+          //   HttpStatus.FORBIDDEN
+          // )
+        } else {
+          messageError.push(`Gas Quality data have not been received for all nominated entry points.`)
 
-          throw new HttpException(
-            {
-              status: HttpStatus.FORBIDDEN,
-              // error: 'Point Quantity is not match Sheet Quality.', // https://app.clickup.com/t/86ey293yf
-              // error: `Gas Quality data is not valid for exit point ${diff?.join(',')}`
-              error: `Gas Quality data is not match ${diff?.join(',')}.` // https://app.clickup.com/t/9018502823/86euzxxq9
-            },
-            HttpStatus.FORBIDDEN
-          )
-        }else{
-
-          throw new HttpException(
-            {
-              status: HttpStatus.FORBIDDEN,
-              // error: 'Point Quantity is not match Sheet Quality.', // https://app.clickup.com/t/86ey293yf
-              // error: `Gas Quality data is not valid for exit point ${diff?.join(',')}`
-              error: `Gas Quality data have not been received for all nominated entry points.`
-            },
-            HttpStatus.FORBIDDEN
-          )
+          // throw new HttpException(
+          //   {
+          //     status: HttpStatus.FORBIDDEN,
+          //     error: `Gas Quality data have not been received for all nominated entry points.`
+          //   },
+          //   HttpStatus.FORBIDDEN
+          // )
         }
       }
 
@@ -4421,14 +4017,15 @@ export class SubmissionFileRefactoredService {
         })
         // point ไม่มีตรงใน sheet1
         if (!findPoint) {
-          throw new HttpException(
-            {
-              status: HttpStatus.FORBIDDEN,
-              // error: 'Point is not match Sheet Quality.',
-              error: `Gas Quality data is not match ${diff2?.map((e: any) => e?.[1])?.join(',')}`
-            },
-            HttpStatus.FORBIDDEN
-          )
+          messageError.push(`Gas Quality data is not match ${diff2?.map((e: any) => e?.[1])?.join(',')}.`)
+
+          // throw new HttpException(
+          //   {
+          //     status: HttpStatus.FORBIDDEN,
+          //     error: `Gas Quality data is not match ${diff2?.map((e: any) => e?.[1])?.join(',')}`
+          //   },
+          //   HttpStatus.FORBIDDEN
+          // )
         }
         for (let i = 2; i <= 17; i++) {
           if (e_[i]) {
@@ -4436,35 +4033,39 @@ export class SubmissionFileRefactoredService {
             const isNegative = Number.isFinite(n) && n < 0
             // ห้ามมีติดลบ
             if (!!!e_[i]) {
-              throw new HttpException(
-                {
-                  status: HttpStatus.FORBIDDEN,
-                  error: `Missing Gas Quality data. All Fields must be filled ${e_?.[1]}.` // https://app.clickup.com/t/86euzxxq9
-                },
-                HttpStatus.FORBIDDEN
-              )
+              messageError.push(`Missing Gas Quality data. All Fields must be filled ${e_ && e_?.[1] || ""}.`)
+
+              // throw new HttpException(
+              //   {
+              //     status: HttpStatus.FORBIDDEN,
+              //     error: `Missing Gas Quality data. All Fields must be filled ${e_?.[1]}.` // https://app.clickup.com/t/86euzxxq9
+              //   },
+              //   HttpStatus.FORBIDDEN
+              // )
             }
 
             if (isNegative) {
-              throw new HttpException(
-                {
-                  status: HttpStatus.FORBIDDEN,
-                  // error: 'Template is not match Sheet Quality Positive.',
-                  error: `Invalid Gas Quality data. Negative values are not allowed ${e_?.[1]}.`
-                },
-                HttpStatus.FORBIDDEN
-              )
+              messageError.push(`Invalid Gas Quality data. Negative values are not allowed ${e_ && e_?.[1] || ""}.`)
+
+              // throw new HttpException(
+              //   {
+              //     status: HttpStatus.FORBIDDEN,
+              //     error: `Invalid Gas Quality data. Negative values are not allowed ${e_?.[1]}.`
+              //   },
+              //   HttpStatus.FORBIDDEN
+              // )
             }
           } else {
             // ห้ามว่าง
-            throw new HttpException(
-              {
-                status: HttpStatus.FORBIDDEN,
-                // error: 'Template is not match Sheet Quality Empty.',
-                error: `Missing Gas Quality data. All Fields must be filled ${e_?.[1]}.`
-              },
-              HttpStatus.FORBIDDEN
-            )
+            messageError.push(`Missing Gas Quality data. All Fields must be filled ${e_ && e_?.[1] || ""}.`)
+
+            // throw new HttpException(
+            //   {
+            //     status: HttpStatus.FORBIDDEN,
+            //     error: `Missing Gas Quality data. All Fields must be filled ${e_?.[1]}.`
+            //   },
+            //   HttpStatus.FORBIDDEN
+            // )
           }
 
           const isNotNumber = (v: any) => {
@@ -4477,20 +4078,21 @@ export class SubmissionFileRefactoredService {
             return Number.isNaN(n)
           }
           if (isNotNumber(e_[i])) {
-            throw new HttpException(
-              {
-                status: HttpStatus.FORBIDDEN,
-                error: `Quality : Invalid input. Only numeric values are allowed in these columns.` // https://app.clickup.com/t/86euzxxgg
-              },
-              HttpStatus.FORBIDDEN
-            )
+            messageError.push(`Quality : Invalid input. Only numeric values are allowed in these columns.`)
+
+            // throw new HttpException(
+            //   {
+            //     status: HttpStatus.FORBIDDEN,
+            //     error: `Quality : Invalid input. Only numeric values are allowed in these columns.` // https://app.clickup.com/t/86euzxxgg
+            //   },
+            //   HttpStatus.FORBIDDEN
+            // )
           }
         }
 
         return e_
       })
 
-      // return
       const responseUpFile = await uploadFilsTemp(fileOriginal)
       const nominationCount = await this.prisma.query_shipper_nomination_file.count({
         where: {
@@ -4499,26 +4101,15 @@ export class SubmissionFileRefactoredService {
             gte: getTodayStartAdd7().toDate(), // เริ่มต้นวันตามเวลาประเทศไทย
             lte: getTodayEndAdd7().toDate() // สิ้นสุดวันตามเวลาประเทศไทย
           }
-          // AND: [
-          //   {
-          //     OR: [
-          //       { del_flag: false },
-          //       { del_flag: null }
-          //     ]
-          //   }
-          // ],
         }
       })
 
       let nomination_code = `${getTodayNow().format('YYYYMMDD')}-${nomination_type_id === 1 ? 'DNM' : 'WNM'}-${String(nominationCount + 1).padStart(4, '0')}`
 
-      let warningAll = [...sheet1Quality, ...sheet2Quality, ...warningLogHr, ...warningLogDayWeek, ...warningLogDay]
+      let warningAll = [...sheet1Quality, ...sheet2Quality, ...warningLogHr, ...warningLogDayWeek, ...warningLogDay, ...warningOtherTypePoint]
 
       // ===== STEP 29: WARNING HANDLING =====
       const finalData = {
-        // sheet1,
-        // sheet2,
-        // sheet3,
         startDateExConv,
         nomination_code: nomination_code,
         dataInfo: {
@@ -4540,6 +4131,7 @@ export class SubmissionFileRefactoredService {
         warningLogHr: warningLogHr,
         warningLogDay: warningLogDay,
         warningLogDayWeek: warningLogDayWeek,
+        warningOtherTypePoint: warningOtherTypePoint,
         warningAll,
         informationData
         // exampleBookingFullJson: bookingFullJson,
@@ -4552,9 +4144,7 @@ export class SubmissionFileRefactoredService {
           contract_code_id: Number(contract_code_id),
           nomination_type_id: Number(nomination_type_id),
           gas_day: getTodayNowDDMMYYYYDfaultAdd7(startDateEx).toDate(),
-          // query_shipper_nomination_status: {
-          //   id: { notIn: [2, 3, 4, 5] } //   เงื่อนไขถูกต้อง
-          // }
+
           AND: [
             {
               OR: [
@@ -4573,16 +4163,6 @@ export class SubmissionFileRefactoredService {
         }
       })
 
-      // if (checkVersion?.query_shipper_nomination_status_id === 4 && checkVersion?.contract_code?.status_capacity_request_management_id !== 2) {
-      //   throw new HttpException(
-      //     {
-      //       status: HttpStatus.FORBIDDEN,
-      //       error: 'Nomination status Cancelled.',
-      //     },
-      //     HttpStatus.FORBIDDEN,
-      //   );
-      // }
-
       if (nomination_type_id === 1) {
         const nominationData = nominationFullJson?.typeDoc?.columnPointId?.map((e: any) => e?.row)
         const nonTpaData = nominationFullJson?.typeDoc?.columnType?.map((e: any) => e?.row)
@@ -4598,22 +4178,17 @@ export class SubmissionFileRefactoredService {
           if (findNomData) {
             if (!!nonTpaData[i]?.[38] && !!findNomData?.[38] && Number(nonTpaData[i]?.[38]) > Number(findNomData?.[38])) {
               // https://app.clickup.com/t/86etzcgt0
-              // throw new HttpException(
-              //   {
-              //     status: HttpStatus.BAD_REQUEST,
-              //     error: `${findNomData[3]} must be greater than or equal ${nonTpaData[i][3]}`,
-              //   },
-              //   HttpStatus.BAD_REQUEST,
-              // );
             }
           } else {
-            throw new HttpException(
-              {
-                status: HttpStatus.BAD_REQUEST,
-                error: `${findNomName ?? 'Nomination Point'} is not found in file for ${nTpa ?? 'Non-TPA Point'}.`
-              },
-              HttpStatus.BAD_REQUEST
-            )
+            messageError.push(`${findNomName ?? 'Nomination Point'} is not found in file for ${nTpa ?? 'Non-TPA Point'}.`)
+
+            // throw new HttpException(
+            //   {
+            //     status: HttpStatus.BAD_REQUEST,
+            //     error: `${findNomName ?? 'Nomination Point'} is not found in file for ${nTpa ?? 'Non-TPA Point'}.`
+            //   },
+            //   HttpStatus.BAD_REQUEST
+            // )
           }
         }
       } else {
@@ -4632,85 +4207,57 @@ export class SubmissionFileRefactoredService {
           if (findNomData) {
             if (!!nonTpaData[i]?.[14] && !!findNomData?.[14] && Number(nonTpaData[i]?.[14]) > Number(findNomData?.[14])) {
               // https://app.clickup.com/t/86etzcgt0
-              // throw new HttpException(
-              //   {
-              //     status: HttpStatus.BAD_REQUEST,
-              //     error: `${findNomData[3]} must be greater than or equal ${nonTpaData[i][3]}`,
-              //   },
-              //   HttpStatus.BAD_REQUEST,
-              // );
             }
             if (!!nonTpaData[i]?.[15] && !!findNomData?.[15] && Number(nonTpaData[i]?.[15]) > Number(findNomData?.[15])) {
               // https://app.clickup.com/t/86etzcgt0
-              // throw new HttpException(
-              //   {
-              //     status: HttpStatus.BAD_REQUEST,
-              //     error: `${findNomData[3]} must be greater than or equal ${nonTpaData[i][3]}`,
-              //   },
-              //   HttpStatus.BAD_REQUEST,
-              // );
             }
             if (!!nonTpaData[i]?.[16] && !!findNomData?.[16] && Number(nonTpaData[i]?.[16]) > Number(findNomData?.[16])) {
               // https://app.clickup.com/t/86etzcgt0
-              // throw new HttpException(
-              //   {
-              //     status: HttpStatus.BAD_REQUEST,
-              //     error: `${findNomData[3]} must be greater than or equal ${nonTpaData[i][3]}`,
-              //   },
-              //   HttpStatus.BAD_REQUEST,
-              // );
             }
             if (!!nonTpaData[i]?.[17] && !!findNomData?.[17] && Number(nonTpaData[i]?.[17]) > Number(findNomData?.[17])) {
               // https://app.clickup.com/t/86etzcgt0
-              // throw new HttpException(
-              //   {
-              //     status: HttpStatus.BAD_REQUEST,
-              //     error: `${findNomData[3]} must be greater than or equal ${nonTpaData[i][3]}`,
-              //   },
-              //   HttpStatus.BAD_REQUEST,
-              // );
             }
             if (!!nonTpaData[i]?.[18] && !!findNomData?.[18] && Number(nonTpaData[i]?.[18]) > Number(findNomData?.[18])) {
               // https://app.clickup.com/t/86etzcgt0
-              // throw new HttpException(
-              //   {
-              //     status: HttpStatus.BAD_REQUEST,
-              //     error: `${findNomData[3]} must be greater than or equal ${nonTpaData[i][3]}`,
-              //   },
-              //   HttpStatus.BAD_REQUEST,
-              // );
             }
             if (!!nonTpaData[i]?.[19] && !!findNomData?.[19] && Number(nonTpaData[i]?.[19]) > Number(findNomData?.[19])) {
               // https://app.clickup.com/t/86etzcgt0
-              // throw new HttpException(
-              //   {
-              //     status: HttpStatus.BAD_REQUEST,
-              //     error: `${findNomData[3]} must be greater than or equal ${nonTpaData[i][3]}`,
-              //   },
-              //   HttpStatus.BAD_REQUEST,
-              // );
             }
             if (!!nonTpaData[i]?.[20] && !!findNomData?.[20] && Number(nonTpaData[i]?.[20]) > Number(findNomData?.[20])) {
               // https://app.clickup.com/t/86etzcgt0
-              // throw new HttpException(
-              //   {
-              //     status: HttpStatus.BAD_REQUEST,
-              //     error: `${findNomData[3]} must be greater than or equal ${nonTpaData[i][3]}`,
-              //   },
-              //   HttpStatus.BAD_REQUEST,
-              // );
             }
           } else {
-            throw new HttpException(
-              {
-                status: HttpStatus.BAD_REQUEST,
-                error: `${findNomName ?? 'Nomination Point'} is not found in file for ${nTpa ?? 'Non-TPA Point'}.`
-              },
-              HttpStatus.BAD_REQUEST
-            )
+            messageError.push(`${findNomName ?? 'Nomination Point'} is not found in file for ${nTpa ?? 'Non-TPA Point'}.`)
+
+            // throw new HttpException(
+            //   {
+            //     status: HttpStatus.BAD_REQUEST,
+            //     error: `${findNomName ?? 'Nomination Point'} is not found in file for ${nTpa ?? 'Non-TPA Point'}.`
+            //   },
+            //   HttpStatus.BAD_REQUEST
+            // )
           }
         }
       }
+
+      if (messageError?.length > 0) {
+        const uniqueMessageError = [...new Set(messageError)]
+        throw new HttpException(
+          {
+            status: HttpStatus.BAD_REQUEST,
+            error: uniqueMessageError?.join('<br/>')
+          },
+          HttpStatus.BAD_REQUEST
+        )
+      }
+
+      // throw new HttpException(
+      //   {
+      //     status: HttpStatus.BAD_REQUEST,
+      //     error: 'test.'
+      //   },
+      //   HttpStatus.BAD_REQUEST
+      // )
 
       if (checkVersion) {
         // มี update
@@ -4857,7 +4404,7 @@ export class SubmissionFileRefactoredService {
               entry_exit_id: e?.entry_exit_id,
               query_shipper_nomination_type_id: e?.type,
               data_temp: JSON.stringify(e?.data),
-              old_index: e?.old_index,
+              old_index: e && e?.old_index || null,
               create_date_num: newDate.unix(),
               create_date: newDate.toDate(),
               create_by: Number(userId)
@@ -5071,7 +4618,7 @@ export class SubmissionFileRefactoredService {
               entry_exit_id: e?.entry_exit_id,
               query_shipper_nomination_type_id: e?.type,
               data_temp: JSON.stringify(e?.data),
-              old_index: e?.old_index,
+              old_index: e && e?.old_index || null,
               create_date_num: newDate.unix(),
               create_date: newDate.toDate(),
               create_by: Number(userId)

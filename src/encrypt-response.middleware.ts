@@ -16,9 +16,7 @@ export class EncryptResponseMiddleware
   private readonly algorithm =
     'aes-256-cbc'
   private readonly secretKey =
-    process.env
-      .NEXT_PUBLIC_RESPONSE_ENCRYPT_KEY2 ||
-    'Q7mK2pL9xT4vN8cR1sD6fH3jW5yB0zAa' // ต้อง 32 ตัวอักษร
+    process.env.NEXT_PUBLIC_RESPONSE_ENCRYPT_KEY2 || '' // ต้อง 32 ตัวอักษร
 
   encrypt(text: string) {
     const iv =

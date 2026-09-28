@@ -1,38 +1,12 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  Query,
-  HttpException,
-  HttpStatus,
-  Put,
-  UseGuards,
-  Req,
-  HttpCode,
-  UseInterceptors,
-  UploadedFile,
-  BadRequestException,
-  Res
-} from '@nestjs/common'
+import {Controller, Get, Post, Body, Patch, Param, Delete, Query, HttpException, HttpStatus, Put, UseGuards, Req, HttpCode, UseInterceptors, UploadedFile, BadRequestException, Res} from '@nestjs/common'
 import {AuthGuard} from 'src/auth/auth.guard'
 import {JwtService} from '@nestjs/jwt'
 import {AccountManageService} from 'src/account-manage/account-manage.service'
 import {FileInterceptor} from '@nestjs/platform-express'
-import {
-  Request,
-  Response
-} from 'express'
+import {Request, Response} from 'express'
 
 import {ReleaseCapacitySubmissionService} from './release-capacity-submission.service'
-import {
-  emailGetpermissionEmail,
-  emailNotificationDAM,
-  sendEmailProviderCustomDocs
-} from 'src/common/utils/email'
+import {emailGetpermissionEmail, emailNotificationDAM, sendEmailProviderCustomDocs} from 'src/common/utils/email'
 import {PrismaService} from 'prisma/prisma.service'
 
 import * as dayjs from 'dayjs'
@@ -41,32 +15,25 @@ import * as timezone from 'dayjs/plugin/timezone'
 
 import * as isBetween from 'dayjs/plugin/isBetween' // นำเข้า plugin isBetween
 import * as isSameOrBefore from 'dayjs/plugin/isSameOrBefore' // นำเข้า plugin isSameOrBefore
-import {
-  middleNotiInapp,
-  middleNotiInappShipper
-} from 'src/common/utils/inapp.util'
+import {middleNotiInapp, middleNotiInappShipper} from 'src/common/utils/inapp.util'
 dayjs.extend(isSameOrBefore) // เปิดใช้งาน plugin isSameOrBefore
 dayjs.extend(isBetween) // เปิดใช้งาน plugin isBetween
 dayjs.extend(utc)
 dayjs.extend(timezone)
-dayjs.tz.setDefault(
-  'Asia/Bangkok'
-)
+dayjs.tz.setDefault('Asia/Bangkok')
 
-@Controller(
-  'release-capacity-submission'
-)
+@Controller('release-capacity-submission')
 export class ReleaseCapacitySubmissionController {
   constructor(
     private readonly releaseCapacitySubmissionService: ReleaseCapacitySubmissionService,
     private prisma: PrismaService
   ) {}
 
-  // @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard)
   @Get('contract-code')
-  contractCode() {
+  contractCode(@Req() req: any) {
     // @Req() req: any,
-    return this.releaseCapacitySubmissionService.contractCode()
+    return this.releaseCapacitySubmissionService.contractCode(req?.user?.sub)
   }
 
   @Get()
@@ -74,24 +41,19 @@ export class ReleaseCapacitySubmissionController {
     // @Req() req: any,
     @Query() query: any
   ) {
-    const {contract_code_id} =
-      query
+    const {contract_code_id} = query
 
     if (!contract_code_id) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
 
-    return this.releaseCapacitySubmissionService.getRelease(
-      query
-    )
+    return this.releaseCapacitySubmissionService.getRelease(query)
     // ถ้าจะเปิด getReleaseGroupByEntryAreaAndDate ไปเปิด region หาทุก exit ในทุก entry ที่ frontend ด้วย
     // return this.releaseCapacitySubmissionService.getReleaseGroupByEntryAreaAndDate(query);
   }
@@ -102,73 +64,43 @@ export class ReleaseCapacitySubmissionController {
     // @Req() req: any,
     @Param('id') id: any
   ) {
-    return this.releaseCapacitySubmissionService.documentFile(
-      id
-    )
+    return this.releaseCapacitySubmissionService.documentFile(id)
   }
 
   @UseGuards(AuthGuard)
-  @Post(
-    'document-file-create'
-  )
-  async documentFileCreate(
-    @Body() body: any,
-    @Req() req: any
-  ) {
-    const {
-      contract_code_id,
-      url
-    } = body
+  @Post('document-file-create')
+  async documentFileCreate(@Body() body: any, @Req() req: any) {
+    const {contract_code_id, url} = body
 
-    if (
-      !contract_code_id ||
-      !url
-    ) {
+    if (!contract_code_id || !url) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const documentFileCreate =
-      await this.releaseCapacitySubmissionService.documentFileCreate(
-        body,
-        req?.user?.sub
-      )
+    const documentFileCreate = await this.releaseCapacitySubmissionService.documentFileCreate(body, req?.user?.sub)
 
     return documentFileCreate
   }
 
   @UseGuards(AuthGuard)
-  @Put(
-    'document-file-inactive'
-  )
-  async documentFileInactive(
-    @Body() body: any,
-    @Req() req: any
-  ) {
+  @Put('document-file-inactive')
+  async documentFileInactive(@Body() body: any, @Req() req: any) {
     const {id} = body
 
     if (!id) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const documentFileInactive =
-      await this.releaseCapacitySubmissionService.documentFileInactive(
-        body,
-        req?.user?.sub
-      )
+    const documentFileInactive = await this.releaseCapacitySubmissionService.documentFileInactive(body, req?.user?.sub)
 
     return documentFileInactive
   }
@@ -176,72 +108,38 @@ export class ReleaseCapacitySubmissionController {
   // ok inapp
   @UseGuards(AuthGuard)
   @Post('submission')
-  async submission(
-    @Body() body: any,
-    @Req() req: any
-  ) {
-    const {
-      contract_code_id,
-      data
-    } = body
+  async submission(@Body() body: any, @Req() req: any) {
+    const {contract_code_id, data} = body
 
-    if (
-      !contract_code_id ||
-      !data ||
-      data.length === 0
-    ) {
+    if (!contract_code_id || !data || data.length === 0) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
-    const submission =
-      await this.releaseCapacitySubmissionService.submissionV2(
-        body,
-        req?.user?.sub
-      )
+    const submission = await this.releaseCapacitySubmissionService.submissionV2(body, req?.user?.sub)
 
-    const contractCode =
-      await this.prisma.contract_code.findFirst(
-        {
-          where: {
-            id: Number(
-              contract_code_id
-            )
-          },
-          include: {
-            term_type: true
-          }
-        }
-      )
+    const contractCode = await this.prisma.contract_code.findFirst({
+      where: {
+        id: Number(contract_code_id)
+      },
+      include: {
+        term_type: true
+      }
+    })
     try {
       const header = `Submit Release Capacity`
-      const emailNotificationData =
-        await emailNotificationDAM(
-          this.prisma,
-          2
-        ) // emailNotificationData?.subject subject: emailNotificationData?.subject || "", detail: emailNotificationData?.detail || "",
-      const shipperEmailArr =
-        await emailGetpermissionEmail(
-          this.prisma,
-          49
-        )
+      const emailNotificationData = await emailNotificationDAM(this.prisma, 2) // emailNotificationData?.subject subject: emailNotificationData?.subject || "", detail: emailNotificationData?.detail || "",
+      const shipperEmailArr = await emailGetpermissionEmail(this.prisma, 49)
       const originalData = {
         cc: null,
         header: header,
-        sendEmail:
-          shipperEmailArr,
-        subject:
-          emailNotificationData?.subject ||
-          '',
-        detail:
-          emailNotificationData?.detail ||
-          '',
+        sendEmail: shipperEmailArr,
+        subject: emailNotificationData?.subject || '',
+        detail: emailNotificationData?.detail || '',
         excelBuffer: null,
         tagHTMLDetail: `
         <div>
@@ -250,47 +148,36 @@ export class ReleaseCapacitySubmissionController {
             <li>Contract Code: ${contractCode?.contract_code || ''}</li>
             <li>Contract Type: ${contractCode?.term_type?.name || ''}</li>
             <li>Release Date: ${(submission?.submission_time && dayjs(submission?.submission_time).format('YYYY-MM-DD')) || ''}</li>
-            ${data?.map(
-              (e: any) => {
-                return `
+            ${data?.map((e: any) => {
+              return `
                   <li>Point: ${e?.temp_contract_point || ''} Capacity: (${e?.total_release_mmbtu_d ? `${e?.total_release_mmbtu_d} MMBTU` : '- MMBTU'})|(${e?.total_release_mmscfd ? `${e?.total_release_mmscfd} MMSCF` : '- MMSCF'})</li>
                   `
-              }
-            )}
+            })}
           </ul>
         </div>
             `,
-        filename:
-          'emergency_difficult_day_document.pdf',
-        contentType:
-          'application/pdf'
+        filename: 'emergency_difficult_day_document.pdf',
+        contentType: 'application/pdf'
       }
-      await sendEmailProviderCustomDocs(
-        originalData
-      )
+      await sendEmailProviderCustomDocs(originalData)
     } catch (error) {}
 
     // inapp
     try {
-      const contractData =
-        await this.prisma.contract_code.findFirst(
-          {
-            where: {
-              id: Number(
-                contract_code_id
-              )
-            },
+      const contractData = await this.prisma.contract_code.findFirst({
+        where: {
+          id: Number(contract_code_id)
+        },
+        select: {
+          contract_code: true,
+          group: {
             select: {
-              contract_code: true,
-              group: {
-                select: {
-                  id: true,
-                  name: true
-                }
-              }
+              id: true,
+              name: true
             }
           }
-        )
+        }
+      })
       const message = `The release capacity for ${contractData?.group?.name} Shipper, Contract Code: ${contractData?.contract_code} has been submitted`
       // await middleNotiInapp(
       //       this.prisma,
@@ -299,15 +186,7 @@ export class ReleaseCapacitySubmissionController {
       //       56, // menus_id | 52 Bulletin Board | 50 Capacity Contract Management | 51 Path Management | 56 Release Capacity Submission
       //       1,
       //     );
-      await middleNotiInappShipper(
-        this.prisma,
-        'Capacity Management',
-        `${message}`,
-        56,
-        1,
-        contractData?.group
-          ?.id
-      )
+      await middleNotiInappShipper(this.prisma, 'Capacity Management', `${message}`, 56, 1, contractData?.group?.id)
     } catch (error) {}
 
     // tell frontend to refresh waitinglist
@@ -319,37 +198,28 @@ export class ReleaseCapacitySubmissionController {
         50, // menus_id | 52 Bulletin Board | 50 Capacity Contract Management
         2
       )
-    } catch (error) {
-      
-    }
+    } catch (error) {}
 
     return submission
   }
 
-  @Get(
-    'approved-release-capacity-submission-detail'
-  )
+  @Get('approved-release-capacity-submission-detail')
   getApprovedReleaseCapacitySubmissionDetail(
     // @Req() req: any,
     @Query() query: any
   ) {
-    const {contract_code_id} =
-      query
+    const {contract_code_id} = query
 
     if (!contract_code_id) {
       throw new HttpException(
         {
-          status:
-            HttpStatus.BAD_REQUEST,
-          error:
-            'Missing required fields'
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Missing required fields'
         },
         HttpStatus.BAD_REQUEST
       )
     }
 
-    return this.releaseCapacitySubmissionService.getApprovedReleaseCapacitySubmissionDetail(
-      contract_code_id
-    )
+    return this.releaseCapacitySubmissionService.getApprovedReleaseCapacitySubmissionDetail(contract_code_id)
   }
 }
