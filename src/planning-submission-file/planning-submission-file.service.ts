@@ -3820,6 +3820,7 @@ export class PlanningSubmissionFileService {
     // flag สำหรับแจ้งเตือนเมื่อพบค่า 0 ใน total หรือในแถวข้อมูล
     let warningZero = false
     let warningRowZero = false
+    let warningEmpty = false
     // แถว/คอลัมน์เริ่มต้นของข้อมูลค่า (คอลัมน์ 0-5 เป็น meta: new_point, type, point, customer, area, unit)
     const rowDataStartAt = 6
     const columnDataStartAt = 6
@@ -4115,6 +4116,13 @@ export class PlanningSubmissionFileService {
       const resultDateEntryUse = addMissingKeysEntryOrExit(resultDateEntry, maxDateKey)
       const resultDateExitUse = addMissingKeysEntryOrExit(resultDateExit, maxDateKey)
 
+      // ถ้า entry/exit มีค่าว่าง ให้ตั้ง warning (ยังไม่ reject)
+      const hasEmptyValueEntry = updatedValueEntry.some((row: any) => cellsFrom6(row).some(cell => cell == null || cell == undefined || cell == ''))
+      const hasEmptyValueExit = updatedValueExit.some((row: any) => cellsFrom6(row).some(cell => cell == null || cell == undefined || cell == ''))
+      if (hasEmptyValueEntry || hasEmptyValueExit) {
+        warningEmpty = true
+      }
+
       // ถ้า total entry/exit มีค่า '0' ให้ตั้ง warning (ยังไม่ reject)
       const hasZeroEntry = Object.values(resultDateEntryUse).some((value) => value === '0')
       const hasZeroExit = Object.values(resultDateExitUse).some((value) => value === '0')
@@ -4401,6 +4409,7 @@ export class PlanningSubmissionFileService {
         typeId: typeId
       },
       warning: warningZero,
+      warningEmpty: warningEmpty,
       warningRowZero: warningRowZero
     }
   }

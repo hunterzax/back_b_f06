@@ -23,7 +23,7 @@ import {getTodayEndAdd7, getTodayNow, getTodayNowAdd7, getTodayNowYYYYMMDDDfault
 import * as archiver from 'archiver'
 import * as nodemailer from 'nodemailer'
 import JSZip from 'jszip'
-import {parseToNumber} from 'src/common/utils/number.util'
+import {dcimal3, dcimal6, parseToNumber} from 'src/common/utils/number.util'
 import {sendEmailProviderCustomDocs, emailNotificationDAM, emailGetpermissionEmailShipper, emailGetpermissionEmailTSO, emailGetpermissionEmailShipperGroupEmail} from 'src/common/utils/email'
 
 dayjs.extend(isBetween)
@@ -1602,7 +1602,7 @@ export class EventService {
     let config = {
       method: 'post',
       maxBodyLength: Infinity,
-      url: `http://${process.env.IP_URL}:${process.env.KONG_PORT}/files/convert-to-base64/`,
+      url: `${process.env.PROTOCOL_FOR_INTERNAL_SERVICE || 'http'}://${process.env.IP_URL}:${process.env.KONG_PORT}/files/convert-to-base64/`,
       headers: {
         'Content-Type': 'application/json'
       },
@@ -1621,18 +1621,19 @@ export class EventService {
     const rdoc1Find = await this.doc1Find(id, userId)
 
     const document_code = rdoc1Find?.document_code
-    const event_document_action = rdoc1Find?.event_document_action
+    const event_document_action = rdoc1Find?.event_document_action || []
+    const lastAction = event_document_action[event_document_action.length - 1]
     const fromFullname =
-      event_document_action[event_document_action.length - 1]?.create_by_account?.first_name && event_document_action[event_document_action.length - 1]?.create_by_account?.last_name
-        ? `${event_document_action[event_document_action.length - 1]?.create_by_account?.first_name} ${event_document_action[event_document_action.length - 1]?.create_by_account?.last_name}`
+      lastAction?.create_by_account?.first_name && lastAction?.create_by_account?.last_name
+        ? `${lastAction.create_by_account.first_name} ${lastAction.create_by_account.last_name}`
         : ''
-    const userType_ = event_document_action[event_document_action.length - 1]?.group?.user_type_id
-    // const fromCompany = (event_document_action[event_document_action.length - 1]?.group?.company_name && event_document_action[event_document_action.length - 1]?.group?.company_name) || '………………………………………………………………'
-    const fromCompany = (event_document_action[event_document_action.length - 1]?.group?.name && event_document_action[event_document_action.length - 1]?.group?.name + (userType_ === 3 ? ' Shipper' : "")) || '………………………………………………………………'
-    const fromDate = dayjs(event_document_action[event_document_action.length - 1]?.create_date).locale('th')
-    const fromSignature = event_document_action[event_document_action.length - 1]?.create_by_account?.signature_base_64 || '' //
+    const userType_ = lastAction?.group?.user_type_id
+    // const fromCompany = (lastAction?.group?.company_name && lastAction?.group?.company_name) || '………………………………………………………………'
+    const fromCompany = (lastAction?.group?.name && lastAction.group.name + (userType_ === 3 ? ' Shipper' : "")) || '………………………………………………………………'
+    const fromDate = dayjs(lastAction?.create_date).locale('th')
+    const fromSignature = lastAction?.create_by_account?.signature_base_64 || '' //
 
-    const toAction = (event_document_action || []).find((f: any) => (f?.user_type_id === 2 || f?.user_type_id === 1))
+    const toAction = event_document_action.find((f: any) => (f?.user_type_id === 2 || f?.user_type_id === 1))
     const toFullname = toAction?.create_by_account?.first_name && toAction?.create_by_account?.last_name ? `${toAction?.create_by_account?.first_name} ${toAction?.create_by_account?.last_name}` : ''
     // const toCompany = 'บริษัท ปตท.จำกัด (มหาชน)'
     const toCompany = 'PTT TSO'
@@ -8579,7 +8580,8 @@ export class EventService {
                   email: true,
                   first_name: true,
                   last_name: true,
-                  signature_base_64: true
+                  signature_base_64: true,
+                  account_manage: true
                 }
               },
               event_document_file: {
@@ -9088,7 +9090,7 @@ export class EventService {
 
       const fromFullname = rdoc1Find?.create_by_account?.first_name && rdoc1Find?.create_by_account?.last_name ? `${rdoc1Find?.create_by_account?.first_name} ${rdoc1Find?.create_by_account?.last_name}` : ''
       // const fromCompany = rdoc1Find?.user_type_id !== 3 ? 'บริษัท ปตท.จำกัด (มหาชน)' : rdoc1Find?.group?.company_name || ''
-      const fromCompany = (rdoc1Find?.create_by_account?.account_manage?.[0]?.user_type_id !== 3 && rdoc1Find?.create_by_account?.account_manage?.[0]?.user_type_id !== 4) ? 'PTT TSO' : rdoc1Find?.group?.name + ' Shipper' || ''
+      const fromCompany = rdoc1Find?.create_by_account?.account_manage?.[0]?.user_type_id === 3 ? `${(rdoc1Find?.group?.name || '')} Shipper` : rdoc1Find?.create_by_account?.account_manage?.[0]?.user_type_id === 4 ? (rdoc1Find?.group?.name || '') : 'PTT TSO'
 
       const fromSignature = rdoc1Find?.create_by_account?.signature_base_64 || '' // แจ้งโดย
 
@@ -9170,7 +9172,7 @@ export class EventService {
         if(tsoSubmitAction){
           doc2GroupName = tsoSubmitAction.group?.name || ''
           doc2Fullname = tsoSubmitAction.create_by_account?.first_name && tsoSubmitAction.create_by_account?.last_name ? `${tsoSubmitAction.create_by_account?.first_name} ${tsoSubmitAction.create_by_account?.last_name}` : ''
-          doc2DivisionShortName = (tsoSubmitAction.user_type_id !== 3 && tsoSubmitAction.user_type_id !== 4) ? 'PTT TSO' : tsoSubmitAction.group?.name ? (tsoSubmitAction.group?.name + ' Shipper') : ''
+          doc2DivisionShortName = (tsoSubmitAction.user_type_id !== 3 && tsoSubmitAction.user_type_id !== 4) ? 'PTT TSO' : tsoSubmitAction.group?.name ? (tsoSubmitAction.group?.name + `${tsoSubmitAction.user_type_id == 3 ? ' Shipper' : ''}`) : ''
           doc2Signature = tsoSubmitAction.create_by_account?.signature_base_64 || ''
           doc2Date = dayjs(tsoSubmitAction.create_date).locale('th')
         }
@@ -10175,7 +10177,7 @@ export class EventService {
         const fromFullnameH = rdoc1Find?.create_by_account?.account_manage?.[0].group?.name || ''
         const fromFullname = rdoc1Find?.create_by_account?.first_name && rdoc1Find?.create_by_account?.last_name ? `${rdoc1Find?.create_by_account?.first_name} ${rdoc1Find?.create_by_account?.last_name}` : ''
         // const fromCompany = rdoc1Find?.user_type_id !== 3 ? 'บริษัท ปตท.จำกัด (มหาชน)' : rdoc1Find?.group?.company_name || ''
-        const fromCompany = (rdoc1Find?.create_by_account?.account_manage?.[0]?.user_type_id !== 3 && rdoc1Find?.create_by_account?.account_manage?.[0]?.user_type_id !== 4) ? 'PTT TSO' : rdoc1Find?.group?.name + ' Shipper' || ''
+        const fromCompany = rdoc1Find?.create_by_account?.account_manage?.[0]?.user_type_id === 3 ? `${(rdoc1Find?.group?.name || '')} Shipper` : rdoc1Find?.create_by_account?.account_manage?.[0]?.user_type_id === 4 ? (rdoc1Find?.group?.name || '') : 'PTT TSO'
         const fromSignature = rdoc1Find?.create_by_account?.signature_base_64 || '' //
 
         const fromDate = dayjs(rdoc1Find?.create_date).locale('th')
@@ -10452,10 +10454,10 @@ export class EventService {
                             text: `หน่วยงาน ${tsoDivisionShortName}`
                           },
                           {
-                            text: `วันที่เดือนปี: ${tsoDate?.isValid() ? `${tsoDate.format('DD')} / ${tsoDate.format('MM')} / ${tsoDate.format('BB')}` : '  /   /  '}`
+                            text: `วันที่เดือนปี: ${tsoDate && tsoDate.isValid() ? `${tsoDate.format('DD')} / ${tsoDate.format('MM')} / ${tsoDate.format('BB')}` : '  /   /  '}`
                           },
                           {
-                            text: `เวลา : ${tsoDate && (tsoDate?.isValid() ? tsoDate.format('HH:mm') : ' ') || " "} น.`
+                            text: `เวลา : ${tsoDate && (tsoDate.isValid() ? tsoDate.format('HH:mm') : ' ') || " "} น.`
                           }
                         ],
                         margin: [5, 5, 5, 5]
@@ -12064,6 +12066,7 @@ export class EventService {
     // หา meter จาก hv dam system
     // doc 4 หา area จาก relate meter จาก hv dam system
     const {
+      template_id,
       gas_day,
       gas_hour,
       zone,
@@ -12088,6 +12091,49 @@ export class EventService {
     // const doc_4_input_order_value = `${meterPointName} ${energyAdjust} MMBTU หรือ ${volumeAdjust} MMSCF (Moment rate ที่มีการปรับ ${doc_4_input_order_ir_text}เท่ากับ ${volumeAdjustRate_mmscfd} MMSCFD หรือ ${volumeAdjustRate_mmscfh} MMSCFH) วันที่/เวลาสั่งการ : วันที่ ${gas_day} เวลา ${hourText} น.`; //ปริมาณ
     const doc_39_input_detail_incident = `เกิดความไม่สมดุลด้าน${doc39IrOrderText}อย่างรุนแรง และมีความเสี่ยงที่จะกระทบต่อความมั่นคงต่อระบบท่อส่งก๊าซฝั่ง ${zone} เนื่องจากมีการนำปริมาณก๊าซเข้าระบบ${doc39IrOrderText2}ปริมาณการใช้`
     const doc_39_input_date_time_of_the_incident = `วันที่ ${dayjs(gas_day).locale('th').format('DD MMM BBBB')} เวลา ${gas_hour > 9 ? gas_hour : '0' + gas_hour}:00`
+    let valuePattern = '{Point} {Energy} หรือ {Volume} (Moment rate ที่มีการปรับ{Increase / Decrease Flow}เท่ากับ {Adj. Rate MMSCFD} หรือ {Adj. Rate MMSCFH}) วันที่/เวลาสั่งการ : วันที่ {Date} เวลา{Hour} น.'
+    let longdo_dict = null
+    let doc_39_input_note = "กรณีพื้นที่เกิดเหตุเป็นพื้นที่ให้บริการตาม TSO Code จะอ้างอิงการสั่งการจาก TSO Code ข้อที่ 8.10.1 เรื่องขั้นตอนการปฏิบัติงานในกรณีเหตุการณ์ไม่สมดุลอย่างรุนแรง (Difficult Day) และ 8.10.2 ขั้นตอนการดำเนินการในกรณีภาวะฉุกเฉิน"
+    let doc_39_input_expected_day_time = null
+    let doc_39_template_history_id = null
+
+    if(template_id){
+      const eventTemplate = await this.prisma.event_template.findFirst({
+        where: {del_flag: false, id: Number(template_id)},
+        include: {
+          event_doc_master: true,
+          event_template_history: {
+            take: 1,
+            orderBy: {
+              id: 'desc'
+            }
+          },
+        },
+        orderBy: {id: 'desc'}
+      })
+      if(eventTemplate){
+        if(eventTemplate.event_template_history && eventTemplate.event_template_history.length > 0){
+          doc_39_template_history_id = eventTemplate.event_template_history[0].id
+        }
+        if(eventTemplate.template_data){
+          if(eventTemplate.template_data['doc_41_value_template_string']){
+            valuePattern = eventTemplate.template_data['doc_41_value_template_string']
+          }
+  
+          if(eventTemplate.template_data['longdo_dict']){
+            longdo_dict = eventTemplate.template_data['longdo_dict']
+          }
+  
+          if(eventTemplate.template_data['doc_39_input_expected_day_time']){
+            doc_39_input_expected_day_time = eventTemplate.template_data['doc_39_input_expected_day_time']
+          }
+  
+          if(eventTemplate.template_data['doc_39_input_note']){
+            doc_39_input_note = eventTemplate.template_data['doc_39_input_note']
+          }
+        }
+      }
+    }
     const shipperUse = await this.shipperData(shipper)
 
     // 106 Emergency/Difficult Day
@@ -12119,13 +12165,14 @@ export class EventService {
 
     const doc3Data = {
       generate: false,
-      longdo_dict: null, //สำเนา
+      longdo_dict: longdo_dict, //สำเนา
       event_date: getTodayNowAdd7().format('YYYY-MM-DD'), // วันที่ออกเอกสาร
       doc_39_input_date_time_of_the_incident: doc_39_input_date_time_of_the_incident, //วัน/เวลาที่เกิดเหตุ ...
       doc_39_input_incident: event_doc_emer_gas_tranmiss_id === 4 ? zone : `OnShore ${zone}`, //สถานที่เกิดเหตุ ........
       doc_39_input_detail_incident: doc_39_input_detail_incident, //รายละเอียดของเหตุการณ์ และผลกระทบต่อระบบส่งก๊าซ
-      doc_39_input_expected_day_time: null, //คาดว่าจะแก้ไขปัญหาแล้วเสร็จในวันที่/เวลา
-      doc_39_input_note: null, //หมายเหตุ
+      doc_39_input_expected_day_time: doc_39_input_expected_day_time, //คาดว่าจะแก้ไขปัญหาแล้วเสร็จในวันที่/เวลา
+      doc_39_input_note: doc_39_input_note, //หมายเหตุ
+      doc_39_template_history_id: doc_39_template_history_id,
       event_doc_emer_type_id: flowType,
       event_doc_emer_gas_tranmiss_id: event_doc_emer_gas_tranmiss_id,
       event_doc_emer_gas_tranmiss_other: event_doc_emer_gas_tranmiss_id === 4 ? zone : null, // event_doc_emer_gas_tranmiss_id 4 ใส่ด้วย
@@ -12170,12 +12217,13 @@ export class EventService {
       // "id_runnumber": null, // test
       id_runnumber: doc39Create?.id, // ใส่มา
       id_documents: null, // ตอนสร้าง null | ถ้าใส่ id_runnumber ใส่มาด้วย | ตอน edit version ส่งมาด้วย | (ถ้าตอน status generate ส่ง id มาด้วย )
-      longdo_dict: null, //สำเนา
+      longdo_dict: longdo_dict, //สำเนา
       event_date: getTodayNowAdd7().format('YYYY-MM-DD'), // วันที่ออกเอกสาร
+      doc_39_template_history_id: doc_39_template_history_id,
       doc_41_input_date_time_of_the_incident: doc_39_input_date_time_of_the_incident, //วัน/เวลาที่เกิดเหตุ
       doc_41_input_incident: event_doc_emer_gas_tranmiss_id === 4 ? zone : `OnShore ${zone}`, // สถานที่เกิดเหตุ
       doc_41_input_detail_incident: doc_39_input_detail_incident, //รายละเอียดของเหตุการณ์ และผลกระทบต่อระบบส่งก๊าซ
-      doc_41_input_expected_day_time: null, //คาดว่าจะแก้ไขปัญหาแล้วเสร็จในวันที่/เวลา
+      doc_41_input_expected_day_time: doc_39_input_expected_day_time, //คาดว่าจะแก้ไขปัญหาแล้วเสร็จในวันที่/เวลา
       file: [],
       gas_shipper_41:
         shipperUse?.map((e: any) => {
@@ -12195,12 +12243,23 @@ export class EventService {
             meterPoint = `{Meter Point}`
           }
 
+          const value = valuePattern
+            .replaceAll('{Point}', meterPoint)
+            .replaceAll('{Energy}', `${(e?.energyAdjust || e?.energyAdjust == 0) ? dcimal3(e?.energyAdjust) : '{Energy Adjustment}'} MMBTU`)
+            .replaceAll('{Volume}', `${(e?.volumeAdjust || e?.volumeAdjust == 0) ? dcimal6(e?.volumeAdjust) : '{Volume Adjustment}'} MMSCF`)
+            .replaceAll('{Increase / Decrease Flow}', doc_4_input_order_ir_id === 1 ? 'เพิ่ม' : 'ลด')
+            .replaceAll('{Adj. Rate MMSCFD}', `${(e?.volumeAdjustRate_mmscfd || e?.volumeAdjustRate_mmscfd == 0) ? dcimal6(e?.volumeAdjustRate_mmscfd) : '{Volume Adjustment Rate}'} MMSCFD`)
+            .replaceAll('{Adj. Rate MMSCFH}', `${(e?.volumeAdjustRate_mmscfh || e?.volumeAdjustRate_mmscfh == 0) ? e?.volumeAdjustRate_mmscfh : '{Volume Adjustment Rate}'} MMSCFH`)
+            .replaceAll('{Date}', dayjs(gas_day, 'YYYY-MM-DD').format('DD/MM/YYYY'))
+            .replaceAll('{Hour}', e?.gas_hour)
+
           return {
             id: null, // ต้องใส่ ตอนเพิ่มครั้งแรกยังไม่มีจะเป็น null
             ir: doc_4_input_order_ir_id, // 1 เพิ่ม, 2 ลด
             io: doc_4_input_order_io_id, // 3 จุดส่งเข้า, 4 จุดส่งออก
             iother: null, // 5 อื่นๆ ถ้าเลือก ir รน 1 - 4 ให้ null
-            value: `${meterPoint} ${(e?.energyAdjust !== null && e?.energyAdjust) || '{Energy Adjustment}'} MMBTU หรือ ${(e?.volumeAdjust !== null && e?.volumeAdjust) || '{Volume Adjustment}'} MMSCF (Moment rate ที่มีการปรับ${doc_4_input_order_ir_id === 1 ? 'เพิ่ม' : 'ลด'}เท่ากับ ${(e?.volumeAdjustRate_mmscfd !== null && e?.volumeAdjustRate_mmscfd) || '{Volume Adjustment Rate}'} MMSCFD หรือ ${(e?.volumeAdjustRate_mmscfh !== null && e?.volumeAdjustRate_mmscfh) || '{Volume Adjustment Rate}'} MMSCFH) วันที่/เวลาสั่งการ : วันที่ ${dayjs(gas_day, 'YYYY-MM-DD').format('DD/MM/YYYY')} เวลา${e?.gas_hour} น.`, // ปริมาณ .....
+            // value: `${meterPoint} ${(e?.energyAdjust !== null && e?.energyAdjust) || '{Energy Adjustment}'} MMBTU หรือ ${(e?.volumeAdjust !== null && e?.volumeAdjust) || '{Volume Adjustment}'} MMSCF (Moment rate ที่มีการปรับ${doc_4_input_order_ir_id === 1 ? 'เพิ่ม' : 'ลด'}เท่ากับ ${(e?.volumeAdjustRate_mmscfd !== null && e?.volumeAdjustRate_mmscfd) || '{Volume Adjustment Rate}'} MMSCFD หรือ ${(e?.volumeAdjustRate_mmscfh !== null && e?.volumeAdjustRate_mmscfh) || '{Volume Adjustment Rate}'} MMSCFH) วันที่/เวลาสั่งการ : วันที่ ${dayjs(gas_day, 'YYYY-MM-DD').format('DD/MM/YYYY')} เวลา${e?.gas_hour} น.`, // ปริมาณ .....
+            value: value, // ปริมาณ .....
             more: null, // เพิ่มเติม
             shipper: [e?.id], // ต้องมี shipper
             file: [], // ไม่มีส่ง []
@@ -12230,6 +12289,20 @@ export class EventService {
       return sumWithInitial
     }
 
+    const otherEnergyAdjust = calcSum_(doc4Data?.gas_shipper_41, "energyAdjust")
+    const otherVolumeAdjust = calcSum_(doc4Data?.gas_shipper_41, "volumeAdjust")
+    const otherVolumeAdjustRate_mmscfd = calcSum_(doc4Data?.gas_shipper_41, "volumeAdjustRate_mmscfd")
+    const otherVolumeAdjustRate_mmscfh = calcSum_(doc4Data?.gas_shipper_41, "volumeAdjustRate_mmscfh")
+    const value = valuePattern
+      .replaceAll('{Point}', doc4Data?.gas_shipper_41?.[0]?.tempValue?.meterPoint || "-")
+      .replaceAll('{Energy}', `${(otherEnergyAdjust || otherEnergyAdjust == 0) ? dcimal3(otherEnergyAdjust) : '{Energy Adjustment}'} MMBTU`)
+      .replaceAll('{Volume}', `${(otherVolumeAdjust || otherVolumeAdjust == 0) ? dcimal6(otherVolumeAdjust) : '{Volume Adjustment}'} MMSCF`)
+      .replaceAll('{Increase / Decrease Flow}', doc_4_input_order_ir_id === 1 ? 'เพิ่ม' : 'ลด')
+      .replaceAll('{Adj. Rate MMSCFD}', `${(otherVolumeAdjustRate_mmscfd || otherVolumeAdjustRate_mmscfd == 0) ? dcimal6(otherVolumeAdjustRate_mmscfd) : '{Volume Adjustment Rate}'} MMSCFD`)
+      .replaceAll('{Adj. Rate MMSCFH}', `${(otherVolumeAdjustRate_mmscfh || otherVolumeAdjustRate_mmscfh == 0) ? dcimal6(otherVolumeAdjustRate_mmscfh) : '{Volume Adjustment Rate}'} MMSCFH`)
+      .replaceAll('{Date}', dayjs(gas_day, 'YYYY-MM-DD').format('DD/MM/YYYY'))
+      .replaceAll('{Hour}', doc4Data?.gas_shipper_41?.[0]?.tempValue?.gas_hour)
+
     let doc4DataOther = {
       ...doc4Data,
       gas_shipper_41: (doc4Data?.gas_shipper_41?.length > 0 && otherData?.length > 0) ? [
@@ -12239,7 +12312,8 @@ export class EventService {
           ir: doc_4_input_order_ir_id, // 1 เพิ่ม, 2 ลด
           io: doc_4_input_order_io_id, // 3 จุดส่งเข้า, 4 จุดส่งออก
           iother: null, // 5 อื่นๆ ถ้าเลือก ir รน 1 - 4 ให้ null
-          value: `${doc4Data?.gas_shipper_41?.[0]?.tempValue?.meterPoint || "-"} ${(calcSum_(doc4Data?.gas_shipper_41, "energyAdjust")) || '{Energy Adjustment}'} MMBTU หรือ ${(calcSum_(doc4Data?.gas_shipper_41, "volumeAdjust")) || '{Volume Adjustment}'} MMSCF (Moment rate ที่มีการปรับ${doc_4_input_order_ir_id === 1 ? 'เพิ่ม' : 'ลด'}เท่ากับ ${(calcSum_(doc4Data?.gas_shipper_41, "volumeAdjustRate_mmscfd")) || '{Volume Adjustment Rate MMSCFD}'} MMSCFD หรือ ${(calcSum_(doc4Data?.gas_shipper_41, "volumeAdjustRate_mmscfh")) || '{Volume Adjustment Rate MMSCFH} MMSCFH}'} MMSCFH) วันที่/เวลาสั่งการ : วันที่ ${dayjs(gas_day, 'YYYY-MM-DD').format('DD/MM/YYYY')} เวลา${doc4Data?.gas_shipper_41?.[0]?.tempValue?.gas_hour} น.`, // ปริมาณ .....
+          // value: `${doc4Data?.gas_shipper_41?.[0]?.tempValue?.meterPoint || "-"} ${(calcSum_(doc4Data?.gas_shipper_41, "energyAdjust")) || '{Energy Adjustment}'} MMBTU หรือ ${(calcSum_(doc4Data?.gas_shipper_41, "volumeAdjust")) || '{Volume Adjustment}'} MMSCF (Moment rate ที่มีการปรับ${doc_4_input_order_ir_id === 1 ? 'เพิ่ม' : 'ลด'}เท่ากับ ${(calcSum_(doc4Data?.gas_shipper_41, "volumeAdjustRate_mmscfd")) || '{Volume Adjustment Rate MMSCFD}'} MMSCFD หรือ ${(calcSum_(doc4Data?.gas_shipper_41, "volumeAdjustRate_mmscfh")) || '{Volume Adjustment Rate MMSCFH} MMSCFH}'} MMSCFH) วันที่/เวลาสั่งการ : วันที่ ${dayjs(gas_day, 'YYYY-MM-DD').format('DD/MM/YYYY')} เวลา${doc4Data?.gas_shipper_41?.[0]?.tempValue?.gas_hour} น.`, // ปริมาณ .....
+          value: value, // ปริมาณ .....
           more: null, // เพิ่มเติม
           shipper: otherData?.map((o:any) => o?.id) || [], // other
           file: [], // ไม่มีส่ง []
@@ -12398,6 +12472,7 @@ export class EventService {
       doc_39_input_detail_incident,
       doc_39_input_expected_day_time,
       doc_39_input_note,
+      doc_39_template_history_id,
       // input_shipper_note,
 
       event_doc_emer_type_id,
@@ -12560,6 +12635,13 @@ export class EventService {
           doc_39_input_expected_day_time: doc_39_input_expected_day_time || null,
           doc_39_input_note: doc_39_input_note || null,
           longdo_dict: longdo_dict || null,
+          ...(doc_39_template_history_id && {
+            doc_39_template_history: {
+              connect: {
+                id: doc_39_template_history_id
+              }
+            }
+          }),
 
           create_date: getTodayNowAdd7().toDate(),
           create_date_num: getTodayNowAdd7().unix(),
@@ -12699,6 +12781,13 @@ export class EventService {
             doc_39_input_expected_day_time: doc_39_input_expected_day_time || null,
             doc_39_input_note: doc_39_input_note || null,
             longdo_dict: longdo_dict || null,
+            ...(doc_39_template_history_id && {
+              doc_39_template_history: {
+                connect: {
+                  id: doc_39_template_history_id
+                }
+              }
+            }),
 
             create_date: getTodayNowAdd7().toDate(),
             create_date_num: getTodayNowAdd7().unix(),
@@ -12866,6 +12955,7 @@ export class EventService {
       doc_39_input_detail_incident,
       doc_39_input_expected_day_time,
       doc_39_input_note,
+      doc_39_template_history_id,
       event_doc_emer_type_id,
       event_doc_emer_gas_tranmiss_id,
       event_doc_emer_gas_tranmiss_other
@@ -12914,6 +13004,7 @@ export class EventService {
               id: Number(id)
             },
             data: {
+              ...(doc_39_template_history_id && { doc_39_template_history_id: doc_39_template_history_id }),
               event_doc_status_id: 2,
               event_doc_emer_type_id,
               event_doc_emer_gas_tranmiss_id,
@@ -12932,6 +13023,7 @@ export class EventService {
               doc_39_input_detail_incident: doc_39_input_detail_incident || null,
               doc_39_input_expected_day_time: doc_39_input_expected_day_time || null,
               doc_39_input_note: doc_39_input_note || null,
+              ...(doc_39_template_history_id && { doc_39_template_history_id: doc_39_template_history_id }),
 
               longdo_dict: longdo_dict || null
             }
@@ -12984,6 +13076,7 @@ export class EventService {
           doc_39_input_detail_incident: doc_39_input_detail_incident || null,
           doc_39_input_expected_day_time: doc_39_input_expected_day_time || null,
           doc_39_input_note: doc_39_input_note || null,
+          ...(doc_39_template_history_id && { doc_39_template_history_id: doc_39_template_history_id }),
 
           longdo_dict: longdo_dict || null,
           event_date: getTodayNowAdd7(event_date).toDate(),
@@ -13029,6 +13122,7 @@ export class EventService {
                 id: shipOle && shipOle?.[isp]?.id || -1
               },
               data: {
+                ...(doc_39_template_history_id && { doc_39_template_history_id: doc_39_template_history_id }),
                 event_doc_status_id: 2, // draftMode: 2,
                 document_code: contractCodeCount + (isp + 1)
               }
@@ -13154,6 +13248,13 @@ export class EventService {
               doc_39_input_detail_incident: doc_39_input_detail_incident || null,
               doc_39_input_expected_day_time: doc_39_input_expected_day_time || null,
               doc_39_input_note: doc_39_input_note || null,
+              ...(doc_39_template_history_id && {
+                doc_39_template_history: {
+                  connect: {
+                    id: doc_39_template_history_id
+                  }
+                }
+              }),
 
               longdo_dict: longdo_dict || null,
               event_date: getTodayNowAdd7(event_date).toDate(),
@@ -13345,6 +13446,13 @@ export class EventService {
               doc_39_input_detail_incident: doc_39_input_detail_incident || null,
               doc_39_input_expected_day_time: doc_39_input_expected_day_time || null,
               doc_39_input_note: doc_39_input_note || null,
+              ...(doc_39_template_history_id && {
+                doc_39_template_history: {
+                  connect: {
+                    id: doc_39_template_history_id
+                  }
+                }
+              }),
 
               longdo_dict: longdo_dict || null,
               event_date: getTodayNowAdd7(event_date).toDate(),
@@ -16088,11 +16196,13 @@ export class EventService {
     const {
       event_date,
 
+      doc_39_template_history_id,
       doc_41_input_date_time_of_the_incident, //วัน/เวลาที่เกิดเหตุ
       doc_41_input_incident, // สถานที่
       doc_41_input_detail_incident, //รายละเอียดของเหตุการณ์ และผลกระทบต่อระบบส่งก๊าซ
       doc_41_input_expected_day_time, //คาดว่าจะแก้ไขปัญหาแล้วเสร็จในวันที่/เวลา
       doc_41_input_note, // หมายเหตุ
+      doc_41_template_history_id,
       gas_shipper_41,
 
       id_documents, // ใช้ตอน edit version
@@ -16216,6 +16326,8 @@ export class EventService {
             doc_41_input_detail_incident: doc_41_input_detail_incident || null,
             doc_41_input_expected_day_time: doc_41_input_expected_day_time || null,
             doc_41_input_note: doc_41_input_note || null,
+            ...(doc_39_template_history_id && { doc_39_template_history_id: doc_39_template_history_id }),
+            ...(doc_41_template_history_id && { doc_41_template_history_id: doc_41_template_history_id }),
 
             longdo_dict: longdo_dict || null,
 
@@ -16346,6 +16458,20 @@ export class EventService {
                   doc_41_input_detail_incident: doc_41_input_detail_incident || null,
                   doc_41_input_expected_day_time: doc_41_input_expected_day_time || null,
                   doc_41_input_note: doc_41_input_note || null,
+                  ...(doc_39_template_history_id && {
+                    doc_39_template_history: {
+                      connect: {
+                        id: doc_39_template_history_id
+                      }
+                    }
+                  }),
+                  ...(doc_41_template_history_id && {
+                    doc_41_template_history: {
+                      connect: {
+                        id: doc_41_template_history_id
+                      }
+                    }
+                  }),
 
                   longdo_dict: longdo_dict || null,
 
@@ -16497,6 +16623,8 @@ export class EventService {
                   doc_41_input_detail_incident: doc_41_input_detail_incident || null,
                   doc_41_input_expected_day_time: doc_41_input_expected_day_time || null,
                   doc_41_input_note: doc_41_input_note || null,
+                  ...(doc_39_template_history_id && { doc_39_template_history_id: doc_39_template_history_id }),
+                  ...(doc_41_template_history_id && { doc_41_template_history_id: doc_41_template_history_id }),
 
                   longdo_dict: longdo_dict || null,
 
@@ -16539,6 +16667,20 @@ export class EventService {
                   doc_41_input_detail_incident: doc_41_input_detail_incident || null,
                   doc_41_input_expected_day_time: doc_41_input_expected_day_time || null,
                   doc_41_input_note: doc_41_input_note || null,
+                  ...(doc_39_template_history_id && {
+                    doc_39_template_history: {
+                      connect: {
+                        id: doc_39_template_history_id
+                      }
+                    }
+                  }),
+                  ...(doc_41_template_history_id && {
+                    doc_41_template_history: {
+                      connect: {
+                        id: doc_41_template_history_id
+                      }
+                    }
+                  }),
 
                   longdo_dict: longdo_dict || null,
 
@@ -16708,6 +16850,20 @@ export class EventService {
                       doc_41_input_detail_incident: doc_41_input_detail_incident || null,
                       doc_41_input_expected_day_time: doc_41_input_expected_day_time || null,
                       doc_41_input_note: doc_41_input_note || null,
+                      ...(doc_39_template_history_id && {
+                        doc_39_template_history: {
+                          connect: {
+                            id: doc_39_template_history_id
+                          }
+                        }
+                      }),
+                      ...(doc_41_template_history_id && {
+                        doc_41_template_history: {
+                          connect: {
+                            id: doc_41_template_history_id
+                          }
+                        }
+                      }),
 
                       longdo_dict: longdo_dict || null,
 
@@ -16788,6 +16944,20 @@ export class EventService {
                     doc_41_input_detail_incident: doc_41_input_detail_incident || null,
                     doc_41_input_expected_day_time: doc_41_input_expected_day_time || null,
                     doc_41_input_note: doc_41_input_note || null,
+                    ...(doc_39_template_history_id && {
+                      doc_39_template_history: {
+                        connect: {
+                          id: doc_39_template_history_id
+                        }
+                      }
+                    }),
+                    ...(doc_41_template_history_id && {
+                      doc_41_template_history: {
+                        connect: {
+                          id: doc_41_template_history_id
+                        }
+                      }
+                    }),
 
                     longdo_dict: longdo_dict || null,
 
@@ -16919,6 +17089,20 @@ export class EventService {
                   doc_41_input_detail_incident: doc_41_input_detail_incident || null,
                   doc_41_input_expected_day_time: doc_41_input_expected_day_time || null,
                   doc_41_input_note: doc_41_input_note || null,
+                  ...(doc_39_template_history_id && {
+                    doc_39_template_history: {
+                      connect: {
+                        id: doc_39_template_history_id
+                      }
+                    }
+                  }),
+                  ...(doc_41_template_history_id && {
+                    doc_41_template_history: {
+                      connect: {
+                        id: doc_41_template_history_id
+                      }
+                    }
+                  }),
 
                   longdo_dict: longdo_dict || null,
 
@@ -17450,6 +17634,8 @@ export class EventService {
                   signature_base_64: true
                 }
               },
+              doc_39_template_history: true,
+              doc_41_template_history: true,
               event_document_emer_file: {
                 include: {
                   create_by_account: {
@@ -17675,6 +17861,8 @@ export class EventService {
                   signature_base_64: true
                 }
               },
+              doc_39_template_history: true,
+              doc_41_template_history: true,
               event_document_emer_file: {
                 include: {
                   create_by_account: {
@@ -23603,18 +23791,21 @@ export class EventService {
           })
 
           for (let i = 0; i < gas_shipper.length; i++) {
+            const currentGasShipper = gas_shipper[i]
+            if (!currentGasShipper) continue
+
             const gas_shipper_create = await prisma.event_doc_gas_shipper.create({
               data: {
-                ir: gas_shipper[i]?.ir || null,
-                // nom_point: gas_shipper[i]?.nom_point || null,
+                ir: currentGasShipper.ir || null,
+                // nom_point: currentGasShipper.nom_point || null,
                 nomination_point: {
                   connect: {
-                    id: Number(gas_shipper[i]?.nom_point)
+                    id: Number(currentGasShipper.nom_point)
                   }
                 },
-                nom_value_mmscfh: gas_shipper[i]?.nom_value_mmscfh || null,
-                gas_command: gas_shipper[i]?.gas_command || null,
-                gas_more: gas_shipper[i]?.gas_more || null,
+                nom_value_mmscfh: currentGasShipper.nom_value_mmscfh || null,
+                gas_command: currentGasShipper.gas_command || null,
+                gas_more: currentGasShipper.gas_more || null,
                 event_document_emer: {
                   connect: {
                     id: Number(getEventDocumentNew?.id)
@@ -23630,12 +23821,14 @@ export class EventService {
               }
             })
 
-            for (let iShipper = 0; iShipper < (gas_shipper[i]?.shipper || []).length; iShipper++) {
-              const shipperUserTypeId = groupList.find(group => group.id == gas_shipper[i]?.shipper[iShipper])?.user_type_id
+            const shippers = currentGasShipper.shipper || []
+            for (let iShipper = 0; iShipper < shippers.length; iShipper++) {
+              const currentShipper = shippers[iShipper]
+              const shipperUserTypeId = groupList.find(group => group.id == currentShipper)?.user_type_id
               const findDocShipper = await prisma.event_document_emer.findFirst({
                 where: {
                   ref_document: getEventDocumentNew?.id,
-                  group_id: gas_shipper[i].shipper[iShipper]
+                  group_id: currentShipper
                 }
               })
               if (findDocShipper) {
@@ -23662,7 +23855,7 @@ export class EventService {
                   },
                   group: {
                     connect: {
-                      id: gas_shipper[i]?.shipper[iShipper]
+                      id: currentShipper
                     }
                   },
                   user_type: {
@@ -23695,7 +23888,7 @@ export class EventService {
                 const createEventDocumentShipper = await prisma.event_document_emer.create({
                   data: shipperCreate
                 })
-                shipperNewIdArr.push(gas_shipper[i]?.shipper[iShipper])
+                shipperNewIdArr.push(currentShipper)
 
                 await prisma.event_doc_gas_shipper_match.create({
                   data: {
@@ -23706,8 +23899,8 @@ export class EventService {
               }
             }
 
-            if (gas_shipper[i]?.file && gas_shipper[i]?.file.length > 0) {
-              const fileData = gas_shipper[i]?.file?.map((fileItem: any) => {
+            if (currentGasShipper.file && currentGasShipper.file.length > 0) {
+              const fileData = currentGasShipper.file.map((fileItem: any) => {
                 return {
                   url: fileItem,
                   event_doc_gas_shipper_id: Number(gas_shipper_create?.id),
@@ -26798,6 +26991,7 @@ export class EventService {
     // doc 4 หา area จาก relate meter จาก hv dam system
     const {
       event_id,
+      template_id,
       gas_day,
       gas_hour,
       zone,
@@ -26821,10 +27015,53 @@ export class EventService {
     // const doc_4_input_order_ir_text = energyAdjust < 0 ? 'ลด' : 'เพิ่ม'; // 1 เพิ่ม, 2 ลด //ระบบส่งก๊าซ
     // const doc_4_input_order_io_id = 3; // จุดส่งเข้า fix
     // const doc_4_input_order_value = `${meterPointName} ${energyAdjust} MMBTU หรือ ${volumeAdjust} MMSCF (Moment rate ที่มีการปรับ ${doc_4_input_order_ir_text}เท่ากับ ${volumeAdjustRate_mmscfd} MMSCFD หรือ ${volumeAdjustRate_mmscfh} MMSCFH) วันที่/เวลาสั่งการ : วันที่ ${gas_day} เวลา ${hourText} น.`; //ปริมาณ
+    let valuePattern = '{Point} {Energy} หรือ {Volume} (Moment rate ที่มีการปรับ{Increase / Decrease Flow}เท่ากับ {Adj. Rate MMSCFD} หรือ {Adj. Rate MMSCFH}) วันที่/เวลาสั่งการ : วันที่ {Date} เวลา{Hour} น.'
+    let longdo_dict = null
+    let doc_39_input_note = "กรณีพื้นที่เกิดเหตุเป็นพื้นที่ให้บริการตาม TSO Code จะอ้างอิงการสั่งการจาก TSO Code ข้อที่ 8.10.1 เรื่องขั้นตอนการปฏิบัติงานในกรณีเหตุการณ์ไม่สมดุลอย่างรุนแรง (Difficult Day) และ 8.10.2 ขั้นตอนการดำเนินการในกรณีภาวะฉุกเฉิน"
+    let doc_39_input_expected_day_time = null
+    let doc_39_template_history_id = null
+
+    if(template_id){
+      const eventTemplate = await this.prisma.event_template.findFirst({
+        where: {del_flag: false, id: Number(template_id)},
+        include: {
+          event_doc_master: true,
+          event_template_history: {
+            take: 1,
+            orderBy: {
+              id: 'desc'
+            }
+          },
+        },
+        orderBy: {id: 'desc'}
+      })
+      if(eventTemplate){
+        if(eventTemplate.event_template_history && eventTemplate.event_template_history.length > 0){
+          doc_39_template_history_id = eventTemplate.event_template_history[0].id
+        }
+        if(eventTemplate.template_data){
+          if(eventTemplate.template_data['doc_41_value_template_string']){
+            valuePattern = eventTemplate.template_data['doc_41_value_template_string']
+          }
+  
+          if(eventTemplate.template_data['longdo_dict']){
+            longdo_dict = eventTemplate.template_data['longdo_dict']
+          }
+  
+          if(eventTemplate.template_data['doc_39_input_expected_day_time']){
+            doc_39_input_expected_day_time = eventTemplate.template_data['doc_39_input_expected_day_time']
+          }
+  
+          if(eventTemplate.template_data['doc_39_input_note']){
+            doc_39_input_note = eventTemplate.template_data['doc_39_input_note']
+          }
+        }
+      }
+    }
 
     const shipperUse = await this.shipperData(shipper)
 
-    const doc7Nompoint = await this.doc7Nompoint(userId)
+    const doc7Nompoint = await this.doc7Nompoint(payload, userId)
 
     const hvMeter = await this.prisma.hv_for_peration_flow_and_instructed_flow.findMany({
       where: {
@@ -26893,6 +27130,9 @@ export class EventService {
         break
       }
     }
+
+    const groupedGasShipperByPoint = new Map<number, any[]>()
+
     const doc7Data_ = {
       generate: false, // fix create true gen , false default
       id_documents: null, // fix create ตอนสร้าง null | ถ้าใส่ id_runnumber ใส่มาด้วย | ตอน edit version ส่งมาด้วย | (ถ้าตอน status generate ส่ง id มาด้วย )
@@ -26940,13 +27180,13 @@ export class EventService {
           nomId = nomData?.id
         }
 
-        return {
+        const eachGasShipperData = {
           id: null, // ต้องใส่ ตอนเพิ่มครั้งแรกยังไม่มีจะเป็น null
           ir: doc_7_input_order_ir_id, // 1 เพิ่ม, 2 ลด
           io: 3, // 3 จุดส่งเข้า, 4 จุดส่งออก
           area: areaId, // area
           nom_point: nomId, // (BPK1 มี shipper 62, 67) ปริมาณก๊าซ (id nom point)
-          nom_value_mmscfh: `${meterPoint} ${(e?.energyAdjust || e?.energyAdjust == 0) ? e?.energyAdjust : '{Energy Adjustment}'} MMBTU หรือ ${(e?.volumeAdjust || e?.volumeAdjust == 0) ? e?.volumeAdjust : '{Volume Adjustment}'} MMSCF (Moment rate ที่มีการปรับ${doc_7_input_order_ir_id === 1 ? 'เพิ่ม' : 'ลด'}เท่ากับ ${(e?.volumeAdjustRate_mmscfd !== null && e?.volumeAdjustRate_mmscfd) || '{Volume Adjustment Rate MMSCFD}'} MMSCFD หรือ ${(e?.volumeAdjustRate_mmscfh !== null && e?.volumeAdjustRate_mmscfh) || '{Volume Adjustment Rate MMSCFH} MMSCFH}'} MMSCFH) วันที่/เวลาสั่งการ : วันที่ ${dayjs(gas_day, 'YYYY-MM-DD').format('DD/MM/YYYY')} เวลา${e?.gas_hour} น.`,
+          nom_value_mmscfh: `${meterPoint} ${(e?.energyAdjust || e?.energyAdjust == 0) ? dcimal3(e?.energyAdjust) : '{Energy Adjustment}'} MMBTU หรือ ${(e?.volumeAdjust || e?.volumeAdjust == 0) ? dcimal6(e?.volumeAdjust) : '{Volume Adjustment}'} MMSCF (Moment rate ที่มีการปรับ${doc_7_input_order_ir_id === 1 ? 'เพิ่ม' : 'ลด'}เท่ากับ ${(e?.volumeAdjustRate_mmscfd !== null && e?.volumeAdjustRate_mmscfd) ? dcimal6(e?.volumeAdjustRate_mmscfd) : '{Volume Adjustment Rate MMSCFD}'} MMSCFD หรือ ${(e?.volumeAdjustRate_mmscfh !== null && e?.volumeAdjustRate_mmscfh) ? dcimal6(e?.volumeAdjustRate_mmscfh) : '{Volume Adjustment Rate MMSCFH}'} MMSCFH) วันที่/เวลาสั่งการ : วันที่ ${dayjs(gas_day, 'YYYY-MM-DD').format('DD/MM/YYYY')} เวลา ${e?.gas_hour} น.`,
           gas_command: 'ดำเนินการตรวจสอบจุดที่ 1', // สั่งการ
           gas_more: 'เร่งดำเนินการตามจุด', // ข้อมูลเพิ่มเติม
           shipper: [e?.id], // ต้องมี shipper
@@ -26961,35 +27201,83 @@ export class EventService {
               gas_hour: e?.gas_hour || null,
             },
         }
+
+        const existingGroupedGasShipper = groupedGasShipperByPoint.get(nomId || 0)
+        if(existingGroupedGasShipper){
+          existingGroupedGasShipper.push(eachGasShipperData)
+        }
+        else{
+          groupedGasShipperByPoint.set(nomId || 0, [eachGasShipperData])
+        }
+
+        return eachGasShipperData
       }),
       email_event_for_shipper: [],
       cc_email: []
     }
 
     const calcSum_ = (data:any, key_:any) => {
-      const sumWithInitial = data.reduce(
+      const sumWithInitial : number = data.reduce(
         (accumulator, currentValue) => accumulator + (currentValue?.tempValue?.[key_] || 0),
         0,
       );
       return sumWithInitial
     }
 
-    let doc7Data = {
-      ...doc7Data_,
-      gas_shipper: (doc7Data_?.gas_shipper?.length > 0 && otherData?.length > 0) ? [
-        ...doc7Data_?.gas_shipper,
-        {
+    const gasOtherList = []
+    groupedGasShipperByPoint.forEach((value, key) => {
+      let sumEnergyAdjustString = '{Energy Adjustment}'
+      let sumVolumeAdjustString = '{Volume Adjustment}'
+      let sumVolumeAdjustRateMmscfdString = '{Volume Adjustment Rate MMSCFD}'
+      let sumVolumeAdjustRateMmscfhString = '{Volume Adjustment Rate MMSCFH}'
+      const sumEnergyAdjust = calcSum_(value, "energyAdjust")
+      const sumVolumeAdjust = calcSum_(value, "volumeAdjust")
+      const sumVolumeAdjustRateMmscfd = calcSum_(value, "volumeAdjustRate_mmscfd")
+      const sumVolumeAdjustRateMmscfh = calcSum_(value, "volumeAdjustRate_mmscfh")
+  
+      if(sumEnergyAdjust){
+        sumEnergyAdjustString = dcimal3(sumEnergyAdjust)
+      }
+      if(sumVolumeAdjust){
+        sumVolumeAdjustString = dcimal6(sumVolumeAdjust)
+      }
+      if(sumVolumeAdjustRateMmscfd){
+        sumVolumeAdjustRateMmscfdString = dcimal6(sumVolumeAdjustRateMmscfd)
+      }
+      if(sumVolumeAdjustRateMmscfh){
+        sumVolumeAdjustRateMmscfhString = dcimal6(sumVolumeAdjustRateMmscfh)
+      }
+
+      const meterPointList = value.reduce((acc:string[], curr:any) => {
+        if(curr.tempValue?.meterPoint && !acc.includes(curr.tempValue?.meterPoint)){
+          acc.push(curr.tempValue?.meterPoint)
+        }
+        return acc
+      }, [])
+      const meterPointListString = meterPointList.length > 0 ? meterPointList.join(', ') : '-'
+
+      if(value.length > 0){
+        gasOtherList.push({
           id: null, // ต้องใส่ ตอนเพิ่มครั้งแรกยังไม่มีจะเป็น null
           ir: doc_7_input_order_ir_id, // 1 เพิ่ม, 2 ลด
           io: 3, // 3 จุดส่งเข้า, 4 จุดส่งออก
-          area: areaId, // area
-          nom_point: doc7Data_?.gas_shipper?.[0]?.nom_point, // (BPK1 มี shipper 62, 67) ปริมาณก๊าซ (id nom point)
-          nom_value_mmscfh: `${doc7Data_?.gas_shipper?.[0]?.tempValue?.meterPoint || "-"} ${calcSum_(doc7Data_?.gas_shipper, "energyAdjust") || '{Energy Adjustment}'} MMBTU หรือ ${calcSum_(doc7Data_?.gas_shipper, "volumeAdjust") || '{Volume Adjustment}'} MMSCF (Moment rate ที่มีการปรับ${doc_7_input_order_ir_id === 1 ? 'เพิ่ม' : 'ลด'}เท่ากับ ${calcSum_(doc7Data_?.gas_shipper, "volumeAdjustRate_mmscfd") || '{Volume Adjustment Rate MMSCFD}'} MMSCFD หรือ ${calcSum_(doc7Data_?.gas_shipper, "volumeAdjustRate_mmscfh") || '{Volume Adjustment Rate MMSCFH} MMSCFH}'} MMSCFH) วันที่/เวลาสั่งการ : วันที่ ${dayjs(gas_day, 'YYYY-MM-DD').format('DD/MM/YYYY')} เวลา${doc7Data_?.gas_shipper?.[0]?.tempValue?.gas_hour} น.`,
+          area: value[0].area, // area
+          nom_point: key, // (BPK1 มี shipper 62, 67) ปริมาณก๊าซ (id nom point)
+          nom_value_mmscfh: `${meterPointListString} ${sumEnergyAdjustString} MMBTU หรือ ${sumVolumeAdjustString} MMSCF (Moment rate ที่มีการปรับ${doc_7_input_order_ir_id === 1 ? 'เพิ่ม' : 'ลด'}เท่ากับ ${sumVolumeAdjustRateMmscfdString} MMSCFD หรือ ${sumVolumeAdjustRateMmscfhString} MMSCFH) วันที่/เวลาสั่งการ : วันที่ ${dayjs(gas_day, 'YYYY-MM-DD').format('DD/MM/YYYY')} เวลา ${value[0].tempValue?.gas_hour} น.`,
           gas_command: 'ดำเนินการตรวจสอบจุดที่ 1', // สั่งการ
           gas_more: 'เร่งดำเนินการตามจุด', // ข้อมูลเพิ่มเติม
           shipper: otherData?.map((o:any) => o?.id) || [], // other
           file: [], // ไม่มีส่ง []
-        },
+        })
+      }
+    })
+
+
+    let doc7Data = {
+      ...doc7Data_,
+      gas_shipper: (doc7Data_?.gas_shipper?.length > 0 && otherData?.length > 0) ? [
+        ...doc7Data_?.gas_shipper,
+        ...gasOtherList,
       ]?.map((e:any) => {
         delete e?.tempValue
         return e
@@ -27229,9 +27517,10 @@ export class EventService {
     return resDoc
   }
 
-  async doc7Nompoint(userId: any) {
-    const todayStart = getTodayStartAdd7().toDate()
-    const todayEnd = getTodayEndAdd7().toDate()
+  async doc7Nompoint(payload: any,userId: any) {
+    const { event_date } = payload
+    const todayStart = event_date ? getTodayStartAdd7(event_date).toDate() : getTodayStartAdd7().toDate()
+    const todayEnd = event_date ? getTodayEndAdd7(event_date).toDate() : getTodayEndAdd7().toDate()
 
     // const shipperMaster = await this.prisma.group.findMany({
     //   where: {
@@ -27248,6 +27537,27 @@ export class EventService {
     //     id: 'desc'
     //   }
     // })
+
+    const otherMaster = await this.prisma.group.findMany({
+      where: {
+        user_type_id: 4,
+        start_date: { lte: todayEnd },
+        OR: [
+          { end_date: null },
+          { end_date: { gt: todayStart } }
+        ]
+      },
+      select: {
+        id: true,
+        id_name: true,
+        name: true,
+        company_name: true,
+        email: true
+      },
+      orderBy: {
+        id: 'desc'
+      }
+    })
     const areaDam = await this.prisma.area.findMany({
       where: {
         AND: [
@@ -27345,7 +27655,10 @@ export class EventService {
         ?.map((g: any) => g?.group)
       return {
         ...nE,
-        shipper: Array.from(new Map(shipper_.map((item) => [item.id, item])).values())
+        shipper: [
+          ...Array.from(new Map(shipper_.map((item) => [item.id, item])).values()),
+          ...otherMaster
+        ]
       }
     })
 
@@ -27903,6 +28216,10 @@ export class EventService {
       event_doc_ofo_gas_tranmiss_id, //ระบบส่งก๊าซ
       event_doc_ofo_gas_tranmiss_other, // event_doc_ofo_gas_tranmiss_other 4 ใส่ด้วย
 
+      doc_7_input_ref_1_text,
+      doc_7_input_ref_2_text,
+      doc_7_template_history_id,
+
       id_documents, // ใช้ตอน edit version
       id_runnumber,
 
@@ -28117,6 +28434,16 @@ export class EventService {
             }),
             doc_7_input_order_other_value: doc_7_input_order_other_value || null,
 
+            ...(doc_7_input_ref_1_text && {
+              doc_7_input_ref_1_text: doc_7_input_ref_1_text
+            }),
+            ...(doc_7_input_ref_2_text && {
+              doc_7_input_ref_2_text: doc_7_input_ref_2_text
+            }),
+            ...(doc_7_template_history_id && {
+              doc_7_template_history_id: doc_7_template_history_id
+            }),
+
             longdo_dict: longdo_dict || null,
 
             update_date: getTodayNowAdd7().toDate(),
@@ -28295,6 +28622,16 @@ export class EventService {
                   }),
                   doc_7_input_order_other_value: doc_7_input_order_other_value || null,
 
+                  ...(doc_7_input_ref_1_text && {
+                    doc_7_input_ref_1_text: doc_7_input_ref_1_text
+                  }),
+                  ...(doc_7_input_ref_2_text && {
+                    doc_7_input_ref_2_text: doc_7_input_ref_2_text
+                  }),
+                  ...(doc_7_template_history_id && {
+                    doc_7_template_history: { connect: { id: doc_7_template_history_id } }
+                  }),
+
                   longdo_dict: longdo_dict || null,
 
                   create_date: getTodayNowAdd7().toDate(),
@@ -28462,6 +28799,16 @@ export class EventService {
                     doc_7_input_order_other_id: doc_7_input_order_other_id || null
                   }),
                   doc_7_input_order_other_value: doc_7_input_order_other_value || null,
+                  
+                  ...(doc_7_input_ref_1_text && {
+                    doc_7_input_ref_1_text: doc_7_input_ref_1_text
+                  }),
+                  ...(doc_7_input_ref_2_text && {
+                    doc_7_input_ref_2_text: doc_7_input_ref_2_text
+                  }),
+                  ...(doc_7_template_history_id && {
+                    doc_7_template_history_id: doc_7_template_history_id
+                  }),
 
                   longdo_dict: longdo_dict || null,
 
@@ -28542,6 +28889,16 @@ export class EventService {
                     }
                   }),
                   doc_7_input_order_other_value: doc_7_input_order_other_value || null,
+
+                  ...(doc_7_input_ref_1_text && {
+                    doc_7_input_ref_1_text: doc_7_input_ref_1_text
+                  }),
+                  ...(doc_7_input_ref_2_text && {
+                    doc_7_input_ref_2_text: doc_7_input_ref_2_text
+                  }),
+                  ...(doc_7_template_history_id && {
+                    doc_7_template_history: { connect: { id: doc_7_template_history_id } }
+                  }),
 
                   longdo_dict: longdo_dict || null,
 
@@ -28759,6 +29116,16 @@ export class EventService {
                       }),
                       doc_7_input_order_other_value: doc_7_input_order_other_value || null,
 
+                      ...(doc_7_input_ref_1_text && {
+                        doc_7_input_ref_1_text: doc_7_input_ref_1_text
+                      }),
+                      ...(doc_7_input_ref_2_text && {
+                        doc_7_input_ref_2_text: doc_7_input_ref_2_text
+                      }),
+                      ...(doc_7_template_history_id && {
+                        doc_7_template_history: { connect: { id: doc_7_template_history_id } }
+                      }),
+
                       longdo_dict: longdo_dict || null,
 
                       create_date: getTodayNowAdd7().toDate(),
@@ -28876,6 +29243,16 @@ export class EventService {
                       }
                     }),
                     doc_7_input_order_other_value: doc_7_input_order_other_value || null,
+
+                    ...(doc_7_input_ref_1_text && {
+                      doc_7_input_ref_1_text: doc_7_input_ref_1_text
+                    }),
+                    ...(doc_7_input_ref_2_text && {
+                      doc_7_input_ref_2_text: doc_7_input_ref_2_text
+                    }),
+                    ...(doc_7_template_history_id && {
+                      doc_7_template_history: { connect: { id: doc_7_template_history_id } }
+                    }),
 
                     longdo_dict: longdo_dict || null,
 
@@ -29040,6 +29417,16 @@ export class EventService {
                   doc_7_input_order_other_value: doc_7_input_order_other_value || null,
 
                   longdo_dict: longdo_dict || null,
+
+                  ...(doc_7_input_ref_1_text && {
+                    doc_7_input_ref_1_text: doc_7_input_ref_1_text
+                  }),
+                  ...(doc_7_input_ref_2_text && {
+                    doc_7_input_ref_2_text: doc_7_input_ref_2_text
+                  }),
+                  ...(doc_7_template_history_id && {
+                    doc_7_template_history: { connect: { id: doc_7_template_history_id } }
+                  }),
 
                   create_date: getTodayNowAdd7().toDate(),
                   create_date_num: getTodayNowAdd7().unix(),
@@ -29747,6 +30134,16 @@ export class EventService {
                     }
                   }
                 }
+              },
+              doc_7_template_history: {
+                include: {
+                  event_template: {
+                    select: {
+                      id: true,
+                      template_name: true
+                    }
+                  }
+                }
               }
             }
           })
@@ -29979,6 +30376,16 @@ export class EventService {
                   nomination_point: {
                     include: {
                       area: true
+                    }
+                  }
+                }
+              },
+              doc_7_template_history: {
+                include: {
+                  event_template: {
+                    select: {
+                      id: true,
+                      template_name: true
                     }
                   }
                 }

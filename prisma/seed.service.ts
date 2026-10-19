@@ -177,11 +177,11 @@ export class SeedService {
       const oldMap = configByRole.get(role.id) ?? new Map<number, any>();
 
       const finalRows = menus.map((menu: any) => {
-        const old = oldMap.get(menu.id);
+        const old = oldMap.get(menu?.id || -1);
 
         return {
-          role_id: role.id,
-          menus_id: menu.id,
+          role_id: role?.id || -1,
+          menus_id: menu?.id || -1,
           seq: menu?.seq ?? null,
           parent: menu?.parent ?? null,
 

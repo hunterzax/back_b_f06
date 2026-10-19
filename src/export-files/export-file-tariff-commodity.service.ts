@@ -272,7 +272,7 @@ export class ExportFileTariffCommodityService {
         }
       })
       // Create a sheet for each point
-      for (const pointInfo of pointData) {
+      for (const pointInfo of (pointData || [])) {
         const worksheet = workbook.addWorksheet(pointInfo.point)
 
         // pointInfo?.point
@@ -294,9 +294,9 @@ export class ExportFileTariffCommodityService {
         // Header Section - Use point name as gasMeteringStation
         this.addHeaderSection(worksheet, {
           gasMeteringStation: pointInfo?.point || '',
-          shipperName: params.shipperName || '',
-          month: params.month,
-          year: params.year
+          shipperName: params?.shipperName || '',
+          month: params?.month,
+          year: params?.year
         })
 
         // Table Header

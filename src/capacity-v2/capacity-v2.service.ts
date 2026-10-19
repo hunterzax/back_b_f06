@@ -247,9 +247,9 @@ export class CapacityV2Service {
       2: "Contract Code"
     } : resultTranform[0]
     const keyValueInfo = checkShipperIDorName === 2 ? {
-      0: (await this.capacityMiddleService.getGroupByIDName(resultTranform?.[1]?.[0]))?.name,
-      1: resultTranform?.[1]?.[1],
-      2: resultTranform?.[1]?.[2]
+      0: (await this.capacityMiddleService.getGroupByIDName(resultTranform[1]?.[0]))?.name,
+      1: resultTranform[1]?.[1],
+      2: resultTranform[1]?.[2]
     } : resultTranform[1]
     const keyHeadMinMax: any = {
       1: "Pressure Range",
@@ -369,18 +369,18 @@ export class CapacityV2Service {
     newShipperIdName?: string
   ) {
 
-    const resultTranform = (await JSON.parse(data?.json_data)) || null;
-    const headerEntry = resultTranform?.headerEntry || {};
-    const entryValue = resultTranform?.entryValue || [];
-    const headerExit = resultTranform?.headerExit || {};
-    const exitValue = resultTranform?.exitValue || [];
-    const sumEntries = resultTranform?.sumEntries || {};
-    const sumExits = resultTranform?.sumExits || {};
+    const resultTranform = (await JSON.parse(data?.json_data)) || {};
+    const headerEntry = resultTranform.headerEntry || {};
+    const entryValue = resultTranform.entryValue || [];
+    const headerExit = resultTranform.headerExit || {};
+    const exitValue = resultTranform.exitValue || [];
+    const sumEntries = resultTranform.sumEntries || {};
+    const sumExits = resultTranform.sumExits || {};
 
-    const keyEntryFrom = resultTranform?.['headerEntry']?.['Period']?.['From']?.['key'];
-    const keyEntryTo = resultTranform?.['headerEntry']?.['Period']?.['To']?.['key'];
-    const keyExitFrom = resultTranform?.['headerExit']?.['Period']?.['From']?.['key'];
-    const keyExitTo = resultTranform?.['headerExit']?.['Period']?.['To']?.['key'];
+    const keyEntryFrom = resultTranform['headerEntry']?.['Period']?.['From']?.['key'];
+    const keyEntryTo = resultTranform['headerEntry']?.['Period']?.['To']?.['key'];
+    const keyExitFrom = resultTranform['headerExit']?.['Period']?.['From']?.['key'];
+    const keyExitTo = resultTranform['headerExit']?.['Period']?.['To']?.['key'];
 
     // add missing value by key
     Object.values(headerEntry).forEach((capacityDates: any) => {
@@ -412,7 +412,7 @@ export class CapacityV2Service {
     let typeOfContract = null;
     let contractCode = null;
 
-    Object.values(resultTranform?.shipperInfo).forEach((info: any) => {
+    Object.values(resultTranform.shipperInfo).forEach((info: any) => {
       if (info['Shipper Name']) {
         shipperName = info['Shipper Name'];
         info['Shipper ID Name'] = newShipperIdName
@@ -1055,7 +1055,7 @@ export class CapacityV2Service {
           );
         }
 
-        const headerEntryDate = resultTranform?.['headerEntry'];
+        const headerEntryDate = resultTranform['headerEntry'];
         const keysGreaterThanEntryTo = Object.keys(e).filter(
           (key) => Number(key) > Number(keyEntryTo),
         );
@@ -1076,7 +1076,7 @@ export class CapacityV2Service {
                       const jsDate = excelSerialToDate(excelSerialDate);
                       dateKey = dayjs(jsDate).format('DD/MM/YYYY');
                       const tempData = headerEntryDate[capacityKey][dateKeyString]
-                      delete resultTranform?.['headerEntry'][capacityKey][dateKeyString]
+                      delete resultTranform['headerEntry'][capacityKey][dateKeyString]
                       delete headerEntryDate[capacityKey][dateKeyString]
                       resultTranform['headerEntry'][capacityKey][dateKey] = tempData
                       headerEntryDate[capacityKey][dateKey] = tempData
@@ -1320,7 +1320,7 @@ export class CapacityV2Service {
           );
         }
 
-        const headerExitDate = resultTranform?.['headerExit'];
+        const headerExitDate = resultTranform['headerExit'];
         const keysGreaterThanExitTo = Object.keys(e).filter(
           (key) => Number(key) > Number(keyExitTo),
         );
@@ -1339,12 +1339,7 @@ export class CapacityV2Service {
                       const jsDate = excelSerialToDate(excelSerialDate);
                       dateKey = dayjs(jsDate).format('DD/MM/YYYY');
                       const tempData = headerExitDate[capacityKey][dateKeyString]
-                      delete resultTranform?.['headerExit'][capacityKey][dateKeyString]
                       delete headerExitDate[capacityKey][dateKeyString]
-                      
-                      // Coverity flags this as unused_expr (NO_EFFECT).
-                      // coverity[unused_expr:SUPPRESS]
-                      resultTranform['headerExit'][capacityKey][dateKey] = tempData
                       headerExitDate[capacityKey][dateKey] = tempData
                     }
                   } catch (error) {
@@ -1812,7 +1807,7 @@ export class CapacityV2Service {
           select:{ contract_point:true },
         })
         if(!contractPoint){
-          ctPoint.push(ckPointDup?.[i_])
+          ctPoint.push(ckPointDup[i_])
         }
       }
       if(ctPoint?.length > 0){
@@ -1893,18 +1888,18 @@ export class CapacityV2Service {
     newShipperIdName?: string
   ) {
 
-    const resultTranform = (await JSON.parse(data?.json_data)) || null;
-    const headerEntry = resultTranform?.headerEntry || {};
-    const entryValue = resultTranform?.entryValue || [];
-    const headerExit = resultTranform?.headerExit || {};
-    const exitValue = resultTranform?.exitValue || [];
-    const sumEntries = resultTranform?.sumEntries || {};
-    const sumExits = resultTranform?.sumExits || {};
+    const resultTranform = (await JSON.parse(data?.json_data)) || {};
+    const headerEntry = resultTranform.headerEntry || {};
+    const entryValue = resultTranform.entryValue || [];
+    const headerExit = resultTranform.headerExit || {};
+    const exitValue = resultTranform.exitValue || [];
+    const sumEntries = resultTranform.sumEntries || {};
+    const sumExits = resultTranform.sumExits || {};
 
-    const keyEntryFrom = resultTranform?.['headerEntry']?.['Period']?.['From']?.['key'];
-    const keyEntryTo = resultTranform?.['headerEntry']?.['Period']?.['To']?.['key'];
-    const keyExitFrom = resultTranform?.['headerExit']?.['Period']?.['From']?.['key'];
-    const keyExitTo = resultTranform?.['headerExit']?.['Period']?.['To']?.['key'];
+    const keyEntryFrom = resultTranform['headerEntry']?.['Period']?.['From']?.['key'];
+    const keyEntryTo = resultTranform['headerEntry']?.['Period']?.['To']?.['key'];
+    const keyExitFrom = resultTranform['headerExit']?.['Period']?.['From']?.['key'];
+    const keyExitTo = resultTranform['headerExit']?.['Period']?.['To']?.['key'];
 
     // add missing value by key
     Object.values(headerEntry).forEach((capacityDates: any) => {
@@ -1936,7 +1931,7 @@ export class CapacityV2Service {
     let typeOfContract = null;
     let contractCode = null;
 
-    Object.values(resultTranform?.shipperInfo).forEach((info: any) => {
+    Object.values(resultTranform.shipperInfo).forEach((info: any) => {
       if (info['Shipper Name']) {
         shipperName = info['Shipper Name'];
         info['Shipper ID Name'] = newShipperIdName
@@ -2542,7 +2537,7 @@ export class CapacityV2Service {
           );
         }
 
-        const headerEntryDate = resultTranform?.['headerEntry'];
+        const headerEntryDate = resultTranform['headerEntry'];
         const keysGreaterThanEntryTo = Object.keys(e).filter(
           (key) => Number(key) > Number(keyEntryTo),
         );
@@ -2563,7 +2558,7 @@ export class CapacityV2Service {
                       const jsDate = excelSerialToDate(excelSerialDate);
                       dateKey = dayjs(jsDate).format('DD/MM/YYYY');
                       const tempData = headerEntryDate[capacityKey][dateKeyString]
-                      delete resultTranform?.['headerEntry'][capacityKey][dateKeyString]
+                      delete resultTranform['headerEntry'][capacityKey][dateKeyString]
                       delete headerEntryDate[capacityKey][dateKeyString]
                       resultTranform['headerEntry'][capacityKey][dateKey] = tempData
                       headerEntryDate[capacityKey][dateKey] = tempData
@@ -2807,7 +2802,7 @@ export class CapacityV2Service {
           );
         }
 
-        const headerExitDate = resultTranform?.['headerExit'];
+        const headerExitDate = resultTranform['headerExit'];
         const keysGreaterThanExitTo = Object.keys(e).filter(
           (key) => Number(key) > Number(keyExitTo),
         );
@@ -2826,11 +2821,8 @@ export class CapacityV2Service {
                       const jsDate = excelSerialToDate(excelSerialDate);
                       dateKey = dayjs(jsDate).format('DD/MM/YYYY');
                       const tempData = headerExitDate[capacityKey][dateKeyString]
-                      delete resultTranform?.['headerExit'][capacityKey][dateKeyString]
+                      delete resultTranform['headerExit'][capacityKey][dateKeyString]
                       delete headerExitDate[capacityKey][dateKeyString]
-
-                      // Coverity flags this as unused_expr (NO_EFFECT).
-                      // coverity[unused_expr:SUPPRESS]
                       resultTranform['headerExit'][capacityKey][dateKey] = tempData
                       headerExitDate[capacityKey][dateKey] = tempData
                     }
@@ -3297,7 +3289,7 @@ export class CapacityV2Service {
           select:{ contract_point:true },
         })
         if(!contractPoint){
-          ctPoint.push(ckPointDup?.[i_])
+          ctPoint.push(ckPointDup[i_])
         }
       }
       if(ctPoint?.length > 0){
@@ -6209,7 +6201,7 @@ export class CapacityV2Service {
           select:{ contract_point:true },
         })
         if(!contractPoint){
-          ctPoint.push(ckPointDup?.[i_])
+          ctPoint.push(ckPointDup[i_])
         }
       }
       if(ctPoint?.length > 0){
@@ -9384,7 +9376,7 @@ export class CapacityV2Service {
       flagAmd = false;
       contract_code = contractCode?.contract_code;
       console.log('#1');
-      if (contractCode.status_capacity_request_management_id === 2) {
+      if (contractCode?.status_capacity_request_management_id === 2) {
         // const extendStart = contract_start_date
         // const extendEnd = contract_end_date
         // await this.restorePreviousVersion(id, null, null, extendStart, extendEnd); // https://app.clickup.com/t/9018502823/86euzxxkq เคสนี้เลือกวันที่ entend start หลัง end เก่า เคสใหม่ (contract_end_date ปิดเพราะอะไรไม่รู้)
@@ -9675,7 +9667,7 @@ export class CapacityV2Service {
           //   ? getTodayNowDDMMYYYYDfaultAdd7(contract_end_date).toDate()
           //   : null,
           extend_deadline: contract_end_date ? getTodayNowDDMMYYYYDfaultAdd7(contract_end_date).toDate() : null,
-          status_capacity_request_management_process_id: contractCode && contractCode.status_capacity_request_management_id == 2 && todayStartDayjs.isSameOrAfter(csd) ? 1 : contractCode.status_capacity_request_management_process_id,
+          status_capacity_request_management_process_id: contractCode ? (contractCode.status_capacity_request_management_id == 2 && todayStartDayjs.isSameOrAfter(csd) ? 1 : contractCode.status_capacity_request_management_process_id) : 2,
           shadow_period: parseToNumber(shadow_period) || 0, // update shadow_period ใหม่เข้าไปด้วย
           shadow_time: parseToNumber(shadow_time) || 0, // update shadow_time ใหม่เข้าไปด้วย
         },
@@ -9796,7 +9788,7 @@ export class CapacityV2Service {
           select:{ contract_point:true },
         })
         if(!contractPoint){
-          ctPoint.push(ckPointDup?.[i_])
+          ctPoint.push(ckPointDup[i_])
         }
       }
       if(ctPoint?.length > 0){
@@ -10283,17 +10275,16 @@ export class CapacityV2Service {
         }
       },
     });
-    let newBK: any = null;
 
-    newBK = bookingVersion;
+    const newBK: any = bookingVersion || {};
 
-    newBK['booking_full_json'] = await (newBK && newBK?.booking_full_json)?.map(
+    newBK['booking_full_json'] = (newBK.booking_full_json || []).map(
       (e: any) => {
         const data_temp = JSON.parse(e['data_temp']);
         return { ...e, data_temp: data_temp };
       },
     );
-    newBK['booking_row_json'] = await newBK?.booking_row_json.map((e: any) => {
+    newBK['booking_row_json'] = (newBK.booking_row_json || []).map((e: any) => {
       const data_temp = JSON.parse(e['data_temp']);
       return { ...e, data_temp: data_temp };
     });
@@ -10310,8 +10301,8 @@ export class CapacityV2Service {
       return shipperInfo[key]['Shipper Name'];
     }).find((item) => item !== undefined);
     const ShipperCheck_ = !!ShipperCheck ? 1 : 2 // 1 แบบเก่า 2 แบบใหม่
-    const ShipperName = newBK?.contract_code?.group?.name
-    const ShipperIDName = newBK?.contract_code?.group?.id_name
+    const ShipperName = newBK.contract_code?.group?.name
+    const ShipperIDName = newBK.contract_code?.group?.id_name
 
     const typeOfContract: any = Object.keys(shipperInfo)
       .map((key) => {
@@ -10325,7 +10316,7 @@ export class CapacityV2Service {
     //   })
     //   .find((item) => item !== undefined);
 
-    const ContractCode = newBK?.contract_code?.contract_code
+    const ContractCode = newBK.contract_code?.contract_code
 
     const headerEntryInfo1 =
       newBK['booking_full_json'][0]['data_temp']['headerEntry'][

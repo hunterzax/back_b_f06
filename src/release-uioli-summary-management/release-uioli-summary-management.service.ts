@@ -321,7 +321,7 @@ export class ReleaseUioliSummaryManagementService {
         let isInRange = false;
 
         if (e.data_temp[key] !== undefined) {
-          if (Number(e?.entry_exit_id) === 1) {
+          if (Number(e.entry_exit_id) === 1) {
             const entryMMBTUD = ranges[0];
             const entryMMMSCFD = ranges[2];
             const isInRangeMMBTU = Number(key) >= entryMMBTUD[0] && Number(key) <= entryMMBTUD[1];

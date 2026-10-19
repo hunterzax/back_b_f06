@@ -370,7 +370,7 @@ export class ExportFileTariffService {
 
       // Gas Entry (Column C)
       const gasEntryCell = row.getCell(3)
-      gasEntryCell.value = rowData?.gasEntry || '-'
+      gasEntryCell.value = rowData.gasEntry || '-'
       if (rowData.gasEntry) {
         gasEntryCell.numFmt = '#,##0.0000'
       }
@@ -381,7 +381,7 @@ export class ExportFileTariffService {
 
       // Gas Exit (Column D)
       const gasExitCell = row.getCell(4)
-      gasExitCell.value = rowData?.gasExit || '-'
+      gasExitCell.value = rowData.gasExit || '-'
       if (rowData.gasExit) {
         gasExitCell.numFmt = '#,##0.0000'
       }

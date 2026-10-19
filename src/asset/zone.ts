@@ -51,7 +51,6 @@ export class AssetZoneService {
     }
 
     if (onlyActive === true || onlyActive === 'true') {
-      if(where){
         where.start_date = {
           lte: (endDate || startDate || getTodayStartAdd7()).toDate()
         }
@@ -59,18 +58,6 @@ export class AssetZoneService {
           { end_date: null },
           { end_date: { gte: startDate.toDate() } }
         ]
-      }
-      else{
-        where = {
-          start_date: {
-            lte: (endDate || startDate || getTodayStartAdd7()).toDate()
-          },
-          OR: [
-            { end_date: null },
-            { end_date: { gte: startDate.toDate() } }
-          ]
-        }
-      }
     }
 
     return this.prisma.zone.findMany(

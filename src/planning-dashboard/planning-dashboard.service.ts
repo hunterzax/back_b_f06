@@ -272,10 +272,7 @@ export class PlanningDashboardService {
                     'value'
                   ][i].year,
                   value:
-                    row['value'] && !!row[
-                      'value'
-                    ][i]
-                      ?.value
+                    row['value'] && !!row['value'][i].value
                       ? Number(
                           row[
                             'value'
@@ -595,10 +592,7 @@ export class PlanningDashboardService {
                     ][i]
                       .month,
                   value:
-                    row['value'] && !!row[
-                      'value'
-                    ][i]
-                      ?.value
+                    row['value'] && !!row['value'][i].value
                       ? Number(
                           row[
                             'value'

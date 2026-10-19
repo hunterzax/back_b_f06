@@ -827,7 +827,6 @@ export class UploadTemplateForShipperService {
           }
           const isEqualSheet2 = headNomSheet2.every((val, index) => val === sheet2?.data[0][index])
 
-          if (!!!isEqualSheet2) {
             if (!!!isEqualSheet2) {
               throw new HttpException(
                 {
@@ -858,7 +857,7 @@ export class UploadTemplateForShipperService {
               }
               sheet2 = {
                 ...sheet2,
-                data: [[], [...this.truncateArrayHeadSheet2(this.objToArr(sheet2.data[0]))], ...(sheet2?.data || []).slice(1).map((e: any) => this.truncateArrayHeadSheet2(this.objToArr(e)))]
+                data: [[], [...this.truncateArrayHeadSheet2(this.objToArr(sheet2.data[0]))], ...(sheet2.data || []).slice(1).map((e: any) => this.truncateArrayHeadSheet2(this.objToArr(e)))]
               }
               sheet3 = {
                 ...sheet3,
@@ -883,13 +882,12 @@ export class UploadTemplateForShipperService {
               }
               sheet2 = {
                 ...sheet2,
-                data: [[], [...this.truncateArrayHeadSheet2(this.objToArr(sheet2.data[0]))], ...(sheet2?.data || []).slice(1).map((e: any) => this.truncateArrayHeadSheet2(this.objToArr(e)))]
+                data: [[], [...this.truncateArrayHeadSheet2(this.objToArr(sheet2.data[0]))], ...(sheet2.data || []).slice(1).map((e: any) => this.truncateArrayHeadSheet2(this.objToArr(e)))]
               }
               sheet3 = {
                 ...sheet3,
                 data: headNomSheet3
               }
-            }
           }
         }
       } else {

@@ -17,7 +17,8 @@ type adjustNomDataType = {
   shipper_name: string;
   shipper_id_name: string;
   contract: string;
-  contract_code_id: number;
+  contract_code_id?: number;
+  reserve_balancing_gas_contract_id?: number;
   nomination_id?: number;
   nomination_code?: string;
   zone_text: string;
@@ -35,6 +36,16 @@ type adjustNomDataType = {
   timeShow: timeShowDataType[];
   sumActiveValuePerHour?: number | null;
   sumActiveValueMmscfh?: number | null;
+}
+
+type groupedAdjustNomDataType = {
+  gas_day: string;
+  shipper_name: string;
+  zone_text: string;
+  area_text: string;
+  point: string;
+  entry_exit_name: string;
+  timeShow: timeShowDataType[]
 }
 
 type areaHvDataType = {

@@ -747,7 +747,7 @@ export class ReleaseCapacitySubmissionService {
         exitPoint.sort((a, b) => a.contract_point.localeCompare(b.contract_point))
 
         // เก็บ ID ของจุดออกที่ใช้แล้ว
-        exitPoint && usedExitIdList.push(...(exitPoint || []).map((f: any) => f.id))
+        usedExitIdList.push(...exitPoint.map((f: any) => f.id))
 
         // สร้างหรืออัปเดตกลุ่มข้อมูล
         if (!groupByEntryAreaWithSameZone[key]) {
@@ -788,7 +788,7 @@ export class ReleaseCapacitySubmissionService {
         pointList.sort((a, b) => a.contract_point.localeCompare(b.contract_point))
 
         // เก็บ ID ของจุดออกที่ใช้แล้ว
-        pointList && usedExitIdList.push(...(pointList || []).map((f: any) => f.id))
+        usedExitIdList.push(...(pointList || []).map((f: any) => f.id))
 
         // อัปเดตรายการจุดออกที่ไม่ได้ใช้
         unUsedExitPointList = convertData.filter((f: any) => {

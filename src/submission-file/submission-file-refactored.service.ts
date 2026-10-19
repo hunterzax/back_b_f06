@@ -1293,9 +1293,11 @@ export class SubmissionFileRefactoredService {
             let defaultEndDate = ''
             const firstNomValueColumn = 14 // คอลัมน์วันอาทิตย์
             const lastNomValueColumn = 20 // คอลัมน์วันเสาร์
+            const sheetData = sheet1?.data
             try {
+              if (sheetData) {
               for (let columnIndex = firstNomValueColumn; columnIndex <= lastNomValueColumn; columnIndex++) {
-                const dateInWeek = getTodayNowDDMMYYYYDfault(sheet1.data[3][columnIndex])
+                const dateInWeek = getTodayNowDDMMYYYYDfault(sheetData[3][columnIndex])
                 if (dateInWeek.isValid()) {
                   const isExist = nonTpa.some((fn: any) => {
                     const start = dayjs(fn?.start_date)
@@ -1304,8 +1306,9 @@ export class SubmissionFileRefactoredService {
                     return fn?.non_tpa_point_name?.trimEnd() === pointIdCk?.trimEnd() && start.isValid() && (start.isBefore(target) || start.isSame(target, 'day')) && (!end || end.isAfter(target))
                   })
 
-                  if (!isExist && !!sheet1?.data[i][columnIndex]) {
-                    sheet1 && notActiveAtDate.push(sheet1.data[3][columnIndex])
+                    if (!isExist && !!sheetData[i][columnIndex]) {
+                      notActiveAtDate.push(sheetData[3][columnIndex])
+                    }
                   }
                 }
               }
@@ -1329,12 +1332,13 @@ export class SubmissionFileRefactoredService {
                   return dayjs(curr, 'DD/MM/YYYY').isAfter(dayjs(max, 'DD/MM/YYYY')) ? curr : max
                 }, notActiveAtDate[0])
               }
+              const pointName = sheetData?.[i]?.[3]
               messageError.push(
                 notActiveAtDate.length === 7
-                  ? `${sheet1?.data[i][3]} is not activated on Gas Day ${sheet1.data[2][firstNomValueColumn] ?? startDateEx} - ${sheet1.data[2][lastNomValueColumn] ?? defaultEndDate} in the file.`
+                  ? `${pointName} is not activated on Gas Day ${sheetData?.[2]?.[firstNomValueColumn] ?? startDateEx} - ${sheetData?.[2]?.[lastNomValueColumn] ?? defaultEndDate} in the file.`
                   : minNotActiveDate && maxNotActiveDate
-                    ? `${sheet1?.data[i][3]} is not activated on Gas Day ${minNotActiveDate} - ${maxNotActiveDate} in the file.`
-                    : `${sheet1?.data[i][3]} is not activated on Gas Day ${notActiveAtDate?.[0]} in the file.`
+                    ? `${pointName} is not activated on Gas Day ${minNotActiveDate} - ${maxNotActiveDate} in the file.`
+                    : `${pointName} is not activated on Gas Day ${notActiveAtDate?.[0]} in the file.`
               )
 
               // throw new HttpException(
@@ -1812,7 +1816,7 @@ export class SubmissionFileRefactoredService {
 
               // WI
               if ((parseToNumber(e['row'][11]) < parseToNumber(v2_wobbe_index_min) && v2_wobbe_index_min !== null) || (parseToNumber(e['row'][11]) > parseToNumber(v2_wobbe_index_max) && v2_wobbe_index_max !== null)) {
-                const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[11]) || null
+                const val_ = parseToNumber(e['row'][11])
                 // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                 const validNumbers = Number.isFinite(val_)
                 if (validNumbers) {
@@ -1823,7 +1827,7 @@ export class SubmissionFileRefactoredService {
               }
               // HV
               if ((parseToNumber(e['row'][12]) < parseToNumber(v2_sat_heating_value_min) && v2_sat_heating_value_min !== null) || (parseToNumber(e['row'][12]) > parseToNumber(v2_sat_heating_value_max) && v2_sat_heating_value_max !== null)) {
-                const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[12]) || null
+                const val_ = parseToNumber(e['row'][12])
                 // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                 const validNumbers = Number.isFinite(val_)
                 if (validNumbers) {
@@ -1926,7 +1930,7 @@ export class SubmissionFileRefactoredService {
 
                 // WI
                 if ((parseToNumber(e['row'][11]) < parseToNumber(v2_wobbe_index_min) && v2_wobbe_index_min !== null) || (parseToNumber(e['row'][11]) > parseToNumber(v2_wobbe_index_max) && v2_wobbe_index_max !== null)) {
-                  const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[11]) || null
+                  const val_ = parseToNumber(e['row'][11])
 
                   // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                   const validNumbers = Number.isFinite(val_)
@@ -1938,7 +1942,7 @@ export class SubmissionFileRefactoredService {
                 }
                 // HV
                 if ((parseToNumber(e['row'][12]) < parseToNumber(v2_sat_heating_value_min) && v2_sat_heating_value_min !== null) || (parseToNumber(e['row'][12]) > parseToNumber(v2_sat_heating_value_max) && v2_sat_heating_value_max !== null)) {
-                  const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[12]) || null
+                  const val_ = parseToNumber(e['row'][12])
 
                   // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                   const validNumbers = Number.isFinite(val_)
@@ -2256,7 +2260,7 @@ export class SubmissionFileRefactoredService {
 
               // WI
               if ((parseToNumber(e['row'][11]) < parseToNumber(v2_wobbe_index_min) && v2_wobbe_index_min !== null) || (parseToNumber(e['row'][11]) > parseToNumber(v2_wobbe_index_max) && v2_wobbe_index_max !== null)) {
-                const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[11]) || null
+                const val_ = parseToNumber(e['row'][11])
 
                 // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                 const validNumbers = Number.isFinite(val_)
@@ -2268,7 +2272,7 @@ export class SubmissionFileRefactoredService {
               }
               // HV
               if ((parseToNumber(e['row'][12]) < parseToNumber(v2_sat_heating_value_min) && v2_sat_heating_value_min !== null) || (parseToNumber(e['row'][12]) > parseToNumber(v2_sat_heating_value_max) && v2_sat_heating_value_max !== null)) {
-                const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[12]) || null
+                const val_ = parseToNumber(e['row'][12])
 
                 // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                 const validNumbers = Number.isFinite(val_)
@@ -2370,7 +2374,7 @@ export class SubmissionFileRefactoredService {
 
                 // WI
                 if ((parseToNumber(e['row'][11]) < parseToNumber(v2_wobbe_index_min) && v2_wobbe_index_min !== null) || (parseToNumber(e['row'][11]) > parseToNumber(v2_wobbe_index_max) && v2_wobbe_index_max !== null)) {
-                  const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[11]) || null
+                  const val_ = parseToNumber(e['row'][11])
                   // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                   const validNumbers = Number.isFinite(val_)
                   if (validNumbers) {
@@ -2381,7 +2385,7 @@ export class SubmissionFileRefactoredService {
                 }
                 // HV
                 if ((parseToNumber(e['row'][12]) < parseToNumber(v2_sat_heating_value_min) && v2_sat_heating_value_min !== null) || (parseToNumber(e['row'][12]) > parseToNumber(v2_sat_heating_value_max) && v2_sat_heating_value_max !== null)) {
-                  const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[12]) || null
+                  const val_ = parseToNumber(e['row'][12])
 
                   // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                   const validNumbers = Number.isFinite(val_)
@@ -2713,7 +2717,7 @@ export class SubmissionFileRefactoredService {
 
               // WI
               if ((parseToNumber(e['row'][11]) < parseToNumber(v2_wobbe_index_min) && v2_wobbe_index_min !== null) || (parseToNumber(e['row'][11]) > parseToNumber(v2_wobbe_index_max) && v2_wobbe_index_max !== null)) {
-                const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[11]) || null
+                const val_ = parseToNumber(e['row'][11])
 
                 // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                 const validNumbers = Number.isFinite(val_)
@@ -2725,7 +2729,7 @@ export class SubmissionFileRefactoredService {
               }
               // HV
               if ((parseToNumber(e['row'][12]) < parseToNumber(v2_sat_heating_value_min) && v2_sat_heating_value_min !== null) || (parseToNumber(e['row'][12]) > parseToNumber(v2_sat_heating_value_max) && v2_sat_heating_value_max !== null)) {
-                const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[12]) || null
+                const val_ = parseToNumber(e['row'][12])
 
                 // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                 const validNumbers = Number.isFinite(val_)
@@ -2829,7 +2833,7 @@ export class SubmissionFileRefactoredService {
 
                 // WI
                 if ((parseToNumber(e['row'][11]) < parseToNumber(v2_wobbe_index_min) && v2_wobbe_index_min !== null) || (parseToNumber(e['row'][11]) > parseToNumber(v2_wobbe_index_max) && v2_wobbe_index_max !== null)) {
-                  const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[11]) || null
+                  const val_ = parseToNumber(e['row'][11])
 
                   // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                   const validNumbers = Number.isFinite(val_)
@@ -2841,7 +2845,7 @@ export class SubmissionFileRefactoredService {
                 }
                 // HV
                 if ((parseToNumber(e['row'][12]) < parseToNumber(v2_sat_heating_value_min) && v2_sat_heating_value_min !== null) || (parseToNumber(e['row'][12]) > parseToNumber(v2_sat_heating_value_max) && v2_sat_heating_value_max !== null)) {
-                  const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[12]) || null
+                  const val_ = parseToNumber(e['row'][12])
 
                   // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                   const validNumbers = Number.isFinite(val_)
@@ -3158,7 +3162,7 @@ export class SubmissionFileRefactoredService {
 
               // WI
               if ((parseToNumber(e['row'][11]) < parseToNumber(v2_wobbe_index_min) && v2_wobbe_index_min !== null) || (parseToNumber(e['row'][11]) > parseToNumber(v2_wobbe_index_max) && v2_wobbe_index_max !== null)) {
-                const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[11]) || null
+                const val_ = parseToNumber(e['row'][11])
 
                 // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                 const validNumbers = Number.isFinite(val_)
@@ -3170,7 +3174,7 @@ export class SubmissionFileRefactoredService {
               }
               // HV
               if ((parseToNumber(e['row'][12]) < parseToNumber(v2_sat_heating_value_min) && v2_sat_heating_value_min !== null) || (parseToNumber(e['row'][12]) > parseToNumber(v2_sat_heating_value_max) && v2_sat_heating_value_max !== null)) {
-                const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[12]) || null
+                const val_ = parseToNumber(e['row'][12])
 
                 // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                 const validNumbers = Number.isFinite(val_)
@@ -3272,7 +3276,7 @@ export class SubmissionFileRefactoredService {
 
                 // WI
                 if ((parseToNumber(e['row'][11]) < parseToNumber(v2_wobbe_index_min) && v2_wobbe_index_min !== null) || (parseToNumber(e['row'][11]) > parseToNumber(v2_wobbe_index_max) && v2_wobbe_index_max !== null)) {
-                  const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[11]) || null
+                  const val_ = parseToNumber(e['row'][11])
 
                   // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                   const validNumbers = Number.isFinite(val_)
@@ -3284,7 +3288,7 @@ export class SubmissionFileRefactoredService {
                 }
                 // HV
                 if ((parseToNumber(e['row'][12]) < parseToNumber(v2_sat_heating_value_min) && v2_sat_heating_value_min !== null) || (parseToNumber(e['row'][12]) > parseToNumber(v2_sat_heating_value_max) && v2_sat_heating_value_max !== null)) {
-                  const val_ = e !== null && e !== undefined && parseToNumber(e?.row?.[12]) || null
+                  const val_ = parseToNumber(e['row'][12])
 
                   // เช็คว่าเป็นตัวเลขทั้งสามตัวก่อน
                   const validNumbers = Number.isFinite(val_)
@@ -3528,10 +3532,10 @@ export class SubmissionFileRefactoredService {
 
       let groupedBywarningLogTotalTemp: any = Object.values(
         groupedBywarningLogHrTemp.reduce((acc, item) => {
-          const key = `${item?.contractPoint}|${item?.value}|${item?.unit}`
+          const key = `${item.contractPoint}|${item.value}|${item.unit}`
           if (!acc[key]) {
             acc[key] = {
-              contractPoint: item && item.contractPoint || null,
+              contractPoint: item.contractPoint,
               value: item.value,
               valueDay: item.valueDay,
               unit: item.unit,
@@ -3569,11 +3573,11 @@ export class SubmissionFileRefactoredService {
 
       let groupedBywarningLogHrWeeklyTemp: any = Object.values(
         warningLogDayWeekTemp.reduce((acc, item) => {
-          const key = `${item?.headDayUse}|${item?.contractPoint}|${item?.value}|${item?.unit}`
+          const key = `${item.headDayUse}|${item.contractPoint}|${item.value}|${item.unit}`
           if (!acc[key]) {
             acc[key] = {
               headDayUse: item.headDayUse,
-              contractPoint: item && item.contractPoint || null,
+              contractPoint: item.contractPoint || null,
               value: item.value,
               unit: item.unit,
               data: []
@@ -3629,30 +3633,22 @@ export class SubmissionFileRefactoredService {
 
       if (nomination_type_id === 1) {
         // https://app.clickup.com/t/9018502823/86exmx0wd
-        const validateListForEmptyValue = []
-        getsValue?.map((item: any) => {
+        const listToCheckHourlyValue = [
+          ...caseData?.columnPointId,
+          ...caseData?.columnPointIdConcept,
+          ...caseData?.columnType,
+          // ...caseData?.columnOther,
+        ]
+        listToCheckHourlyValue?.map((item: any) => {
           item?.row?.slice(14)?.map((value: any, index: number) => {
             if ((value === '' || value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) && index < 24) {
               const pointName = item.row[3] || item.row[4] || item.row[5]
               const unit = item.row[9]
               const hour = index + 1
-              // validateListForEmptyValue.push(`Missing hourly value. Please specify all hourly values. ${pointName ? `Check point ${pointName}` : ''} ${unit ? `Unit ${unit}` : ''} ${hour ? `at hour ${hour}` : ''}.`)
               messageError.push(`Missing hourly value. Please specify all hourly values. ${pointName ? `Check point ${pointName}` : ''} ${unit ? `Unit ${unit}` : ''} ${hour ? `at hour ${hour}` : ''}.`)
             }
           })
         })
-
-        // if (validateListForEmptyValue.length > 0) {
-        //   this.logger.log(`[ERROR] ${validateListForEmptyValue.join('\n')}`)
-        //   const message = validateListForEmptyValue.join('<br/>')
-        //   throw new HttpException(
-        //     {
-        //       status: HttpStatus.BAD_REQUEST,
-        //       error: message
-        //     },
-        //     HttpStatus.BAD_REQUEST
-        //   )
-        // }
       }
 
       // sheet 2 check

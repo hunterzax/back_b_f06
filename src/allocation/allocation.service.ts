@@ -3667,7 +3667,7 @@ export class AllocationService {
       (flatEvidenApi ?? []).reduce((acc: any, curr: any) => {
         if (!(isMatch(curr.contract, contract) && isMatch(curr.shipper, shipper) && isMatch(curr.gas_day, gas_day) && isMatch(curr.gas_hour, gas_hour) && isMatch(curr.request_number, request_number) && isMatch(curr.execute_timestamp, execute_timestamp))) return acc
 
-        const key = `${curr.gas_day}|${curr.shipper}|${curr.contract}|${curr.point}|${curr.entry_exit}|${curr.area}|${curr.zone}`
+        const key = `${curr.gas_day}|${curr.gas_hour}|${curr.shipper}|${curr.contract}|${curr.point}|${curr.entry_exit}|${curr.area}|${curr.zone}`
 
         if (!acc[key] || acc[key].execute_timestamp < curr.execute_timestamp) {
           acc[key] = curr
@@ -4066,7 +4066,7 @@ export class AllocationService {
     // console.log('grpcTransform : ', grpcTransform);
     const convertSheet = JSON.parse(grpcTransform?.jsonDataMultiSheet) || null
     // console.log('convertSheet : ', convertSheet);
-    if(convertSheet?.length === 0){
+    if (!convertSheet || convertSheet.length === 0) {
       throw new HttpException(
         {
           status: HttpStatus.BAD_REQUEST,
@@ -5418,7 +5418,7 @@ export class AllocationService {
       return month.format('MMMM') // 'MMMM' จะได้ชื่อเดือนเต็ม เช่น June
     }
 
-    const monthText = payload && getMonthNameFromNumber(payload.month)
+    const monthText = getMonthNameFromNumber(payload.month)
     const monthYearFormat = `${monthText} ${payload.year}`
     const contractCode = !!payload.contractCode && payload.contractCode !== 'Summary' ? payload.contractCode : null
     const typeReport = !!contractCode && contractCode !== 'Summary' ? 'By Contract Code' : 'Summary'
@@ -5941,7 +5941,7 @@ export class AllocationService {
 
     const nomJsonRowFlat = nomFlat?.flatMap((e: any) => {
       const {nomination_version, ...nE} = e
-      let nomination_version_one = e?.nomination_version[0] || []
+      let nomination_version_one = e.nomination_version[0] || []
       nomination_version_one.nomination_full_json = nomination_version_one.nomination_full_json[0]
       const {nomination_row_json, ...nER} = nomination_version_one
 
@@ -5987,7 +5987,7 @@ export class AllocationService {
           ...e,
           total: Number(e['data_temp']['38']?.trim()?.replace(/,/g, '')) || 0,
           totalType: 'daily',
-          gasDayUse: e?.gas_day_text
+          gasDayUse: e.gas_day_text
         })
       }
 
@@ -6394,7 +6394,7 @@ export class AllocationService {
 
     const nomJsonRowFlat = nomFlat?.flatMap((e: any) => {
       const {nomination_version, ...nE} = e
-      let nomination_version_one = e?.nomination_version[0] || []
+      let nomination_version_one = e.nomination_version[0] || []
       nomination_version_one.nomination_full_json = nomination_version_one.nomination_full_json[0]
       const {nomination_row_json, ...nER} = nomination_version_one
       // NONTPA
@@ -6457,7 +6457,7 @@ export class AllocationService {
           ...e,
           total: Number(e['data_temp']['38']?.trim()?.replace(/,/g, '')) || 0,
           totalType: 'daily',
-          gasDayUse: e?.gas_day_text,
+          gasDayUse: e.gas_day_text,
           HV: Number(e['data_temp']['12']?.trim()?.replace(/,/g, '')) || 0,
           rowId: e?.id
         })
@@ -7499,7 +7499,7 @@ export class AllocationService {
     let current = start.clone()
     console.time('as3')
     while (current.isSameOrBefore(end, 'day')) {
-      (activeData || []).push({
+      activeData.push({
         date: current.format('YYYY-MM-DD'),
         activeGroups: groupMaster.filter((group) => group.start_date <= current.toDate() && (group.end_date === null || group.end_date >= current.toDate())),
         activeNominationFiles: activeNominationFiles.filter(
@@ -8040,7 +8040,7 @@ export class AllocationService {
     let current = start.clone()
     console.time('as3')
     while (current.isSameOrBefore(end, 'day')) {
-      (activeData || []).push({
+      activeData.push({
         date: current.format('YYYY-MM-DD'),
         activeGroups: groupMaster.filter((group) => group.start_date <= current.toDate() && (group.end_date === null || group.end_date >= current.toDate())),
         activeNominationFiles: activeNominationFiles.filter(
@@ -12975,7 +12975,7 @@ export class AllocationService {
      * สร้างครั้งเดียวก่อนวน result
      */
 
-    const adjustedNominationContext = tab === '1' && intradayAllocationGasDays.length < 1 ? null : createAdjustedNominationContext(nomAdjust ?? [], convertNomFile ?? [])
+    const adjustedNominationContext = tab === '1' && intradayAllocationGasDays.length < 1 ? null : createAdjustedNominationContext(nomAdjust, convertNomFile)
 
     /**
      * ============================================================

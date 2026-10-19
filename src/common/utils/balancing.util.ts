@@ -914,7 +914,7 @@ export async function getIntradayBaseInentoryFromWebService(prisma: PrismaServic
       const itemGasHour = getGasHourValue(item.gas_hour)
       const modeOfThisHourAndZone = todayModeZone.filter((modeZone: any) => {
         const gasHour = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('H'))
-        return gasHour == itemGasHour && isMatch(modeZone?.zone?.name, item.zone_text)
+        return gasHour == itemGasHour && isMatch(modeZone.zone?.name, item.zone_text)
       })
 
       let activeMode = undefined
@@ -932,7 +932,7 @@ export async function getIntradayBaseInentoryFromWebService(prisma: PrismaServic
       } else {
         let todayModeOfZoneBeforeThisHour = todayModeZone.filter((modeZone: any) => {
           const gasHour = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('H')) + 1
-          return gasHour < itemGasHour && isMatch(modeZone?.zone?.name, item.zone_text)
+          return gasHour < itemGasHour && isMatch(modeZone.zone?.name, item.zone_text)
         })
 
         if (todayModeOfZoneBeforeThisHour.length > 0) {

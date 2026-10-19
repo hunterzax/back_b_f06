@@ -754,23 +754,23 @@ export class QualityEvaluationService {
       )
     }
 
-    const res = await this.findAll({
+    const res = (await this.findAll({
       gasDay: gasDayjs.tz('Asia/Bangkok').format('YYYY-MM-DD')
-    })
+    })) ?? {newDaily: [], newWeekly: []}
     const weekStartDayjs = getTodayNowAdd7(weekStart)
 
-    if ((!res?.newWeekly || !Array.isArray(res.newWeekly) || res.newWeekly.length < 1) && !weekStartDayjs.isSame(gasDayjs, 'day')) {
+    if ((!Array.isArray(res.newWeekly) || res.newWeekly.length < 1) && !weekStartDayjs.isSame(gasDayjs, 'day')) {
       const resForWeekly = await this.findAll({
         gasDay: weekStartDayjs.tz('Asia/Bangkok').format('YYYY-MM-DD')
       })
       if (resForWeekly?.newWeekly && Array.isArray(resForWeekly.newWeekly) && resForWeekly.newWeekly.length > 0) {
-        res.newWeekly = resForWeekly && resForWeekly.newWeekly || []
+        res.newWeekly = resForWeekly.newWeekly
       }
     }
-    const hvDaily = res?.newDaily?.find((f: any) => isMatch(f?.parameter, 'HV') && isMatch(f?.area?.name, area))?.valueBtuScf
+    const hvDaily = res.newDaily?.find((f: any) => isMatch(f?.parameter, 'HV') && isMatch(f?.area?.name, area))?.valueBtuScf
     let hvWeekly: number | null
     if (!hvDaily) {
-      for (const f of res?.newWeekly) {
+      for (const f of res.newWeekly ?? []) {
         if (isMatch(f?.parameter, 'HV') && isMatch(f?.area?.name, area)) {
           if (isMatch(f?.sunday?.date, gasDay)) {
             hvWeekly = f?.sunday?.value

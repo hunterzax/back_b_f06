@@ -793,9 +793,7 @@ export async function providerNotiInapp(
     let config = {
       method: 'post',
       maxBodyLength: Infinity,
-      // Coverity flags this as unused_expr (NO_EFFECT).
-      // coverity[unused_expr:SUPPRESS]
-      url: `http://${process.env.IN_APP_URL}/message`,
+      url: `${process.env.PROTOCOL_FOR_INTERNAL_SERVICE || 'http'}://${process.env.IN_APP_URL}/message`,
       headers: {
         'Content-Type':
           'application/json',

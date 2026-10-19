@@ -69,10 +69,8 @@ async function bootstrap() {
   });
   app.enableCors({
     origin: [
-      // Coverity flags this as unused_expr (NO_EFFECT).
-      // coverity[unused_expr:SUPPRESS]
-      `http://${process.env.IP_URL}`,
-      `http://${process.env.KONG_IP}`,
+      `${process.env.PROTOCOL_FOR_INTERNAL_SERVICE || 'http'}://${process.env.IP_URL}`,
+      `${process.env.PROTOCOL_FOR_INTERNAL_SERVICE || 'http'}://${process.env.KONG_IP}`,
       `${process.env.WEBS}`,
       `${process.env.TPA_WEB}`,
       "http://10.104.239.210:5001",
@@ -156,3 +154,4 @@ async function bootstrap() {
   // }
 }
 bootstrap();
+ 

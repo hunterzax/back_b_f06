@@ -2984,13 +2984,13 @@ export class BalancingService {
       })?.value
 
       return {
-        gas_day: e && getTodayNowYYYYMMDDDfaultAdd7(e?.gas_day).toDate() || dayjs().toDate(),
+        gas_day: e.gas_day ? getTodayNowYYYYMMDDDfaultAdd7(e.gas_day).toDate() : dayjs().toDate(),
 
-        gas_day_text: e?.gas_day,
-        gas_hour: e && e?.gas_hour && `${e?.gas_hour > 10 ? e?.gas_hour + ':00' : '0' + e?.gas_hour + ':00'}`,
+        gas_day_text: e.gas_day,
+        gas_hour: e && e.gas_hour && `${e.gas_hour > 10 ? e.gas_hour + ':00' : '0' + e.gas_hour + ':00'}`,
         timestamp: dayjs(e['execute_timestamp'] * 1000).format('DD/MM/YYYY HH:mm'),
-        zone_text: e?.zone,
-        mode: e?.mode || null,
+        zone_text: e.zone,
+        mode: e.mode || null,
 
         hv: (!!hv && String(hv)) || null,
         base_inventory_value: (!!base_inventory_value && String(base_inventory_value)) || null,
@@ -3970,6 +3970,32 @@ export class BalancingService {
       return []
     }
 
+
+    const groupMaster = await this.prisma.group.findMany({
+      where: {
+        user_type_id: 3,
+        AND: [
+          {
+            start_date: {
+              lte: maxDate.toDate() // start_date ต้องก่อนหรือเท่ากับสิ้นสุดวันนี้
+            }
+          },
+          {
+            OR: [
+              {
+                end_date: null
+              }, // ถ้า end_date เป็น null
+              {
+                end_date: {
+                  gte: minDate.toDate()
+                }
+              } // ถ้า end_date ไม่เป็น null ต้องหลังหรือเท่ากับเริ่มต้นวันนี้
+            ]
+          }
+        ]
+      }
+    })
+
     let totalRecord: number | undefined = undefined
     await this.evidenApiCenter(
       {
@@ -4068,6 +4094,15 @@ export class BalancingService {
         // Convert back to array and update the response
         filteredData = Object.values(latestByGasDay)
       }
+
+      filteredData.map((item: any) => {
+        (item.shipper_data || []).map((shipperData: any) => {
+          const findGroup = groupMaster.find(group => group.id_name === shipperData.shipper)
+          if(findGroup) {
+            shipperData.shipper_name = findGroup.name
+          }
+        })
+      })
 
       evidenApiCenter.data = filteredData
       evidenApiCenter.total_record = filteredData.length
@@ -7925,6 +7960,17 @@ export class BalancingService {
     console.log('contractCode : ', contractCode);
     console.log('useData : ', useData);
     console.log('evidenResultLastCalc : ', evidenResultLastCalc);
+    const sumValueByKey = (existingObject: any, toSumObject: any, key: string) => {
+      if(toSumObject[key] || toSumObject[key] == 0){
+        if(existingObject[key]){
+          existingObject[key] = existingObject[key] + toSumObject[key]
+        }
+        else{
+          existingObject[key] = toSumObject[key]
+        }
+      }
+      return existingObject
+    }
 
     if ((contractCode === 'Summary' || !!!contractCode) && !!!shipperId && !!!shipperIdList) {
       typeReport = 'Summary'
@@ -8075,8 +8121,30 @@ export class BalancingService {
               const findGasday = evidenResultLastCalc?.find((f: any) => f?.gas_day === gas_day)?.shipperData || [] //summary
               let CTData = null
               for (let iShipperContract = 0; iShipperContract < findGasday.length; iShipperContract++) {
-                if (findGasday[iShipperContract]?.shipper === shipperId || shipperIdListArray.includes(findGasday[iShipperContract]?.shipper)) {
-                  CTData = findGasday[iShipperContract]?.shipperSummary
+                const eachShipperData = findGasday[iShipperContract]
+                const eachShipperId = eachShipperData.shipper
+                const eachShipperSummary = eachShipperData.shipperSummary
+                if (eachShipperId === shipperId || shipperIdListArray.includes(eachShipperId)) {
+                  if(CTData){
+                    sumValueByKey(CTData, eachShipperSummary, 'Acc. Imbqalance')
+                    sumValueByKey(CTData, eachShipperSummary, 'Balancing Gas')
+                    sumValueByKey(CTData, eachShipperSummary, 'Change Min Inventory')
+                    sumValueByKey(CTData, eachShipperSummary, 'Commissioning')
+                    sumValueByKey(CTData, eachShipperSummary, 'Entry - Exit')
+                    sumValueByKey(CTData, eachShipperSummary, 'Entry Point')
+                    sumValueByKey(CTData, eachShipperSummary, 'Exit')
+                    sumValueByKey(CTData, eachShipperSummary, 'Fuel Gas')
+                    sumValueByKey(CTData, eachShipperSummary, 'Gas Vent')
+                    sumValueByKey(CTData, eachShipperSummary, 'Imbalance')
+                    sumValueByKey(CTData, eachShipperSummary, 'ImbalancePercen')
+                    sumValueByKey(CTData, eachShipperSummary, 'Instructed Flow')
+                    sumValueByKey(CTData, eachShipperSummary, 'Min Inventory')
+                    sumValueByKey(CTData, eachShipperSummary, 'Other Gas')
+                    sumValueByKey(CTData, eachShipperSummary, 'Shrinkagate')
+                  }
+                  else{
+                    CTData = eachShipperSummary
+                  }
                 }
               }
               if (!!!CTData) {
@@ -8273,6 +8341,16 @@ export class BalancingService {
   }
 
   async balancingMonthlyReportApproved(payload: any, userId: any, ext?: any) {
+    if (!payload) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Payload is required.'
+        },
+        HttpStatus.BAD_REQUEST
+      )
+    }
+
     // { typeReportDB, typeReport, setDataUse }
     const balancingMonthlyReport = await this.balancingMonthlyReport(payload, userId, ext)
 
@@ -8281,10 +8359,10 @@ export class BalancingService {
       return month.format('MMMM') // 'MMMM' จะได้ชื่อเดือนเต็ม เช่น June
     }
 
-    const monthText = payload && getMonthNameFromNumber(payload?.month) || "";
-    const year = payload?.year || '';
+    const monthText = getMonthNameFromNumber(payload.month) || ""
+    const year = payload.year || ''
     const monthYearFormat = `${monthText} ${year}`
-    const contractCode = !!payload?.contractCode && payload?.contractCode !== 'Summary' ? payload?.contractCode : null
+    const contractCode = !!payload.contractCode && payload.contractCode !== 'Summary' ? payload.contractCode : null
     const typeReport = balancingMonthlyReport?.typeReportDB
 
     const newDate = getTodayNowAdd7()
@@ -8714,7 +8792,7 @@ export class BalancingService {
             const gasHour = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('H'))
             const gasMinute = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('mm'))
 
-            return gasHour == i && isMatch(modeZone?.zone?.name, `${zone}`) && gasMinute == 0
+            return gasHour == i && isMatch(modeZone.zone?.name, `${zone}`) && gasMinute == 0
           })
 
           let activeMode = undefined
@@ -10717,7 +10795,7 @@ export class BalancingService {
             const gasHour = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('H'))
             const gasMinute = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('mm'))
 
-            return gasHour == i && isMatch(modeZone?.zone?.name, `${zone}`) && gasMinute == 0
+            return gasHour == i && isMatch(modeZone.zone?.name, `${zone}`) && gasMinute == 0
           })
 
           let activeMode = undefined
@@ -11311,7 +11389,7 @@ export class BalancingService {
             const gasHour = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('H'))
             const gasMinute = parseToNumber(dayjs(modeZone.start_date).tz('Asia/Bangkok').format('mm'))
 
-            return gasHour == i && isMatch(modeZone?.zone?.name, `${zone}`) && gasMinute == 0
+            return gasHour == i && isMatch(modeZone.zone?.name, `${zone}`) && gasMinute == 0
           })
 
           let activeMode = undefined

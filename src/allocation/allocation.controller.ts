@@ -633,7 +633,7 @@ export class AllocationController implements OnModuleInit {
       } catch (error) {}
   
       try {
-        if (uploadFile?.warning?.length === 0) {
+        if (uploadFile.warning?.length === 0) {
           const createByOnce = await this.allocationService.createByOnce(req?.user?.sub)
   
           const findStatus = await this.allocationStatusMaster()

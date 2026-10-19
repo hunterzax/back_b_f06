@@ -902,7 +902,7 @@ export function groupDataAlloManage(data: any[]) {
         if (!acc[key]) {
           acc[key] = {
             // id: generateRandomId(),
-            id: item?.point + '_' + item.gas_day,
+            id: item.point + '_' + item.gas_day,
             gas_day: item.gas_day,
             point_text: item.point || null,
             entry_exit: item.entry_exit_obj?.name || null,
@@ -915,21 +915,21 @@ export function groupDataAlloManage(data: any[]) {
             metering_value: 0,
 
             data: [],
-            priorityStatus: item?.allocation_status?.id ?? 999
+            priorityStatus: item.allocation_status?.id ?? 999
           }
         }
 
         acc[key].data.push(item)
 
         // Sum
-        acc[key].nominationValue += Number(item?.nominationValue ?? 0)
-        acc[key].systemAllocation += Number(item?.systemAllocation ?? 0)
-        acc[key].intradaySystem += Number(item?.intradaySystem ?? 0)
-        acc[key].previousAllocationTPAforReview += Number(item?.previousAllocationTPAforReview ?? 0)
+        acc[key].nominationValue += Number(item.nominationValue ?? 0)
+        acc[key].systemAllocation += Number(item.systemAllocation ?? 0)
+        acc[key].intradaySystem += Number(item.intradaySystem ?? 0)
+        acc[key].previousAllocationTPAforReview += Number(item.previousAllocationTPAforReview ?? 0)
         // acc[key].metering_value += Number(item?.meteringValue ?? 0);
-        acc[key].meteringValue = Number(item?.meteringValue ?? 0)
+        acc[key].meteringValue = Number(item.meteringValue ?? 0)
 
-        const shipperReview = item?.allocation_management_shipper_review?.[0]?.shipper_allocation_review ?? item?.shipperAllocationReview ?? 0
+        const shipperReview = item.allocation_management_shipper_review?.[0]?.shipper_allocation_review ?? item.shipperAllocationReview ?? 0
         acc[key].shipperAllocationReview += Number(shipperReview)
 
         // Update priority status if item has higher priority
@@ -1040,9 +1040,7 @@ export function getNomValue(convertNomFile: any[], evidenItem: any) {
               let acc: number | null = null
               // รวมค่ารายชั่วโมงตั้งแต่ชั่วโมงที่ 0 ถึง gas_hour-1
               do {
-                // Coverity flags this as unused_expr (NO_EFFECT).
-                // coverity[unused_expr:SUPPRESS]
-                const valuePerHour: number | null = parseToNumber(rowDataItem['data_temp'][`${14 + i}`])
+                const valuePerHour: number | null = parseToNumber(rowDataItem?.['data_temp'][`${14 + i}`])
                 if (acc) {
                   if (valuePerHour) {
                     acc = acc + valuePerHour

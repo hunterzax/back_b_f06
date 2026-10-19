@@ -107,7 +107,7 @@ export class CapacityV2Controller {
 
     const resData = await this.capacityV2Service.checkAV(
         grpcTransformBUFF,
-        (req?.user?.sub || -1),
+        (req.user?.sub || -1),
         file,
         token,
         isShipperID ? shipperNameOrID : undefined
@@ -166,7 +166,7 @@ export class CapacityV2Controller {
     const resData =
       await this.capacityV2Service.pathDetailCapacityRequestManagementTranformNewVersion(
         grpcTransformBUFF,
-        (req?.user?.sub || -1),
+        (req.user?.sub || -1),
         file,
         token,
         isShipperID ? shipperNameOrID : undefined

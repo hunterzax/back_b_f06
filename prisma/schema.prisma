@@ -135,6 +135,10 @@ model account {
   limit_concept_point_updated limit_concept_point[] @relation(name: "updated_by_account")
 
   // ---
+  limit_concept_point_history_created limit_concept_point_history[] @relation(name: "created_by_account")
+  limit_concept_point_history_updated limit_concept_point_history[] @relation(name: "updated_by_account")
+
+  // ---
   planning_deadline_created planning_deadline[] @relation(name: "created_by_account")
   planning_deadline_updated planning_deadline[] @relation(name: "updated_by_account")
 
@@ -339,20 +343,52 @@ model account {
   newpoint_detail_updated newpoint_detail[] @relation(name: "updated_by_account")
 
   // ---
+  query_shipper_planning_files_temp_long_low_created query_shipper_planning_files_temp_long_low[] @relation(name: "created_by_account")
+  query_shipper_planning_files_temp_long_low_updated query_shipper_planning_files_temp_long_low[] @relation(name: "updated_by_account")
+
+  // ---
   query_shipper_planning_files_temp_long_created query_shipper_planning_files_temp_long[] @relation(name: "created_by_account")
   query_shipper_planning_files_temp_long_updated query_shipper_planning_files_temp_long[] @relation(name: "updated_by_account")
+
+  // ---
+  query_shipper_planning_files_temp_long_high_created query_shipper_planning_files_temp_long_high[] @relation(name: "created_by_account")
+  query_shipper_planning_files_temp_long_high_updated query_shipper_planning_files_temp_long_high[] @relation(name: "updated_by_account")
+
+  // ---
+  query_shipper_planning_files_temp_medium_low_created query_shipper_planning_files_temp_medium_low[] @relation(name: "created_by_account")
+  query_shipper_planning_files_temp_medium_low_updated query_shipper_planning_files_temp_medium_low[] @relation(name: "updated_by_account")
 
   // ---
   query_shipper_planning_files_temp_medium_created query_shipper_planning_files_temp_medium[] @relation(name: "created_by_account")
   query_shipper_planning_files_temp_medium_updated query_shipper_planning_files_temp_medium[] @relation(name: "updated_by_account")
 
   // ---
+  query_shipper_planning_files_temp_medium_high_created query_shipper_planning_files_temp_medium_high[] @relation(name: "created_by_account")
+  query_shipper_planning_files_temp_medium_high_updated query_shipper_planning_files_temp_medium_high[] @relation(name: "updated_by_account")
+
+  // ---
+  query_shipper_planning_files_temp_short_low_created query_shipper_planning_files_temp_short_low[] @relation(name: "created_by_account")
+  query_shipper_planning_files_temp_short_low_updated query_shipper_planning_files_temp_short_low[] @relation(name: "updated_by_account")
+
+  // ---
   query_shipper_planning_files_temp_short_created query_shipper_planning_files_temp_short[] @relation(name: "created_by_account")
   query_shipper_planning_files_temp_short_updated query_shipper_planning_files_temp_short[] @relation(name: "updated_by_account")
 
   // ---
+  query_shipper_planning_files_temp_short_high_created query_shipper_planning_files_temp_short_high[] @relation(name: "created_by_account")
+  query_shipper_planning_files_temp_short_high_updated query_shipper_planning_files_temp_short_high[] @relation(name: "updated_by_account")
+
+  // ---
+  query_shipper_planning_files_temp_row_low_created query_shipper_planning_files_temp_row_low[] @relation(name: "created_by_account")
+  query_shipper_planning_files_temp_row_low_updated query_shipper_planning_files_temp_row_low[] @relation(name: "updated_by_account")
+
+  // ---
   query_shipper_planning_files_temp_row_created query_shipper_planning_files_temp_row[] @relation(name: "created_by_account")
   query_shipper_planning_files_temp_row_updated query_shipper_planning_files_temp_row[] @relation(name: "updated_by_account")
+
+  // ---
+  query_shipper_planning_files_temp_row_high_created query_shipper_planning_files_temp_row_high[] @relation(name: "created_by_account")
+  query_shipper_planning_files_temp_row_high_updated query_shipper_planning_files_temp_row_high[] @relation(name: "updated_by_account")
 
   // ---
   capacity_publication_warning_created capacity_publication_warning[] @relation(name: "created_by_account")
@@ -781,6 +817,12 @@ model account {
   // ---
   log_tpa_website_created log_tpa_website[] @relation(name: "created_by_account")
   log_tpa_website_updated log_tpa_website[] @relation(name: "updated_by_account")
+
+  event_template_created event_template[] @relation("created_by_account")
+  event_template_updated event_template[] @relation("updated_by_account")
+
+  event_template_history_created event_template_history[] @relation("created_by_account")
+  event_template_history_updated event_template_history[] @relation("updated_by_account")
 
   signature     String?
   log_date      DateTime?
@@ -1235,6 +1277,7 @@ model group {
   create_date_num                           Int?
   update_date_num                           Int?
   limit_concept_point                       limit_concept_point[]
+  limit_concept_point_history               limit_concept_point_history[]
   shipper_contract_point                    shipper_contract_point[]
   contract_code                             contract_code[]
   release_capacity_submission               release_capacity_submission[]
@@ -1331,33 +1374,35 @@ model t_and_c {
 // asset
 
 model entry_exit {
-  id                                    Int                                     @id @default(autoincrement())
-  name                                  String?
-  color                                 String?
-  create_date                           DateTime?
-  update_date                           DateTime?
-  create_date_num                       Int?
-  update_date_num                       Int?
-  create_by                             Int?
-  create_by_account                     account?                                @relation(name: "created_by_account", fields: [create_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ create_by
-  update_by                             Int?
-  update_by_account                     account?                                @relation(name: "updated_by_account", fields: [update_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ update_by
-  area                                  area[]
-  contract_point                        contract_point[]
-  nomination_point                      nomination_point[]
-  zone                                  zone[]
-  customer_type                         customer_type[]
-  metering_point                        metering_point[]
-  booking_row_json                      booking_row_json[]
-  capacity_publication                  capacity_publication[]
-  release_capacity_submission_detail    release_capacity_submission_detail[]
-  release_summary_detail                release_summary_detail[]
-  reserve_balancing_gas_contract_detail reserve_balancing_gas_contract_detail[]
-  query_shipper_planning_files_temp_row query_shipper_planning_files_temp_row[]
-  newpoint_detail                       newpoint_detail[]
-  booking_row_json_release              booking_row_json_release[]
-  nomination_row_json                   nomination_row_json[]
-  daily_adjustment                      daily_adjustment[]
+  id                                         Int                                          @id @default(autoincrement())
+  name                                       String?
+  color                                      String?
+  create_date                                DateTime?
+  update_date                                DateTime?
+  create_date_num                            Int?
+  update_date_num                            Int?
+  create_by                                  Int?
+  create_by_account                          account?                                     @relation(name: "created_by_account", fields: [create_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ create_by
+  update_by                                  Int?
+  update_by_account                          account?                                     @relation(name: "updated_by_account", fields: [update_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ update_by
+  area                                       area[]
+  contract_point                             contract_point[]
+  nomination_point                           nomination_point[]
+  zone                                       zone[]
+  customer_type                              customer_type[]
+  metering_point                             metering_point[]
+  booking_row_json                           booking_row_json[]
+  capacity_publication                       capacity_publication[]
+  release_capacity_submission_detail         release_capacity_submission_detail[]
+  release_summary_detail                     release_summary_detail[]
+  reserve_balancing_gas_contract_detail      reserve_balancing_gas_contract_detail[]
+  query_shipper_planning_files_temp_row_low  query_shipper_planning_files_temp_row_low[]
+  query_shipper_planning_files_temp_row      query_shipper_planning_files_temp_row[]
+  query_shipper_planning_files_temp_row_high query_shipper_planning_files_temp_row_high[]
+  newpoint_detail                            newpoint_detail[]
+  booking_row_json_release                   booking_row_json_release[]
+  nomination_row_json                        nomination_row_json[]
+  daily_adjustment                           daily_adjustment[]
 
   @@schema("public")
 }
@@ -1772,6 +1817,7 @@ model concept_point {
   type_concept_point_id                    Int?
   type_concept_point                       type_concept_point?                        @relation(fields: [type_concept_point_id], references: [id])
   limit_concept_point                      limit_concept_point[]
+  limit_concept_point_history              limit_concept_point_history[]
   hv_for_peration_flow_and_instructed_flow hv_for_peration_flow_and_instructed_flow[]
 
   @@schema("public")
@@ -1801,6 +1847,25 @@ model limit_concept_point {
   concept_point     concept_point? @relation(fields: [concept_point_id], references: [id])
   group_id          Int?
   group             group?         @relation(fields: [group_id], references: [id])
+  create_date       DateTime?
+  update_date       DateTime?
+  create_date_num   Int?
+  update_date_num   Int?
+  create_by         Int?
+  create_by_account account?       @relation(name: "created_by_account", fields: [create_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ create_by
+  update_by         Int?
+  update_by_account account?       @relation(name: "updated_by_account", fields: [update_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ update_by
+
+  @@schema("public")
+}
+
+model limit_concept_point_history {
+  id                Int            @id @default(autoincrement())
+  concept_point_id  Int?
+  concept_point     concept_point? @relation(fields: [concept_point_id], references: [id])
+  group_id          Int?
+  group             group?         @relation(fields: [group_id], references: [id])
+  deleted_date      DateTime?
   create_date       DateTime?
   update_date       DateTime?
   create_date_num   Int?
@@ -1911,6 +1976,8 @@ model announcement {
   update_by         Int?
   update_by_account account?  @relation(name: "updated_by_account", fields: [update_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ update_by
   status            Boolean?
+
+  del_flag Boolean?
 
   @@schema("public")
 }
@@ -2046,6 +2113,8 @@ model setup_background {
   update_by         Int?
   update_by_account account?  @relation(name: "updated_by_account", fields: [update_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ update_by
   active            Boolean?
+
+  del_flag Boolean?
 
   @@schema("public")
 }
@@ -3124,29 +3193,37 @@ model planning_file_submission_template_nom {
 }
 
 model query_shipper_planning_files {
-  id                                       Int                                        @id @default(autoincrement())
-  planning_code                            String?
-  create_date                              DateTime?
-  update_date                              DateTime?
-  create_date_num                          Int?
-  update_date_num                          Int?
-  create_by                                Int?
-  create_by_account                        account?                                   @relation(name: "created_by_account", fields: [create_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ create_by
-  update_by                                Int?
-  update_by_account                        account?                                   @relation(name: "updated_by_account", fields: [update_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ update_by
-  term_type_id                             Int?
-  term_type                                term_type?                                 @relation(fields: [term_type_id], references: [id])
-  group_id                                 Int?
-  group                                    group?                                     @relation(fields: [group_id], references: [id])
-  start_date                               DateTime?
-  end_date                                 DateTime?
-  shipper_file_submission_date             DateTime?
-  query_shipper_planning_files_file        query_shipper_planning_files_file[]
-  query_shipper_planning_files_temp_long   query_shipper_planning_files_temp_long[]
-  query_shipper_planning_files_temp_medium query_shipper_planning_files_temp_medium[]
-  query_shipper_planning_files_temp_short  query_shipper_planning_files_temp_short[]
-  query_shipper_planning_files_temp_row    query_shipper_planning_files_temp_row[]
-  newpoint                                 newpoint[]
+  id                                            Int                                             @id @default(autoincrement())
+  planning_code                                 String?
+  create_date                                   DateTime?
+  update_date                                   DateTime?
+  create_date_num                               Int?
+  update_date_num                               Int?
+  create_by                                     Int?
+  create_by_account                             account?                                        @relation(name: "created_by_account", fields: [create_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ create_by
+  update_by                                     Int?
+  update_by_account                             account?                                        @relation(name: "updated_by_account", fields: [update_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ update_by
+  term_type_id                                  Int?
+  term_type                                     term_type?                                      @relation(fields: [term_type_id], references: [id])
+  group_id                                      Int?
+  group                                         group?                                          @relation(fields: [group_id], references: [id])
+  start_date                                    DateTime?
+  end_date                                      DateTime?
+  shipper_file_submission_date                  DateTime?
+  query_shipper_planning_files_file             query_shipper_planning_files_file[]
+  query_shipper_planning_files_temp_long_low    query_shipper_planning_files_temp_long_low[]
+  query_shipper_planning_files_temp_long        query_shipper_planning_files_temp_long[]
+  query_shipper_planning_files_temp_long_high   query_shipper_planning_files_temp_long_high[]
+  query_shipper_planning_files_temp_medium_low  query_shipper_planning_files_temp_medium_low[]
+  query_shipper_planning_files_temp_medium      query_shipper_planning_files_temp_medium[]
+  query_shipper_planning_files_temp_medium_high query_shipper_planning_files_temp_medium_high[]
+  query_shipper_planning_files_temp_short_low   query_shipper_planning_files_temp_short_low[]
+  query_shipper_planning_files_temp_short       query_shipper_planning_files_temp_short[]
+  query_shipper_planning_files_temp_short_high  query_shipper_planning_files_temp_short_high[]
+  query_shipper_planning_files_temp_row_low     query_shipper_planning_files_temp_row_low[]
+  query_shipper_planning_files_temp_row         query_shipper_planning_files_temp_row[]
+  query_shipper_planning_files_temp_row_high    query_shipper_planning_files_temp_row_high[]
+  newpoint                                      newpoint[]
 
   @@schema("public")
 }
@@ -3154,6 +3231,31 @@ model query_shipper_planning_files {
 model query_shipper_planning_files_file {
   id                              Int                           @id @default(autoincrement())
   url                             String?
+  create_date                     DateTime?
+  update_date                     DateTime?
+  create_date_num                 Int?
+  update_date_num                 Int?
+  create_by                       Int?
+  create_by_account               account?                      @relation(name: "created_by_account", fields: [create_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ create_by
+  update_by                       Int?
+  update_by_account               account?                      @relation(name: "updated_by_account", fields: [update_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ update_by
+  query_shipper_planning_files_id Int?
+  query_shipper_planning_files    query_shipper_planning_files? @relation(fields: [query_shipper_planning_files_id], references: [id])
+
+  @@schema("public")
+}
+
+model query_shipper_planning_files_temp_row_low {
+  id                              Int                           @id @default(autoincrement())
+  value                           String?
+  temp_new_point                  String?
+  temp_point_type                 String?
+  temp_nomination_point           String?
+  temp_customer                   String?
+  temp_area                       String?
+  temp_unit                       String?
+  entry_exit_id                   Int?
+  entry_exit                      entry_exit?                   @relation(fields: [entry_exit_id], references: [id])
   create_date                     DateTime?
   update_date                     DateTime?
   create_date_num                 Int?
@@ -3193,7 +3295,89 @@ model query_shipper_planning_files_temp_row {
   @@schema("public")
 }
 
+model query_shipper_planning_files_temp_row_high {
+  id                              Int                           @id @default(autoincrement())
+  value                           String?
+  temp_new_point                  String?
+  temp_point_type                 String?
+  temp_nomination_point           String?
+  temp_customer                   String?
+  temp_area                       String?
+  temp_unit                       String?
+  entry_exit_id                   Int?
+  entry_exit                      entry_exit?                   @relation(fields: [entry_exit_id], references: [id])
+  create_date                     DateTime?
+  update_date                     DateTime?
+  create_date_num                 Int?
+  update_date_num                 Int?
+  create_by                       Int?
+  create_by_account               account?                      @relation(name: "created_by_account", fields: [create_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ create_by
+  update_by                       Int?
+  update_by_account               account?                      @relation(name: "updated_by_account", fields: [update_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ update_by
+  query_shipper_planning_files_id Int?
+  query_shipper_planning_files    query_shipper_planning_files? @relation(fields: [query_shipper_planning_files_id], references: [id])
+
+  @@schema("public")
+}
+
+model query_shipper_planning_files_temp_long_low {
+  id                              Int                           @id @default(autoincrement())
+  temp_full                       String?
+  temp_total_entry                String?
+  temp_total_exit                 String?
+  create_date                     DateTime?
+  update_date                     DateTime?
+  create_date_num                 Int?
+  update_date_num                 Int?
+  create_by                       Int?
+  create_by_account               account?                      @relation(name: "created_by_account", fields: [create_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ create_by
+  update_by                       Int?
+  update_by_account               account?                      @relation(name: "updated_by_account", fields: [update_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ update_by
+  query_shipper_planning_files_id Int?
+  query_shipper_planning_files    query_shipper_planning_files? @relation(fields: [query_shipper_planning_files_id], references: [id])
+
+  @@schema("public")
+}
+
 model query_shipper_planning_files_temp_long {
+  id                              Int                           @id @default(autoincrement())
+  temp_full                       String?
+  temp_total_entry                String?
+  temp_total_exit                 String?
+  create_date                     DateTime?
+  update_date                     DateTime?
+  create_date_num                 Int?
+  update_date_num                 Int?
+  create_by                       Int?
+  create_by_account               account?                      @relation(name: "created_by_account", fields: [create_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ create_by
+  update_by                       Int?
+  update_by_account               account?                      @relation(name: "updated_by_account", fields: [update_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ update_by
+  query_shipper_planning_files_id Int?
+  query_shipper_planning_files    query_shipper_planning_files? @relation(fields: [query_shipper_planning_files_id], references: [id])
+
+  @@schema("public")
+}
+
+model query_shipper_planning_files_temp_long_high {
+  id                              Int                           @id @default(autoincrement())
+  temp_full                       String?
+  temp_total_entry                String?
+  temp_total_exit                 String?
+  create_date                     DateTime?
+  update_date                     DateTime?
+  create_date_num                 Int?
+  update_date_num                 Int?
+  create_by                       Int?
+  create_by_account               account?                      @relation(name: "created_by_account", fields: [create_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ create_by
+  update_by                       Int?
+  update_by_account               account?                      @relation(name: "updated_by_account", fields: [update_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ update_by
+  query_shipper_planning_files_id Int?
+  query_shipper_planning_files    query_shipper_planning_files? @relation(fields: [query_shipper_planning_files_id], references: [id])
+
+  @@schema("public")
+}
+
+model query_shipper_planning_files_temp_medium_low {
   id                              Int                           @id @default(autoincrement())
   temp_full                       String?
   temp_total_entry                String?
@@ -3231,7 +3415,64 @@ model query_shipper_planning_files_temp_medium {
   @@schema("public")
 }
 
+model query_shipper_planning_files_temp_medium_high {
+  id                              Int                           @id @default(autoincrement())
+  temp_full                       String?
+  temp_total_entry                String?
+  temp_total_exit                 String?
+  create_date                     DateTime?
+  update_date                     DateTime?
+  create_date_num                 Int?
+  update_date_num                 Int?
+  create_by                       Int?
+  create_by_account               account?                      @relation(name: "created_by_account", fields: [create_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ create_by
+  update_by                       Int?
+  update_by_account               account?                      @relation(name: "updated_by_account", fields: [update_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ update_by
+  query_shipper_planning_files_id Int?
+  query_shipper_planning_files    query_shipper_planning_files? @relation(fields: [query_shipper_planning_files_id], references: [id])
+
+  @@schema("public")
+}
+
+model query_shipper_planning_files_temp_short_low {
+  id                              Int                           @id @default(autoincrement())
+  temp_full                       String?
+  temp_total_entry                String?
+  temp_total_exit                 String?
+  create_date                     DateTime?
+  update_date                     DateTime?
+  create_date_num                 Int?
+  update_date_num                 Int?
+  create_by                       Int?
+  create_by_account               account?                      @relation(name: "created_by_account", fields: [create_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ create_by
+  update_by                       Int?
+  update_by_account               account?                      @relation(name: "updated_by_account", fields: [update_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ update_by
+  query_shipper_planning_files_id Int?
+  query_shipper_planning_files    query_shipper_planning_files? @relation(fields: [query_shipper_planning_files_id], references: [id])
+
+  @@schema("public")
+}
+
 model query_shipper_planning_files_temp_short {
+  id                              Int                           @id @default(autoincrement())
+  temp_full                       String?
+  temp_total_entry                String?
+  temp_total_exit                 String?
+  create_date                     DateTime?
+  update_date                     DateTime?
+  create_date_num                 Int?
+  update_date_num                 Int?
+  create_by                       Int?
+  create_by_account               account?                      @relation(name: "created_by_account", fields: [create_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ create_by
+  update_by                       Int?
+  update_by_account               account?                      @relation(name: "updated_by_account", fields: [update_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ update_by
+  query_shipper_planning_files_id Int?
+  query_shipper_planning_files    query_shipper_planning_files? @relation(fields: [query_shipper_planning_files_id], references: [id])
+
+  @@schema("public")
+}
+
+model query_shipper_planning_files_temp_short_high {
   id                              Int                           @id @default(autoincrement())
   temp_full                       String?
   temp_total_entry                String?
@@ -3623,6 +3864,8 @@ model query_shipper_nomination_file_comment {
   nomination_version                       nomination_version?                    @relation(fields: [nomination_version_id], references: [id])
   query_shipper_nomination_type_comment_id Int?
   query_shipper_nomination_type_comment    query_shipper_nomination_type_comment? @relation(fields: [query_shipper_nomination_type_comment_id], references: [id])
+
+  del_flag Boolean?
 
   @@schema("public")
 }
@@ -4733,6 +4976,8 @@ model event_doc_master {
   event_document_ofo         event_document_ofo[]
   event_document_ofo_action  event_document_ofo_action[]
 
+  event_template event_template[]
+
   create_date       DateTime?
   update_date       DateTime?
   create_date_num   Int?
@@ -4805,6 +5050,13 @@ model event_document {
 
   event_document_cc_email              event_document_cc_email[]
   event_document_email_group_for_event event_document_email_group_for_event[]
+
+  doc_1_template_history_id      Int?
+  doc_1_template_history         event_template_history?  @relation(name: "doc_1_template_history", fields: [doc_1_template_history_id], references: [id])
+  doc_2_template_history_id      Int?
+  doc_2_template_history         event_template_history?  @relation(name: "doc_2_template_history", fields: [doc_2_template_history_id], references: [id])
+  doc_3_template_history_id      Int?
+  doc_3_template_history         event_template_history?  @relation(name: "doc_3_template_history", fields: [doc_3_template_history_id], references: [id])
 
   create_date       DateTime?
   update_date       DateTime?
@@ -5082,6 +5334,15 @@ model event_document_emer {
 
   event_document_emer_cc_email              event_document_emer_cc_email[]
   event_document_emer_email_group_for_event event_document_emer_email_group_for_event[]
+
+  doc_39_template_history_id     Int?
+  doc_39_template_history        event_template_history?  @relation(name: "doc_39_template_history", fields: [doc_39_template_history_id], references: [id])
+  doc_41_template_history_id     Int?
+  doc_41_template_history        event_template_history?  @relation(name: "doc_41_template_history", fields: [doc_41_template_history_id], references: [id])
+  doc_5_template_history_id      Int?
+  doc_5_template_history         event_template_history?  @relation(name: "doc_5_template_history", fields: [doc_5_template_history_id], references: [id])
+  doc_6_template_history_id      Int?
+  doc_6_template_history         event_template_history?  @relation(name: "doc_6_template_history", fields: [doc_6_template_history_id], references: [id])
 
   create_date       DateTime?
   update_date       DateTime?
@@ -5429,6 +5690,8 @@ model event_document_ofo {
   // doc_7_ofo_refer_id Int? // doc7 อ้างอิง
   // doc_7_refer        event_doc_ofo_refer? @relation(fields: [doc_7_ofo_refer_id], references: [id])
 
+  doc_7_input_ref_1_text String?
+  doc_7_input_ref_2_text String?
   doc_7_input_ref_1_id Int? // ref 1
   doc_7_input_ref_1    event_doc_ofo_refer? @relation("ref_1", fields: [doc_7_input_ref_1_id], references: [id])
   doc_7_input_ref_2_id Int? // ref 2
@@ -5484,6 +5747,11 @@ model event_document_ofo {
   event_document_ofo_email_group_for_event event_document_ofo_email_group_for_event[]
 
   seq_doc8_shipper Int?
+
+  doc_7_template_history_id      Int?
+  doc_7_template_history         event_template_history?  @relation(name: "doc_7_template_history", fields: [doc_7_template_history_id], references: [id])
+  doc_8_template_history_id      Int?
+  doc_8_template_history         event_template_history?  @relation(name: "doc_8_template_history", fields: [doc_8_template_history_id], references: [id])
 
   create_date       DateTime?
   update_date       DateTime?
@@ -5999,6 +6267,73 @@ model log_tpa_website {
   create_by_account account?  @relation(name: "created_by_account", fields: [create_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ create_by
   update_by         Int?
   update_by_account account?  @relation(name: "updated_by_account", fields: [update_by], references: [id]) // ชื่อความสัมพันธ์ที่แตกต่างกันสำหรับ update_by
+
+  @@schema("public")
+}
+
+model event_template {
+  id Int @id @default(autoincrement())
+
+  template_name String?
+
+  event_doc_master_id Int?
+  event_doc_master    event_doc_master? @relation(fields: [event_doc_master_id], references: [id])
+
+  template_data Json?
+
+  active   Boolean? @default(true)
+  del_flag Boolean? @default(false)
+
+  create_date DateTime?
+  update_date DateTime?
+
+  create_date_num Int?
+  update_date_num Int?
+
+  create_by         Int?
+  create_by_account account? @relation(name: "created_by_account", fields: [create_by], references: [id])
+
+  update_by         Int?
+  update_by_account account? @relation(name: "updated_by_account", fields: [update_by], references: [id])
+
+  event_template_history event_template_history[]
+
+  @@schema("public")
+}
+
+model event_template_history {
+  id Int @id @default(autoincrement())
+
+  template_name String?
+
+  template_data Json?
+
+  event_template_id Int?
+  event_template    event_template? @relation(fields: [event_template_id], references: [id])
+
+  create_date DateTime?
+  update_date DateTime?
+
+  create_date_num Int?
+  update_date_num Int?
+
+  create_by         Int?
+  create_by_account account? @relation(name: "created_by_account", fields: [create_by], references: [id])
+
+  update_by         Int?
+  update_by_account account? @relation(name: "updated_by_account", fields: [update_by], references: [id])
+
+  doc_1_template_history event_document[] @relation(name: "doc_1_template_history")
+  doc_2_template_history event_document[] @relation(name: "doc_2_template_history")
+  doc_3_template_history event_document[] @relation(name: "doc_3_template_history")
+
+  doc_39_template_history event_document_emer[] @relation(name: "doc_39_template_history")
+  doc_41_template_history event_document_emer[] @relation(name: "doc_41_template_history")
+  doc_5_template_history event_document_emer[] @relation(name: "doc_5_template_history")
+  doc_6_template_history event_document_emer[] @relation(name: "doc_6_template_history")
+
+  doc_7_template_history event_document_ofo[] @relation(name: "doc_7_template_history")
+  doc_8_template_history event_document_ofo[] @relation(name: "doc_8_template_history")
 
   @@schema("public")
 }
