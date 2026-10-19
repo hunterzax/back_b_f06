@@ -735,12 +735,8 @@ export async function getBookingValueWithPath({
         }
       )
     
-    // Coverity flags this as unused_expr (NO_EFFECT).
-    // coverity[unused_expr:SUPPRESS]
     const allPointInContract =
-      dataTemp[
-        'entryValue'
-      ].map((entry: any) => {
+      (dataTemp?.['entryValue'] || []).map((entry: any) => {
         return {
           isEntry: true,
           pointName:
@@ -750,12 +746,8 @@ export async function getBookingValueWithPath({
           value: entry
         }
       })
-    // Coverity flags this as unused_expr (NO_EFFECT).
-    // coverity[unused_expr:SUPPRESS]
     allPointInContract.push(
-      ...dataTemp[
-        'exitValue'
-      ].map((exit: any) => {
+      ...((dataTemp['exitValue'] || []).map((exit: any) => {
         return {
           isEntry: false,
           pointName:
@@ -764,7 +756,7 @@ export async function getBookingValueWithPath({
             ],
           value: exit
         }
-      })
+      }))
     )
     const contractPointNameList =
       allPointInContract.map(

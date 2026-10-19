@@ -2565,7 +2565,7 @@ export class DailyAdjustmentService {
           shipper_name:
             curr.group?.name,
           nomination_type:
-            curr?.nomination_type,
+            curr.nomination_type,
           data: []
         }
       }
@@ -2698,9 +2698,7 @@ export class DailyAdjustmentService {
             ...nE
           } = e
           let nomination_version_one =
-            e
-              ?.nomination_version[0] ||
-            []
+            e.nomination_version[0] || []
           nomination_version_one.nomination_full_json =
             nomination_version_one.nomination_full_json[0]
           const {
@@ -2811,7 +2809,7 @@ export class DailyAdjustmentService {
                         ''
                       )
                   ) || 0,
-                rowId: e?.id,
+                rowId: e.id,
                 H1:
                   Number(
                     e[
@@ -3146,7 +3144,7 @@ export class DailyAdjustmentService {
               totalType:
                 'daily',
               gasDayUse:
-                e?.gas_day_text,
+                e.gas_day_text,
               HV:
                 Number(
                   e[
@@ -3158,7 +3156,7 @@ export class DailyAdjustmentService {
                       ''
                     )
                 ) || 0,
-              rowId: e?.id,
+              rowId: e.id,
               H1:
                 Number(
                   e[
@@ -3691,7 +3689,7 @@ export class DailyAdjustmentService {
                         'area_text'
                       ] &&
                     dayjs(
-                      f?.gas_day
+                      f.gas_day
                     ).format(
                       'DD/MM/YYYY'
                     ) ===
@@ -4407,7 +4405,7 @@ export class DailyAdjustmentService {
             const areaObj = areaMaster.find((area: any) => {
               const startDate = dayjs(area.start_date).tz('Asia/Bangkok');
               const endDate = area.end_date ? dayjs(area.end_date).tz('Asia/Bangkok') : null;
-              return area?.name === nominationRowJson.area_text && startDate.isSameOrBefore(currentDate) && (endDate == null || endDate.isAfter(currentDate));
+              return area.name === nominationRowJson.area_text && startDate.isSameOrBefore(currentDate) && (endDate == null || endDate.isAfter(currentDate));
             });
 
             // "dailyAdjustFindPoint": [
@@ -4600,7 +4598,7 @@ export class DailyAdjustmentService {
             const areaObj = areaMaster.find((area: any) => {
               const startDate = dayjs(area.start_date).tz('Asia/Bangkok');
               const endDate = area.end_date ? dayjs(area.end_date).tz('Asia/Bangkok') : null;
-              return area?.name === nominationRowJson.area_text && startDate.isSameOrBefore(currentDate) && (endDate == null || endDate.isAfter(currentDate));
+              return area.name === nominationRowJson.area_text && startDate.isSameOrBefore(currentDate) && (endDate == null || endDate.isAfter(currentDate));
             });
 
             const dayOfWeek = Number(currentDate.format('d')); // The day of the week, with Sunday as 0

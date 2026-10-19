@@ -1510,7 +1510,7 @@ export class TariffService {
 
           const totalNotRound = value?.reduce((accumulator, currentValue) => accumulator + currentValue?.calcNotRound, 0)
 
-          if (dG?.gas_day === '2026-06-01' && e?.contract === '2026-CNF-008') {
+          if (dG.gas_day === '2026-06-01' && e.contract === '2026-CNF-008') {
             console.log('e : ', e)
             console.log('dG : ', dG)
             console.log('value : ', value)

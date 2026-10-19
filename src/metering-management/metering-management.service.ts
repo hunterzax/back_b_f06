@@ -2034,7 +2034,7 @@ export class MeteringManagementService {
 
 
               const nomination_point = nomination_pointN.find((item: any) => {
-                if (!item?.start_date) {
+                if (!item || !item.start_date) {
                   return false
                 }
 
@@ -2044,7 +2044,7 @@ export class MeteringManagementService {
 
                 // ช่วงของ nomination point
                 const itemStart = dayjs(item.start_date).startOf('day')
-                const itemEnd = item?.end_date
+                const itemEnd = item.end_date
                   ? dayjs(item.end_date).endOf('day')
                   : null
 
@@ -5012,7 +5012,7 @@ export class MeteringManagementService {
           // newData.data[i]?.POINT_ID?.value
           // newData.data[i]?.REGISTER_TIMSTAMP?.value
           // newData.data[i]?.ENERGY?.value
-          if (!!!newData.data[i]?.POINT_ID?.value) {
+          if (!!!newData.data[i].POINT_ID?.value) {
             throw new HttpException(
               {
                 status: HttpStatus.BAD_REQUEST,
@@ -5020,7 +5020,7 @@ export class MeteringManagementService {
               },
               HttpStatus.BAD_REQUEST
             )
-          } else if (!!!newData.data[i]?.REGISTER_TIMSTAMP?.value) {
+          } else if (!!!newData.data[i].REGISTER_TIMSTAMP?.value) {
             throw new HttpException(
               {
                 status: HttpStatus.BAD_REQUEST,
@@ -5028,7 +5028,7 @@ export class MeteringManagementService {
               },
               HttpStatus.BAD_REQUEST
             )
-          } else if (!!!newData.data[i]?.["Gas Hour"]?.value) {
+          } else if (!!!newData.data[i]["Gas Hour"]?.value) {
             throw new HttpException(
               {
                 status: HttpStatus.BAD_REQUEST,
@@ -5036,7 +5036,7 @@ export class MeteringManagementService {
               },
               HttpStatus.BAD_REQUEST
             )
-          } else if (!!!newData.data[i]?.ENERGY?.value) {
+          } else if (!!!newData.data[i].ENERGY?.value) {
             throw new HttpException(
               {
                 status: HttpStatus.BAD_REQUEST,
@@ -5051,7 +5051,7 @@ export class MeteringManagementService {
           // newData.data[i]?.ENERGY?.value
           // newData.data[i]?.HV?.value
           // newData.data[i]?.WI?.value
-          if (!!newData.data[i]?.VOLUME?.value && Number(newData.data[i]?.VOLUME?.value) < 0) {
+          if (!!newData.data[i].VOLUME?.value && Number(newData.data[i].VOLUME?.value) < 0) {
             throw new HttpException(
               {
                 status: HttpStatus.BAD_REQUEST,
@@ -5059,7 +5059,7 @@ export class MeteringManagementService {
               },
               HttpStatus.BAD_REQUEST
             )
-          } else if (!!newData.data[i]?.ENERGY?.value && Number(newData.data[i]?.ENERGY?.value) < 0) {
+          } else if (!!newData.data[i].ENERGY?.value && Number(newData.data[i].ENERGY?.value) < 0) {
             throw new HttpException(
               {
                 status: HttpStatus.BAD_REQUEST,
@@ -5067,7 +5067,7 @@ export class MeteringManagementService {
               },
               HttpStatus.BAD_REQUEST
             )
-          } else if (!!newData.data[i]?.HV?.value && Number(newData.data[i]?.HV?.value) < 0) {
+          } else if (!!newData.data[i].HV?.value && Number(newData.data[i].HV?.value) < 0) {
             throw new HttpException(
               {
                 status: HttpStatus.BAD_REQUEST,
@@ -5075,7 +5075,7 @@ export class MeteringManagementService {
               },
               HttpStatus.BAD_REQUEST
             )
-          } else if (!!newData.data[i]?.WI?.value && Number(newData.data[i]?.WI?.value) < 0) {
+          } else if (!!newData.data[i].WI?.value && Number(newData.data[i].WI?.value) < 0) {
             throw new HttpException(
               {
                 status: HttpStatus.BAD_REQUEST,
@@ -5090,25 +5090,25 @@ export class MeteringManagementService {
 
           // https://app.clickup.com/t/9018502823/86eub6d16
           // DD/MM/YYYY HH:mm:ss
-          const registerTime = dayjs(newData.data[i]?.REGISTER_TIMSTAMP?.value, 'DD/MM/YYYY HH:mm:ss')
+          const registerTime = dayjs(newData.data[i].REGISTER_TIMSTAMP?.value, 'DD/MM/YYYY HH:mm:ss')
           newData.data[i].REGISTER_TIMSTAMP.value = registerTime.format('YYYY-MM-DDTHH:mm:ss.000+00:00') // แปลงเป็นแบบเดิมเพื่อให้ service meter ไม่ต้องแก้
           const ckRg = newDate7.isBefore(registerTime)
           if (ckRg) {
             throw new HttpException(
               {
                 status: HttpStatus.BAD_REQUEST,
-                error: `Point ${newData.data[i]?.POINT_ID?.value}; Register Timestamp must be earlier or equal to Current date.`
+                error: `Point ${newData.data[i].POINT_ID?.value}; Register Timestamp must be earlier or equal to Current date.`
               },
               HttpStatus.BAD_REQUEST
             )
           }
        
           if(dayjs(ddmmyyyy, "DD/MM/YYYY").isSame(dayjs(), "day")){
-            if(Number(newData.data[i]?.["Gas Hour"]?.value) > dayjs().hour()){
+            if(Number(newData.data[i]["Gas Hour"]?.value) > dayjs().hour()){
               throw new HttpException(
                 {
                   status: HttpStatus.BAD_REQUEST,
-                  error: `Point ${newData.data[i]?.POINT_ID?.value}; Gas Hour must be earlier or equal to Current date.`
+                  error: `Point ${newData.data[i].POINT_ID?.value}; Gas Hour must be earlier or equal to Current date.`
                 },
                 HttpStatus.BAD_REQUEST
               )

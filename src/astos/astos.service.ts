@@ -48,7 +48,7 @@ export class AstosService {
     await axios.post(
       // NOSONAR
       // ใช้ HTTP เพราะเป็น internal service
-      `http://${process.env.IN_APP_URL}/message`,
+      `${process.env.PROTOCOL_FOR_INTERNAL_SERVICE || 'http'}://${process.env.IN_APP_URL}/message`,
       {
         extras: { email },
         message: message || '',
@@ -1025,8 +1025,9 @@ export class AstosService {
           const head = obj?.headData ?? {};
           const rows: any[] = obj?.valueData ?? [];
 
-          const colKey = this.utils.resolveColumnKey(head, gd, isDaily).trim() || null;
+          let colKey = this.utils.resolveColumnKey(head, gd, isDaily);
           if (!colKey) continue;
+          colKey = colKey.trim();
 
           for (const row of rows) {
             const unit = this.utils.toUpper(row['9']);

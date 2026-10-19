@@ -710,16 +710,20 @@ export class CapacityMiddleService {
     // [{date: '2026-11-19', value: 60000}]
     const data = data_?.length > 0 ? data_ : temp?.valueEx?.data // https://app.clickup.com/t/9018502823/86euzxxkq
     // const data = data_
+    if (!data || data.length === 0) {
+      return []
+    }
     const clonedData = JSON.parse(JSON.stringify(data));
     // console.log('data[data.length - 1] : ', data[data.length - 1]);
     // console.log('data[data.length - 1].date : ', data[data.length - 1]?.date);
     // หาวันที่มากที่สุดในข้อมูลเดิม
     // const maxDate = dayjs(data[data.length - 1].date);
-    const maxDate = data ? ((/^\d{2}\/\d{2}\/\d{4}$/.test(data[data.length - 1].date))
-    ? dayjs(data[data.length - 1].date, 'DD/MM/YYYY', true)
-    : dayjs(data[data.length - 1].date)) : dayjs()
+    const lastItem = data[data.length - 1]
+    const maxDate = /^\d{2}\/\d{2}\/\d{4}$/.test(lastItem.date)
+      ? dayjs(lastItem.date, 'DD/MM/YYYY', true)
+      : dayjs(lastItem.date)
     // หาค่า value ของวันที่มากที่สุด
-    const maxValue = data[data.length - 1].value;
+    const maxValue = lastItem.value;
     // console.log('maxDate : ', maxDate);
     // console.log('maxValue : ', maxValue);
     // console.log('type : ', type);
@@ -1386,7 +1390,7 @@ export class CapacityMiddleService {
       const data = (keys || [])?.filter((f_:any) => f_ !== null)?.map((keyItem: any) => ({
         key: keyItem.key,
         date: keyItem.date,      // 'DD/MM/YYYY'
-        config: keyItem?.config,
+        config: keyItem.config,
         value: values[keyItem.key]
           ? parseFloat(String(values[keyItem.key]).trim().replace(/,/g, ''))
           : null,
@@ -1459,7 +1463,7 @@ export class CapacityMiddleService {
       const data = (keys || [])?.filter((f_:any) => f_ !== null)?.map((keyItem) => ({
         key: keyItem.key,
         date: keyItem.date,
-        config: keyItem?.config,
+        config: keyItem.config,
         value: values[keyItem.key] || null, // แมตช์ค่า value ตาม key
       }));
 

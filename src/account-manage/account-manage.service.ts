@@ -306,7 +306,7 @@ export class AccountManageService {
         updateData.update_date_num = getTodayNowAdd7().unix()
 
         await this.prisma.account_role.upsert({
-          where: { account_manage_id: account_manage.id ?? -1 },
+          where: { account_manage_id: account_manage?.id ?? -1 },
           create: createData,
           update: updateData
         })
@@ -744,7 +744,7 @@ export class AccountManageService {
       // create account for AD
       return null
     }
-    const { password, ...account_without_pwd } = (account || {})
+    const { password, ...account_without_pwd } = account
 
     // 2 Is account active
     const nowAt = getTodayNowAdd7()
@@ -2772,7 +2772,7 @@ export class AccountManageService {
     let config = {
       method: 'post',
       maxBodyLength: Infinity,
-      url: `http://${process.env.IP_URL}:${process.env.KONG_PORT}/files/convert-to-base64/`,
+      url: `${process.env.PROTOCOL_FOR_INTERNAL_SERVICE || 'http'}://${process.env.IP_URL}:${process.env.KONG_PORT}/files/convert-to-base64/`,
       headers: {
         'Content-Type': 'application/json'
       },

@@ -68,6 +68,7 @@ import {TariffModule} from './tariff/tariff.module'
 import {WaitingListModule} from './waiting-list/waiting-list.module'
 import {CallReceivedModule} from './call-received/call-received.module'
 import {SeedService} from '@prisma/seed.service'
+import { EventTemplateModule } from './event-template/event-template.module';
 
 @Global()
 @Module({
@@ -165,7 +166,8 @@ import {SeedService} from '@prisma/seed.service'
     TariffModule,
     ExportFilesModule,
     WaitingListModule,
-    CallReceivedModule
+    CallReceivedModule,
+    EventTemplateModule
   ],
   controllers: [
     AppController

@@ -2009,9 +2009,9 @@ export class EventController {
 
   @UseGuards(AuthGuard)
   @Get('ofo/doc7/nompoint')
-  doc7Nompoint(@Req() req: any) {
+  doc7Nompoint(@Query() query: any, @Req() req: any) {
     const userId = req?.user?.sub
-    return this.eventService.doc7Nompoint(userId)
+    return this.eventService.doc7Nompoint(query, userId)
   }
 
   @UseGuards(AuthGuard)
@@ -2025,9 +2025,8 @@ export class EventController {
   @UseGuards(AuthGuard)
   @Post('ofo/doc7')
   async doc7Create(@Body() body: any, @Req() req: any) {
-    const {event_date} = body
 
-    if (!event_date) {
+    if (!body || !body.event_date) {
       throw new HttpException(
         {
           status: HttpStatus.BAD_REQUEST,
@@ -2039,7 +2038,7 @@ export class EventController {
 
     const doc7Create = await this.eventService.doc7Create(body, req?.user?.sub)
 
-    body && await this.eventService.writeReq(req, `emer/doc7`, body?.id_runnumber ? 'edit' : 'create', doc7Create)
+    await this.eventService.writeReq(req, `emer/doc7`, body.id_runnumber ? 'edit' : 'create', doc7Create)
     // inapp
     try {
       const zoneText = doc7Create?.event_doc_ofo_gas_tranmiss
@@ -2052,7 +2051,7 @@ export class EventController {
               : 'Other'
         : ''
       // tso create
-      const message = `TSO ${body?.id_runnumber ? 'updated' : 'created'} the OF/IF Doc 7 of ${doc7Create?.event_doc_ofo_type?.name_en} ${zoneText} Zone on ${dayjs(doc7Create?.event_date).format('DD/MM/YYYY')} (Event code: ${doc7Create?.event_nember}).`
+      const message = `TSO ${body.id_runnumber ? 'updated' : 'created'} the OF/IF Doc 7 of ${doc7Create?.event_doc_ofo_type?.name_en} ${zoneText} Zone on ${dayjs(doc7Create?.event_date).format('DD/MM/YYYY')} (Event code: ${doc7Create?.event_nember}).`
       await middleNotiInappShipperMulti(
         this.prisma,
         'Event',
@@ -2467,9 +2466,7 @@ export class EventController {
   @UseGuards(AuthGuard)
   @Post('emer/doc41')
   async doc41Create(@Body() body: any, @Req() req: any) {
-    const {event_date} = body
-
-    if (!event_date) {
+    if (!body || !body.event_date) {
       throw new HttpException(
         {
           status: HttpStatus.BAD_REQUEST,
@@ -2481,11 +2478,11 @@ export class EventController {
 
     const doc41Create = await this.eventService.doc41Create(body, req?.user?.sub)
 
-    body && await this.eventService.writeReq(req, `emer/doc41`, body?.id_documents ? 'edit' : 'create', doc41Create)
+    await this.eventService.writeReq(req, `emer/doc41`, body.id_documents ? 'edit' : 'create', doc41Create)
 
     // inapp
     try {
-      const modeVersion = body?.id_documents ? 'updated' : 'created'
+      const modeVersion = body.id_documents ? 'updated' : 'created'
       const zoneText = doc41Create?.event_doc_emer_gas_tranmiss
         ? doc41Create?.event_doc_emer_gas_tranmiss?.name == 'Onshore East'
           ? 'East'
@@ -2496,7 +2493,7 @@ export class EventController {
               : 'Other'
         : ''
 
-      const message = `TSO ${modeVersion} the Incident report Doc 4 of ${doc41Create?.event_doc_emer_type?.name_en} ${zoneText} Zone on ${dayjs(doc41Create?.event_date).format('DD/MM/YYYY')} (Event code: ${doc41Create?.event_nember}${body?.id_documents && `, version ${doc41Create?.document41?.[0]?.version_text || ''}`}).`
+      const message = `TSO ${modeVersion} the Incident report Doc 4 of ${doc41Create?.event_doc_emer_type?.name_en} ${zoneText} Zone on ${dayjs(doc41Create?.event_date).format('DD/MM/YYYY')} (Event code: ${doc41Create?.event_nember}${body.id_documents && `, version ${doc41Create?.document41?.[0]?.version_text || ''}`}).`
       // await middleNotiInappTSOonly(
       //   this.prisma,
       //   'Event',

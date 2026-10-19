@@ -24,8 +24,8 @@ export async function uploadFilsTemp(
   ]
   const uploadUrl =
     pttEnv.includes(env)
-      ? `http://${process.env.IP_URL}:${process.env.KONG_PORT}/files/uploadfile/`
-      : `http://${process.env.IP_URL}:4006/uploadfile/`
+      ? `${process.env.PROTOCOL_FOR_INTERNAL_SERVICE || 'http'}://${process.env.IP_URL}:${process.env.KONG_PORT}/files/uploadfile/`
+      : `${process.env.PROTOCOL_FOR_INTERNAL_SERVICE || 'http'}://${process.env.IP_URL}:4006/uploadfile/`
   // uploadUrl: `https://tpasystem-pre-gw.pttplc.com/files/uploadfile/`,
   // uploadUrl: `http://${process.env.IP_URL}:8443/files/uploadfile/`,
   // uploadUrl: `http://${process.env.IP_URL}:4006/uploadfile/`,

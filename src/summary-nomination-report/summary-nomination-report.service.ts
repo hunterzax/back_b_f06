@@ -2229,38 +2229,38 @@ export class SummaryNominationReportService {
 
       switch (checkDy) {
         case 0:
-          totalW = all && all?.sunday || 0
-          utilizationW = all && all?.sunday_utilization || 0
+          totalW = all.sunday || 0
+          utilizationW = all.sunday_utilization || 0
           break
 
         case 1:
-          totalW = all && all?.monday || 0
-          utilizationW = all && all?.monday_utilization || 0
+          totalW = all.monday || 0
+          utilizationW = all.monday_utilization || 0
           break
 
         case 2:
-          totalW = all && all?.tuesday || 0
-          utilizationW = all && all?.tuesday_utilization || 0
+          totalW = all.tuesday || 0
+          utilizationW = all.tuesday_utilization || 0
           break
 
         case 3:
-          totalW = all && all?.wednesday || 0
-          utilizationW = all && all?.wednesday_utilization || 0
+          totalW = all.wednesday || 0
+          utilizationW = all.wednesday_utilization || 0
           break
 
         case 4:
-          totalW = all && all?.thursday || 0
-          utilizationW = all && all?.thursday_utilization || 0
+          totalW = all.thursday || 0
+          utilizationW = all.thursday_utilization || 0
           break
 
         case 5:
-          totalW = all && all?.friday || 0
-          utilizationW = all && all?.friday_utilization || 0
+          totalW = all.friday || 0
+          utilizationW = all.friday_utilization || 0
           break
 
         case 6:
-          totalW = all && all?.saturday || 0
-          utilizationW = all && all?.saturday_utilization || 0
+          totalW = all.saturday || 0
+          utilizationW = all.saturday_utilization || 0
           break
 
         default:
@@ -2469,44 +2469,44 @@ export class SummaryNominationReportService {
 
       switch (checkDy) {
         case 0:
-          totalW = all && all?.sunday || 0
-          utilizationW = calcWeek(all?.sunday, nomPoint?.maximum_capacity, findHvsundayHv)
+          totalW = all.sunday || 0
+          utilizationW = calcWeek(all.sunday, nomPoint?.maximum_capacity, findHvsundayHv)
 
           break
 
         case 1:
-          totalW = all && all?.monday || 0
-          utilizationW = calcWeek(all?.monday, nomPoint?.maximum_capacity, findHvmondayHv)
+          totalW = all.monday || 0
+          utilizationW = calcWeek(all.monday, nomPoint?.maximum_capacity, findHvmondayHv)
           // utilizationW = all && all?.monday_utilization || 0;
           break
 
         case 2:
-          totalW = all && all?.tuesday || 0
-          utilizationW = calcWeek(all?.tuesday, nomPoint?.maximum_capacity, findHvtuesdayHv)
+          totalW = all.tuesday || 0
+          utilizationW = calcWeek(all.tuesday, nomPoint?.maximum_capacity, findHvtuesdayHv)
           // utilizationW = all && all?.tuesday_utilization || 0;
           break
 
         case 3:
-          totalW = all && all?.wednesday || 0
-          utilizationW = calcWeek(all?.wednesday, nomPoint?.maximum_capacity, findHvwednesdayHv)
+          totalW = all.wednesday || 0
+          utilizationW = calcWeek(all.wednesday, nomPoint?.maximum_capacity, findHvwednesdayHv)
           // utilizationW = all && all?.wednesday_utilization || 0;
           break
 
         case 4:
-          totalW = all && all?.thursday || 0
-          utilizationW = calcWeek(all?.thursday, nomPoint?.maximum_capacity, findHvthursdayHv)
+          totalW = all.thursday || 0
+          utilizationW = calcWeek(all.thursday, nomPoint?.maximum_capacity, findHvthursdayHv)
           // utilizationW = all && all?.thursday_utilization || 0;
           break
 
         case 5:
-          totalW = all && all?.friday || 0
-          utilizationW = calcWeek(all?.friday, nomPoint?.maximum_capacity, findHvfridayHv)
+          totalW = all.friday || 0
+          utilizationW = calcWeek(all.friday, nomPoint?.maximum_capacity, findHvfridayHv)
           // utilizationW = all && all?.friday_utilization || 0;
           break
 
         case 6:
-          totalW = all && all?.saturday || 0
-          utilizationW = calcWeek(all?.saturday, nomPoint?.maximum_capacity, findHvsaturdayHv)
+          totalW = all.saturday || 0
+          utilizationW = calcWeek(all.saturday, nomPoint?.maximum_capacity, findHvsaturdayHv)
           // utilizationW = all && all?.saturday_utilization || 0;
           break
 
@@ -3776,31 +3776,31 @@ export class SummaryNominationReportService {
       }
 
       const hourDay = {
-        H1: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['14'])),
-        H2: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['15'])),
-        H3: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['16'])),
-        H4: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['17'])),
-        H5: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['18'])),
-        H6: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['19'])),
-        H7: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['20'])),
-        H8: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['21'])),
-        H9: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['22'])),
-        H10: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['23'])),
-        H11: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['24'])),
-        H12: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['25'])),
-        H13: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['26'])),
-        H14: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['27'])),
-        H15: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['28'])),
-        H16: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['29'])),
-        H17: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['30'])),
-        H18: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['31'])),
-        H19: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['32'])),
-        H20: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['33'])),
-        H21: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['34'])),
-        H22: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['35'])),
-        H23: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['36'])),
-        H24: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['37'])),
-        total: this.roundTo3(parseToNumber(e['nomination_row_json']?.['data_temp']?.['38']))
+        H1: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['14'])),
+        H2: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['15'])),
+        H3: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['16'])),
+        H4: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['17'])),
+        H5: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['18'])),
+        H6: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['19'])),
+        H7: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['20'])),
+        H8: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['21'])),
+        H9: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['22'])),
+        H10: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['23'])),
+        H11: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['24'])),
+        H12: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['25'])),
+        H13: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['26'])),
+        H14: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['27'])),
+        H15: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['28'])),
+        H16: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['29'])),
+        H17: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['30'])),
+        H18: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['31'])),
+        H19: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['32'])),
+        H20: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['33'])),
+        H21: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['34'])),
+        H22: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['35'])),
+        H23: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['36'])),
+        H24: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['37'])),
+        total: this.roundTo3(parseToNumber(e?.['nomination_row_json']?.['data_temp']?.['38']))
       }
 
       const calcMMBTUDTotal = (hDay: any) => {
@@ -4791,7 +4791,7 @@ export class SummaryNominationReportService {
               const utilization = parseToNumber(item['utilization'] || '0')
               acc[key]['utilization'] = (baseutilization ?? 0) + (utilization ?? 0)
               acc[key]['arrContractId'] = item && ((item?.arrContractId && [...acc[key]['arrContractId'], ...item?.arrContractId]) || acc[key]['arrContractId']) || null
-              acc[key]['arrNom'] = (item?.arrNom && [...acc[key]['arrNom'], ...item?.arrNom]) || acc[key]['arrNom']
+              acc[key]['arrNom'] = (item.arrNom && [...acc[key]['arrNom'], ...item.arrNom]) || acc[key]['arrNom']
             }
 
             return acc
@@ -5080,31 +5080,31 @@ export class SummaryNominationReportService {
 
       switch (checkDy) {
         case 0:
-          totalW = all && all?.sunday || 0
+          totalW = all.sunday || 0
           break
 
         case 1:
-          totalW = all && all?.monday || 0
+          totalW = all.monday || 0
           break
 
         case 2:
-          totalW = all && all?.tuesday || 0
+          totalW = all.tuesday || 0
           break
 
         case 3:
-          totalW = all && all?.wednesday || 0
+          totalW = all.wednesday || 0
           break
 
         case 4:
-          totalW = all && all?.thursday || 0
+          totalW = all.thursday || 0
           break
 
         case 5:
-          totalW = all && all?.friday || 0
+          totalW = all.friday || 0
           break
 
         case 6:
-          totalW = all && all?.saturday || 0
+          totalW = all.saturday || 0
           break
 
         default:
@@ -5201,31 +5201,31 @@ export class SummaryNominationReportService {
 
       switch (checkDy) {
         case 0:
-          totalW = all && all?.sunday || 0
+          totalW = all.sunday || 0
           break
 
         case 1:
-          totalW = all && all?.monday || 0
+          totalW = all.monday || 0
           break
 
         case 2:
-          totalW = all && all?.tuesday || 0
+          totalW = all.tuesday || 0
           break
 
         case 3:
-          totalW = all && all?.wednesday || 0
+          totalW = all.wednesday || 0
           break
 
         case 4:
-          totalW = all && all?.thursday || 0
+          totalW = all.thursday || 0
           break
 
         case 5:
-          totalW = all && all?.friday || 0
+          totalW = all.friday || 0
           break
 
         case 6:
-          totalW = all && all?.saturday || 0
+          totalW = all.saturday || 0
           break
 
         default:
@@ -5329,31 +5329,31 @@ export class SummaryNominationReportService {
 
       switch (checkDy) {
         case 0:
-          totalW = all && all?.sunday || 0
+          totalW = all.sunday || 0
           break
 
         case 1:
-          totalW = all && all?.monday || 0
+          totalW = all.monday || 0
           break
 
         case 2:
-          totalW = all && all?.tuesday || 0
+          totalW = all.tuesday || 0
           break
 
         case 3:
-          totalW = all && all?.wednesday || 0
+          totalW = all.wednesday || 0
           break
 
         case 4:
-          totalW = all && all?.thursday || 0
+          totalW = all.thursday || 0
           break
 
         case 5:
-          totalW = all && all?.friday || 0
+          totalW = all.friday || 0
           break
 
         case 6:
-          totalW = all && all?.saturday || 0
+          totalW = all.saturday || 0
           break
 
         default:
@@ -5452,31 +5452,31 @@ export class SummaryNominationReportService {
 
       switch (checkDy) {
         case 0:
-          totalW = all && all?.sunday || 0
+          totalW = all.sunday || 0
           break
 
         case 1:
-          totalW = all && all?.monday || 0
+          totalW = all.monday || 0
           break
 
         case 2:
-          totalW = all && all?.tuesday || 0
+          totalW = all.tuesday || 0
           break
 
         case 3:
-          totalW = all && all?.wednesday || 0
+          totalW = all.wednesday || 0
           break
 
         case 4:
-          totalW = all && all?.thursday || 0
+          totalW = all.thursday || 0
           break
 
         case 5:
-          totalW = all && all?.friday || 0
+          totalW = all.friday || 0
           break
 
         case 6:
-          totalW = all && all?.saturday || 0
+          totalW = all.saturday || 0
           break
 
         default:
@@ -5575,38 +5575,38 @@ export class SummaryNominationReportService {
 
       switch (checkDy) {
         case 0:
-          totalW = all && all?.sunday || 0
-          utilizationW = all && all?.sunday_utilization || 0
+          totalW = all.sunday || 0
+          utilizationW = all.sunday_utilization || 0
           break
 
         case 1:
-          totalW = all && all?.monday || 0
-          utilizationW = all && all?.monday_utilization || 0
+          totalW = all.monday || 0
+          utilizationW = all.monday_utilization || 0
           break
 
         case 2:
-          totalW = all && all?.tuesday || 0
-          utilizationW = all && all?.tuesday_utilization || 0
+          totalW = all.tuesday || 0
+          utilizationW = all.tuesday_utilization || 0
           break
 
         case 3:
-          totalW = all && all?.wednesday || 0
-          utilizationW = all && all?.wednesday_utilization || 0
+          totalW = all.wednesday || 0
+          utilizationW = all.wednesday_utilization || 0
           break
 
         case 4:
-          totalW = all && all?.thursday || 0
-          utilizationW = all && all?.thursday_utilization || 0
+          totalW = all.thursday || 0
+          utilizationW = all.thursday_utilization || 0
           break
 
         case 5:
-          totalW = all && all?.friday || 0
-          utilizationW = all && all?.friday_utilization || 0
+          totalW = all.friday || 0
+          utilizationW = all.friday_utilization || 0
           break
 
         case 6:
-          totalW = all && all?.saturday || 0
-          utilizationW = all && all?.saturday_utilization || 0
+          totalW = all.saturday || 0
+          utilizationW = all.saturday_utilization || 0
           break
 
         default:
@@ -5761,44 +5761,44 @@ export class SummaryNominationReportService {
 
       switch (checkDy) {
         case 0:
-          totalW = all && all?.sunday || 0
-          utilizationW = calcWeek(all?.sunday, nomPoint?.maximum_capacity, findHvsundayHv)
+          totalW = all.sunday || 0
+          utilizationW = calcWeek(all.sunday, nomPoint?.maximum_capacity, findHvsundayHv)
 
           break
 
         case 1:
-          totalW = all && all?.monday || 0
-          utilizationW = calcWeek(all?.monday, nomPoint?.maximum_capacity, findHvmondayHv)
+          totalW = all.monday || 0
+          utilizationW = calcWeek(all.monday, nomPoint?.maximum_capacity, findHvmondayHv)
           // utilizationW = all && all?.monday_utilization || 0;
           break
 
         case 2:
-          totalW = all && all?.tuesday || 0
-          utilizationW = calcWeek(all?.tuesday, nomPoint?.maximum_capacity, findHvtuesdayHv)
+          totalW = all.tuesday || 0
+          utilizationW = calcWeek(all.tuesday, nomPoint?.maximum_capacity, findHvtuesdayHv)
           // utilizationW = all && all?.tuesday_utilization || 0;
           break
 
         case 3:
-          totalW = all && all?.wednesday || 0
-          utilizationW = calcWeek(all?.wednesday, nomPoint?.maximum_capacity, findHvwednesdayHv)
+          totalW = all.wednesday || 0
+          utilizationW = calcWeek(all.wednesday, nomPoint?.maximum_capacity, findHvwednesdayHv)
           // utilizationW = all && all?.wednesday_utilization || 0;
           break
 
         case 4:
-          totalW = all && all?.thursday || 0
-          utilizationW = calcWeek(all?.thursday, nomPoint?.maximum_capacity, findHvthursdayHv)
+          totalW = all.thursday || 0
+          utilizationW = calcWeek(all.thursday, nomPoint?.maximum_capacity, findHvthursdayHv)
           // utilizationW = all && all?.thursday_utilization || 0;
           break
 
         case 5:
-          totalW = all && all?.friday || 0
-          utilizationW = calcWeek(all?.friday, nomPoint?.maximum_capacity, findHvfridayHv)
+          totalW = all.friday || 0
+          utilizationW = calcWeek(all.friday, nomPoint?.maximum_capacity, findHvfridayHv)
           // utilizationW = all && all?.friday_utilization || 0;
           break
 
         case 6:
-          totalW = all && all?.saturday || 0
-          utilizationW = calcWeek(all?.saturday, nomPoint?.maximum_capacity, findHvsaturdayHv)
+          totalW = all.saturday || 0
+          utilizationW = calcWeek(all.saturday, nomPoint?.maximum_capacity, findHvsaturdayHv)
           // utilizationW = all && all?.saturday_utilization || 0;
           break
 
@@ -5891,38 +5891,38 @@ export class SummaryNominationReportService {
 
       switch (checkDy) {
         case 0:
-          totalW = all && all?.sunday || 0
-          utilizationW = all && all?.sunday_utilization || 0
+          totalW = all.sunday || 0
+          utilizationW = all.sunday_utilization || 0
           break
 
         case 1:
-          totalW = all && all?.monday || 0
-          utilizationW = all && all?.monday_utilization || 0
+          totalW = all.monday || 0
+          utilizationW = all.monday_utilization || 0
           break
 
         case 2:
-          totalW = all && all?.tuesday || 0
-          utilizationW = all && all?.tuesday_utilization || 0
+          totalW = all.tuesday || 0
+          utilizationW = all.tuesday_utilization || 0
           break
 
         case 3:
-          totalW = all && all?.wednesday || 0
-          utilizationW = all && all?.wednesday_utilization || 0
+          totalW = all.wednesday || 0
+          utilizationW = all.wednesday_utilization || 0
           break
 
         case 4:
-          totalW = all && all?.thursday || 0
-          utilizationW = all && all?.thursday_utilization || 0
+          totalW = all.thursday || 0
+          utilizationW = all.thursday_utilization || 0
           break
 
         case 5:
-          totalW = all && all?.friday || 0
-          utilizationW = all && all?.friday_utilization || 0
+          totalW = all.friday || 0
+          utilizationW = all.friday_utilization || 0
           break
 
         case 6:
-          totalW = all && all?.saturday || 0
-          utilizationW = all && all?.saturday_utilization || 0
+          totalW = all.saturday || 0
+          utilizationW = all.saturday_utilization || 0
           break
 
         default:
@@ -6259,38 +6259,38 @@ export class SummaryNominationReportService {
 
       switch (checkDy) {
         case 0:
-          totalW = all && all?.sunday || 0
-          utilizationW = all && all?.sunday_utilization || 0
+          totalW = all.sunday || 0
+          utilizationW = all.sunday_utilization || 0
           break
 
         case 1:
-          totalW = all && all?.monday || 0
-          utilizationW = all && all?.monday_utilization || 0
+          totalW = all.monday || 0
+          utilizationW = all.monday_utilization || 0
           break
 
         case 2:
-          totalW = all && all?.tuesday || 0
-          utilizationW = all && all?.tuesday_utilization || 0
+          totalW = all.tuesday || 0
+          utilizationW = all.tuesday_utilization || 0
           break
 
         case 3:
-          totalW = all && all?.wednesday || 0
-          utilizationW = all && all?.wednesday_utilization || 0
+          totalW = all.wednesday || 0
+          utilizationW = all.wednesday_utilization || 0
           break
 
         case 4:
-          totalW = all && all?.thursday || 0
-          utilizationW = all && all?.thursday_utilization || 0
+          totalW = all.thursday || 0
+          utilizationW = all.thursday_utilization || 0
           break
 
         case 5:
-          totalW = all && all?.friday || 0
-          utilizationW = all && all?.friday_utilization || 0
+          totalW = all.friday || 0
+          utilizationW = all.friday_utilization || 0
           break
 
         case 6:
-          totalW = all && all?.saturday || 0
-          utilizationW = all && all?.saturday_utilization || 0
+          totalW = all.saturday || 0
+          utilizationW = all.saturday_utilization || 0
           break
 
         default:
@@ -6299,11 +6299,11 @@ export class SummaryNominationReportService {
 
       return {
         gas_day_text: gas_day_text,
-        area_text: all?.area_text,
+        area_text: all.area_text,
         // arrContractId: [...new Set(data?.flatMap((ct:any) => ct?.arrContractId))]
-        arrContractId: all?.arrContractId,
-        contract_code_id: all?.contract_code_id,
-        nomination_point: all?.nomination_point,
+        arrContractId: all.arrContractId,
+        contract_code_id: all.contract_code_id,
+        nomination_point: all.nomination_point,
         totalCap: this.roundTo3(totalW) * 24,
         // totalCap: this.roundTo3(totalW), ???
         utilization: utilizationW ?? 0,
@@ -7181,13 +7181,13 @@ export class SummaryNominationReportService {
     })
 
     const wTotal = [...wMMSCFD, ...wMMBTUD].map((e: any) => {
-      e['parkUnparkInstructedFlows'] = e?.['nomination_row_json']?.['data_temp']?.['5'] || null
-      e['customerType'] = e?.['nomination_row_json']?.['data_temp']?.['6'] || null
+      e['parkUnparkInstructedFlows'] = e['nomination_row_json']?.['data_temp']?.['5'] || null
+      e['customerType'] = e['nomination_row_json']?.['data_temp']?.['6'] || null
       e['unix'] = e['unix'] || null
       // e['unix'] = e?.['nomination_row_json']?.['data_temp']?.['9'] || null;
-      e['wi'] = e?.['nomination_row_json']?.['data_temp']?.['11'] || null
-      e['hv'] = e?.['nomination_row_json']?.['data_temp']?.['12'] || null
-      e['sg'] = e?.['nomination_row_json']?.['data_temp']?.['13'] || null
+      e['wi'] = e['nomination_row_json']?.['data_temp']?.['11'] || null
+      e['hv'] = e['nomination_row_json']?.['data_temp']?.['12'] || null
+      e['sg'] = e['nomination_row_json']?.['data_temp']?.['13'] || null
 
       return {...e}
     })
@@ -7462,13 +7462,13 @@ export class SummaryNominationReportService {
     })
 
     const wTotalParkUnparkMin_ = [...puallwMMSCFD, ...puallwMMBTUD].map((e: any) => {
-      e['parkUnparkInstructedFlows'] = e?.['nomination_row_json']?.['data_temp']?.['5'] || null
-      e['customerType'] = e?.['nomination_row_json']?.['data_temp']?.['6'] || null
+      e['parkUnparkInstructedFlows'] = e['nomination_row_json']?.['data_temp']?.['5'] || null
+      e['customerType'] = e['nomination_row_json']?.['data_temp']?.['6'] || null
       e['unix'] = e['unix'] || null
       // e['unix'] = e?.['nomination_row_json']?.['data_temp']?.['9'] || null;
-      e['wi'] = e?.['nomination_row_json']?.['data_temp']?.['11'] || null
-      e['hv'] = e?.['nomination_row_json']?.['data_temp']?.['12'] || null
-      e['sg'] = e?.['nomination_row_json']?.['data_temp']?.['13'] || null
+      e['wi'] = e['nomination_row_json']?.['data_temp']?.['11'] || null
+      e['hv'] = e['nomination_row_json']?.['data_temp']?.['12'] || null
+      e['sg'] = e['nomination_row_json']?.['data_temp']?.['13'] || null
 
       return {...e}
     })
@@ -7617,13 +7617,13 @@ export class SummaryNominationReportService {
     }, {})
 
     const wTotalConcept = [...conceptallwMMSCFD1, ...conceptallwMMBTUD1].map((e: any) => {
-      e['parkUnparkInstructedFlows'] = e?.['nomination_row_json']?.['data_temp']?.['5'] || null
-      e['customerType'] = e?.['nomination_row_json']?.['data_temp']?.['6'] || null
+      e['parkUnparkInstructedFlows'] = e['nomination_row_json']?.['data_temp']?.['5'] || null
+      e['customerType'] = e['nomination_row_json']?.['data_temp']?.['6'] || null
       e['unix'] = e['unix'] || null
       // e['unix'] = e?.['nomination_row_json']?.['data_temp']?.['9'] || null;
-      e['wi'] = e?.['nomination_row_json']?.['data_temp']?.['11'] || null
-      e['hv'] = e?.['nomination_row_json']?.['data_temp']?.['12'] || null
-      e['sg'] = e?.['nomination_row_json']?.['data_temp']?.['13'] || null
+      e['wi'] = e['nomination_row_json']?.['data_temp']?.['11'] || null
+      e['hv'] = e['nomination_row_json']?.['data_temp']?.['12'] || null
+      e['sg'] = e['nomination_row_json']?.['data_temp']?.['13'] || null
 
       return {...e}
     })
@@ -8394,7 +8394,7 @@ export class SummaryNominationReportService {
       })
 
       const totalAll = acc[groupKey].total ? acc[groupKey].total + (parseToNumber(item.total) ?? 0) : parseToNumber(item.total)
-      if (item?.unix === 'MMBTU/D') {
+      if (item.unix === 'MMBTU/D') {
         // totalAll / (Number(nomPoint?.maximum_capacity ?? 0)) * _calc_final_hv) * 100;
         acc[groupKey].utilization = (totalAll / (Number(nomPoint?.maximum_capacity ?? 0) * _calc_final_hv)) * 100
       } else {
@@ -8431,7 +8431,7 @@ export class SummaryNominationReportService {
       acc[groupKey].H23 = acc[groupKey].H23 ? acc[groupKey].H23 + (parseToNumber(item.H23) ?? 0) : parseToNumber(item.H23)
       acc[groupKey].H24 = acc[groupKey].H24 ? acc[groupKey].H24 + (parseToNumber(item.H24) ?? 0) : parseToNumber(item.H24)
 
-      acc[groupKey].arrNom = item?.arrNom
+      acc[groupKey].arrNom = item.arrNom
       acc[groupKey].items.push(item)
       return acc
     }, {})

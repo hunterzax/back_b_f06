@@ -618,7 +618,8 @@ console.log(
     for (let i = 0; i < resContractCode.length; i++) {
       const {booking_version, group, ...newContractCode} = resContractCode[i]
       let bookingVersions = booking_version?.[0]
-      let { booking_row_json, booking_full_json, booking_row_json_release, booking_full_json_release, ...newBookingVersions }: any = (bookingVersions || null);
+      if (!bookingVersions) continue
+      let { booking_row_json, booking_full_json, booking_row_json_release, booking_full_json_release, ...newBookingVersions }: any = bookingVersions
       let bookingRowJsons = booking_row_json_release?.length > 0 ? booking_row_json_release : booking_row_json;
       let jsonFull = JSON.parse((booking_full_json_release?.length > 0 ? booking_full_json_release : booking_full_json)?.[0]?.data_temp);
       for (let iBRJ = 0; iBRJ < bookingRowJsons.length; iBRJ++) {

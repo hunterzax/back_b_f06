@@ -184,7 +184,7 @@ export class CapacityController {
 
     return this.capacityService.importTemplate(
       grpcTransform,
-      (req?.user?.sub || -1),
+      (req.user?.sub || -1),
       file,
       token,
       id,

@@ -83,7 +83,26 @@ export const queryShipperNominationFilePopulateForCal = {
     group: true,
     query_shipper_nomination_status: true,
     contract_code: true,
-    reserve_balancing_gas_contract: true,
+    reserve_balancing_gas_contract: {
+      select: {
+        id: true,
+        res_bal_gas_contract: true,
+        reserve_balancing_gas_contract_detail: {
+          select: {
+            nomination_point_id: true,
+            nomination_point: true,
+            daily_reserve_cap_mmbtu_d: true
+          },
+        },
+        group: {
+          select: {
+            id: true,
+            name: true,
+            id_name: true,
+          },
+        },
+      },
+    },
     nomination_type: true,
     nomination_version: {
       include: {
@@ -119,9 +138,34 @@ export const nominationPointPopulate = {
     metering_point: true
   }
 }
+export const nominationPointPopulateForShareMeter = {
+  include: {
+    contract_point_list:{
+      include:{
+        shipper_contract_point:{
+          include:{
+            group:true
+          }
+        }
+      }
+    },
+  }
+}
 export const conceptPointPopulate = {
   include: {
     type_concept_point: true,
+    limit_concept_point_history: {
+      include: {
+        group: {
+          select: {
+            id: true,
+            id_name: true,
+            name: true,
+            company_name: true
+          }
+        },
+      }
+    },
   }
 }
 export const nonTpaPointPopulate = {
@@ -240,15 +284,50 @@ export const allocationModePopulate = {
     },
   }
 }
+export const limitConceptPointHistoryPopulate = {
+  include: {
+    concept_point: {
+      include: {
+        type_concept_point: true
+      }
+    },
+    group: {
+      select: {
+        id: true,
+        id_name: true,
+        name: true,
+        company_name: true
+      }
+    },
+    create_by_account: {
+      select: {
+        id: true,
+        email: true,
+        first_name: true,
+        last_name: true
+      }
+    },
+    update_by_account: {
+      select: {
+        id: true,
+        email: true,
+        first_name: true,
+        last_name: true
+      }
+    }
+  }
+}
 export type areaWithRelations = Prisma.areaGetPayload<typeof areaPopulate>
 export type areaWithRelationsForCal = Prisma.areaGetPayload<typeof areaPopulateForCal>
 export type queryShipperNominationFileWithRelations = Prisma.query_shipper_nomination_fileGetPayload<typeof queryShipperNominationFilePopulate>
 export type queryShipperNominationFileWithRelationsForCal = Prisma.query_shipper_nomination_fileGetPayload<typeof queryShipperNominationFilePopulateForCal>
 export type nominationPointWithRelations = Prisma.nomination_pointGetPayload<typeof nominationPointPopulate>
+export type nominationPointWithRelationsForShareMeter = Prisma.nomination_pointGetPayload<typeof nominationPointPopulateForShareMeter>
 export type conceptPointWithRelations = Prisma.concept_pointGetPayload<typeof conceptPointPopulate>
 export type nonTpaPointWithRelations = Prisma.non_tpa_pointGetPayload<typeof nonTpaPointPopulate>
 export type meteringPointWithRelations = Prisma.metering_pointGetPayload<typeof meteringPointPopulate>
 export type allocationModeRecord = Prisma.allocation_modeGetPayload<typeof allocationModePopulate>
+export type limitConceptPointHistoryRecord = Prisma.limit_concept_point_historyGetPayload<typeof limitConceptPointHistoryPopulate>
 export type activeData = {
   date: string
   activeAreas?: areaWithRelations[]

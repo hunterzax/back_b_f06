@@ -127,11 +127,6 @@ export class UploadTemplateForShipperController {
         throw new BadRequestException('Only Excel files (xlsx or xls) are allowed.')
       }
 
-      if (file.buffer.length === 0) {
-        throw new Error('Buffer is empty before sending to gRPC')
-      }
-      const grpcTransform = await this.fileUploadService.uploadFileTempMultiSheet(file.buffer)
-
       if (!shipper_id || !contract_code_id || !nomination_type_id || !file) {
         throw new HttpException(
           {
@@ -141,6 +136,11 @@ export class UploadTemplateForShipperController {
           HttpStatus.BAD_REQUEST
         )
       }
+
+      if (file.buffer.length === 0) {
+        throw new Error('Buffer is empty before sending to gRPC')
+      }
+      const grpcTransform = await this.fileUploadService.uploadFileTempMultiSheet(file.buffer)
 
       const {id, message} = await this.uploadTemplateForShipperService.createTemplates(
         grpcTransform,
@@ -294,11 +294,6 @@ export class UploadTemplateForShipperController {
         throw new BadRequestException('Only Excel files (xlsx or xls) are allowed.')
       }
 
-      if (file.buffer.length === 0) {
-        throw new Error('Buffer is empty before sending to gRPC')
-      }
-      const grpcTransform = await this.fileUploadService.uploadFileTempMultiSheet(file.buffer)
-
       if (!shipper_id || !contract_code_id || !nomination_type_id || !file || !ids) {
         throw new HttpException(
           {
@@ -308,6 +303,11 @@ export class UploadTemplateForShipperController {
           HttpStatus.BAD_REQUEST
         )
       }
+
+      if (file.buffer.length === 0) {
+        throw new Error('Buffer is empty before sending to gRPC')
+      }
+      const grpcTransform = await this.fileUploadService.uploadFileTempMultiSheet(file.buffer)
 
       const {id, message} = await this.uploadTemplateForShipperService.createTemplates(
         grpcTransform,

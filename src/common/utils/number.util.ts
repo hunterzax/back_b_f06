@@ -151,3 +151,37 @@ export function divideTo8Decimal(
   }
   return cascadingRound(value / divisor, 8);
 }
+
+// digit3
+export function dcimal3(number: any) {
+  let numbers = number ?? 0
+  if (isNaN(numbers)) return numbers
+
+  if (numbers == 0) {
+    return '0.000' // special case for zero
+  }
+
+  const fixedNumber = parseFloat(numbers).toFixed(3) // Keep 3 decimal places
+  const [intPart, decimalPart] = fixedNumber.split('.')
+
+  const withCommas = intPart?.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+
+  return `${withCommas}.${decimalPart}`
+}
+
+// digit6
+export function dcimal6(number: any) {
+  let numbers = number ?? 0
+  if (isNaN(numbers)) return numbers
+
+  if (numbers == 0) {
+    return '0.000000' // special case for zero
+  }
+
+  const fixedNumber = parseFloat(numbers).toFixed(6) // Keep 4 decimal places
+  const [intPart, decimalPart] = fixedNumber.split('.')
+
+  const withCommas = intPart?.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+
+  return `${withCommas}.${decimalPart}`
+}

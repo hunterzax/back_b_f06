@@ -1360,7 +1360,7 @@ export async function findHvFromEntryArea2({ prisma, targetArea, gasDate, dataLi
 
 
          if(area === "X3" && unit === "MMSCFD"){
-          console.log('[X3] contract_code : ', nominationFile?.contract_code?.contract_code);
+          console.log('[X3] contract_code : ', nominationFile.contract_code?.contract_code);
           console.log('[X3] area : ', area);
           console.log('[X3] unit : ', unit);
           console.log('[X3] point : ', point);
@@ -7026,15 +7026,19 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
       }
 
       // หา result items ที่ต้องการ adjust (ต้องตรงกับ point, zone, area, entry/exit, gas_day และอยู่ใน group ที่กำหนด)
-      const adjustTargetList = result.filter(target => 
-        (target && target?.point) == dailyAdjustmentNom.nomination_point?.nomination_point &&
-        isMatch((target && target?.zone_text), dailyAdjustmentNom.nomination_point?.zone?.name) &&
-        isMatch((target && target?.area_text), dailyAdjustmentNom.nomination_point?.area?.name) &&
-        isMatch((target && target?.entryExit), dailyAdjustmentNom.nomination_point?.entry_exit?.name) &&
-        target?.gas_day === adjustGasDay &&
-        adjust.daily_adjustment_group.map((item) => item.group.id).includes(target?.group_id) &&
-        (target.timeShow && Array.isArray(target.timeShow) && target.timeShow.length > 0) 
-      )
+      const adjustTargetList = result.filter(target => {
+        if (!target) return false
+        return (
+          target.point == dailyAdjustmentNom.nomination_point?.nomination_point &&
+          isMatch(target.zone_text, dailyAdjustmentNom.nomination_point?.zone?.name) &&
+          isMatch(target.area_text, dailyAdjustmentNom.nomination_point?.area?.name) &&
+          isMatch(target.entryExit, dailyAdjustmentNom.nomination_point?.entry_exit?.name) &&
+          target.gas_day === adjustGasDay &&
+          adjust.daily_adjustment_group.map((item) => item.group.id).includes(target.group_id) &&
+          Array.isArray(target.timeShow) &&
+          target.timeShow.length > 0
+        )
+      })
       
       if(adjustTargetList.length > 0){
       adjustTargetList.map(target => {
@@ -7092,7 +7096,7 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
               area: target.area_text,
               entryExit: target && target?.entryExit,
               point: target.point,
-              gasDay: target?.gas_day,
+              gasDay: target.gas_day,
               time: target.timeShow[timeShowIndex].time,
               dailyAdjustmentGroup: adjust.daily_adjustment_group.map((item) => item.group.id),
               areaMaster: areaMaster,
@@ -7215,7 +7219,7 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
               area: target.area_text,
               entryExit: target && target?.entryExit,
               point: target.point,
-              gasDay: target?.gas_day,
+              gasDay: target.gas_day,
               time: refTimeShow.time,
               dailyAdjustmentGroup: adjust.daily_adjustment_group.map((item) => item.group.id),
               areaMaster: areaMaster,
@@ -7460,15 +7464,19 @@ export async function getAdjustNom2({ prisma, startDate, endDate }: { prisma: Pr
       }
 
       // หา result items ที่ถูก adjust แล้ว (ต้องตรงกับ point, zone, area, entry/exit, gas_day และอยู่ใน group ที่กำหนด) เพื่อ reconcile ส่วนต่างจากการปัดเศษ/กระจายค่า
-      const adjustedList = result.filter(target => 
-        (target && target?.point) == dailyAdjustmentNom.nomination_point?.nomination_point &&
-        isMatch((target && target?.zone_text), dailyAdjustmentNom.nomination_point?.zone?.name) &&
-        isMatch((target && target?.area_text), dailyAdjustmentNom.nomination_point?.area?.name) &&
-        isMatch((target && target?.entryExit), dailyAdjustmentNom.nomination_point?.entry_exit?.name) &&
-        target?.gas_day === adjustGasDay &&
-        adjust.daily_adjustment_group.map((item) => item.group.id).includes(target?.group_id) &&
-        (target.timeShow && Array.isArray(target.timeShow) && target.timeShow.length > 0)
-      )
+      const adjustedList = result.filter(target => {
+        if (!target) return false
+        return (
+          target.point == dailyAdjustmentNom.nomination_point?.nomination_point &&
+          isMatch(target.zone_text, dailyAdjustmentNom.nomination_point?.zone?.name) &&
+          isMatch(target.area_text, dailyAdjustmentNom.nomination_point?.area?.name) &&
+          isMatch(target.entryExit, dailyAdjustmentNom.nomination_point?.entry_exit?.name) &&
+          target.gas_day === adjustGasDay &&
+          adjust.daily_adjustment_group.map((item) => item.group.id).includes(target.group_id) &&
+          Array.isArray(target.timeShow) &&
+          target.timeShow.length > 0
+        )
+      })
       .sort((a, b) =>
           String(a.gas_day ?? '').localeCompare(String(b.gas_day ?? '')) ||
           String(a.contract ?? '').localeCompare(String(b.contract ?? '')) ||

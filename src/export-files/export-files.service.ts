@@ -39,7 +39,7 @@ import {getTodayEndAdd7, getTodayNow, getTodayNowAdd7, getTodayNowDDMMYYYYDfault
 import {EventService} from 'src/event/event.service'
 import {TariffService} from 'src/tariff/tariff.service'
 import {matchTypeWithMenu, renameMethod} from 'src/common/utils/export.util'
-import {parseToNumber} from 'src/common/utils/number.util'
+import {dcimal3, dcimal6, parseToNumber} from 'src/common/utils/number.util'
 import {ParameterAuditLogService} from 'src/parameter/audit-log'
 import { limitConceptPointHistoryRecord } from '@type/prisma.type'
 import { AssetConceptPointService } from 'src/asset/concept-point'
@@ -1123,40 +1123,6 @@ export class ExportFilesService {
     return `${sign}${intWithComma}.${dec}`
   }
 
-  // digit3
-  dcimal3 = (number: any) => {
-    let numbers = number ?? 0
-    if (isNaN(numbers)) return numbers
-
-    if (numbers == 0) {
-      return '0.000' // special case for zero
-    }
-
-    const fixedNumber = parseFloat(numbers).toFixed(3) // Keep 4 decimal places
-    const [intPart, decimalPart] = fixedNumber.split('.')
-
-    const withCommas = intPart?.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-
-    return `${withCommas}.${decimalPart}`
-  }
-
-  // digit6
-  dcimal6 = (number: any) => {
-    let numbers = number ?? 0
-    if (isNaN(numbers)) return numbers
-
-    if (numbers == 0) {
-      return '0.000000' // special case for zero
-    }
-
-    const fixedNumber = parseFloat(numbers).toFixed(6) // Keep 4 decimal places
-    const [intPart, decimalPart] = fixedNumber.split('.')
-
-    const withCommas = intPart?.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-
-    return `${withCommas}.${decimalPart}`
-  }
-
   // digit4
   dcimal4 = (number: any) => {
     let numbers = number ?? 0
@@ -1399,15 +1365,12 @@ export class ExportFilesService {
   formatNumberFourDecimalNom(number: any) {
     if (isNaN(number)) return number // Handle invalid numbers gracefully
 
-    if (number)
-      if (number == 0) {
-        // Coverity flags this as unused_expr (NO_EFFECT).
-        // coverity[unused_expr:SUPPRESS]
-        return '0.0000' // special case for zero
-      }
-
     if (number == null || number == undefined) {
       return ''
+    }
+
+    if (number == 0) {
+      return '0.0000' // special case for zero
     }
 
     const strNumber = String(number)
@@ -2122,7 +2085,7 @@ export class ExportFilesService {
       let setData = {
         ['ID']: e && e['id'] || null,
         ['Module']: e && e['module'] || null,
-        ['Action Date']: (!!e['create_date'] && dayjs(e['create_date']).format('DD/MM/YYYY HH:mm')) || null,
+        ['Action Date']: (e && !!e['create_date'] && dayjs(e['create_date']).format('DD/MM/YYYY HH:mm')) || null,
         ['First Name / Last Name']: fullName,
         //   (JSON.parse(
         //     e?.reqUser
@@ -2133,7 +2096,7 @@ export class ExportFilesService {
         //   )?.last_name ||
         //     null),
         // // ['Description']: e['method'],
-        ['Description']: e && `${renameMethod(e?.method, e?.type)} ${matchTypeWithMenu(e?.type)}` || ""
+        ['Description']: e && `${renameMethod(e.method, e.type)} ${matchTypeWithMenu(e.type)}` || ""
       }
       let filteredData = Object.keys(setData)
         .filter((key) => filter.includes(key)) // กรอง key ที่ตรงกับ filter
@@ -3641,8 +3604,8 @@ export class ExportFilesService {
         ['Shipper Name']: e['group']?.['name'],
         // ['Meter Point/Concept Point']: e['metering_point']?.['metered_point_name'],
         ['Type Meter/Concept']: e && (e?.meter_concept_type_id === 1 || e?.meter_concept_type_id === null) ? 'Meter Point' : 'Concept Poin (Type Meter)',
-        ['Meter Point']: e?.metering_point?.metered_point_name || '',
-        ['Concept Point']: e?.concept_point?.concept_point || '',
+        ['Meter Point']: e.metering_point?.metered_point_name || '',
+        ['Concept Point']: e.concept_point?.concept_point || '',
         ['Start Date']: !!e['start_date'] ? dayjs(e['start_date']).format('DD/MM/YYYY') : null,
         ['Created by']: `${(!!e['create_by_account']?.['first_name'] && e['create_by_account']?.['first_name']) || ''} ${(!!e['create_by_account']?.['last_name'] && e['create_by_account']?.['last_name']) || ''} ${
           !!e['create_date'] ? '(' + dayjs(e['create_date']).format('DD/MM/YYYY HH:mm:ss') + ')' : ''
@@ -4428,11 +4391,11 @@ export class ExportFilesService {
           const setData = {
             ['Point']: item.temp_contract_point || null,
             ['Start Date']: item && !!item?.temp_start_date ? dayjs(item?.temp_start_date).format('DD/MM/YYYY') : null,
-            ['End Date']: !!item?.temp_end_date ? dayjs(item?.temp_end_date).format('DD/MM/YYYY') : null,
-            ['Contracted (MMBTU/D)']: (!!item?.total_contracted_mmbtu_d && this.formatNumberThreeDecimal(item?.total_contracted_mmbtu_d)) || null,
-            ['Contracted (MMSCFD)']: (!!item?.total_contracted_mmscfd && this.formatNumberThreeDecimal(item?.total_contracted_mmscfd)) || null,
-            ['Release (MMSCFD)']: (!!item?.total_release_mmscfd && this.formatNumberThreeDecimal(item?.total_release_mmscfd)) || null,
-            ['Release (MMBTU/D)']: (!!item?.total_release_mmbtu_d && this.formatNumberThreeDecimal(item?.total_release_mmbtu_d)) || null
+            ['End Date']: (item && !!item?.temp_end_date)? dayjs(item?.temp_end_date).format('DD/MM/YYYY') : null,
+            ['Contracted (MMBTU/D)']: ((item && !!item?.total_contracted_mmbtu_d) && this.formatNumberThreeDecimal(item?.total_contracted_mmbtu_d)) || null,
+            ['Contracted (MMSCFD)']: ((item && !!item?.total_contracted_mmscfd) && this.formatNumberThreeDecimal(item?.total_contracted_mmscfd)) || null,
+            ['Release (MMSCFD)']: ((item && !!item?.total_release_mmscfd) && this.formatNumberThreeDecimal(item?.total_release_mmscfd)) || null,
+            ['Release (MMBTU/D)']: ((item && !!item?.total_release_mmbtu_d) && this.formatNumberThreeDecimal(item?.total_release_mmbtu_d)) || null
           }
 
           let filteredData = Object.keys(setData)
@@ -6157,22 +6120,22 @@ export class ExportFilesService {
       let submittedTimestamp = ''
       try {
         let isDefault = true
-        if (e?.nomination_version && Array.isArray(e.nomination_version) && e.nomination_version.length > 0 && e.nomination_version[0]?.create_date) {
+        if (e.nomination_version && Array.isArray(e.nomination_version) && e.nomination_version.length > 0 && e.nomination_version[0]?.create_date) {
           const createDate = dayjs(e.nomination_version[0].create_date)
           if (createDate.isValid()) {
             submittedTimestamp = createDate.tz('Asia/Bangkok').format('DD/MM/YYYY HH:mm')
             isDefault = false
           }
         }
-        if (isDefault && e?.submitted_timestamp) {
-          const defaultDate = dayjs(e?.submitted_timestamp)
+        if (isDefault && e.submitted_timestamp) {
+          const defaultDate = dayjs(e.submitted_timestamp)
           if (defaultDate.isValid()) {
             submittedTimestamp = defaultDate.tz('Asia/Bangkok').format('DD/MM/YYYY HH:mm')
           }
         }
       } catch (error) {
-        if (e && e?.submitted_timestamp) {
-          const defaultDate = dayjs(e?.submitted_timestamp)
+        if (e && e.submitted_timestamp) {
+          const defaultDate = dayjs(e.submitted_timestamp)
           if (defaultDate.isValid()) {
             submittedTimestamp = defaultDate.tz('Asia/Bangkok').format('DD/MM/YYYY HH:mm')
           }
@@ -6186,7 +6149,7 @@ export class ExportFilesService {
         ['Status']: e['query_shipper_nomination_status']?.['name'],
         ['Version']: (!!e['nomination_version'][0]['version'] && e['nomination_version'][0]['version']) || null,
         // ['Contract Code']: e['contract_code']?.['contract_code'],
-        ['Contract Code']: e?.reserve_balancing_gas_contract ? e?.reserve_balancing_gas_contract?.res_bal_gas_contract : e?.contract_code?.contract_code || '',
+        ['Contract Code']: e.reserve_balancing_gas_contract ? e.reserve_balancing_gas_contract?.res_bal_gas_contract : e.contract_code?.contract_code || '',
         ['Shipper Name']: e['group']?.['name'],
         ['Submitted Timestamp']: submittedTimestamp,
         ['Submission Comment']: lengthSubmission.length > 32767 ? lengthSubmission.slice(0, 32700) + 'เกินลิมิตแล้วโปรดดูที่เว็บ' : lengthSubmission,
@@ -6337,22 +6300,22 @@ export class ExportFilesService {
       let submittedTimestamp = ''
       try {
         let isDefault = true
-        if (e?.nomination_version && Array.isArray(e.nomination_version) && e.nomination_version.length > 0 && e.nomination_version[0]?.create_date) {
+        if (e.nomination_version && Array.isArray(e.nomination_version) && e.nomination_version.length > 0 && e.nomination_version[0]?.create_date) {
           const createDate = dayjs(e.nomination_version[0].create_date)
           if (createDate.isValid()) {
             submittedTimestamp = createDate.tz('Asia/Bangkok').format('DD/MM/YYYY HH:mm')
             isDefault = false
           }
         }
-        if (isDefault && e?.submitted_timestamp) {
-          const defaultDate = dayjs(e?.submitted_timestamp)
+        if (isDefault && e.submitted_timestamp) {
+          const defaultDate = dayjs(e.submitted_timestamp)
           if (defaultDate.isValid()) {
             submittedTimestamp = defaultDate.tz('Asia/Bangkok').format('DD/MM/YYYY HH:mm')
           }
         }
       } catch (error) {
-        if (e && e?.submitted_timestamp) {
-          const defaultDate = dayjs(e?.submitted_timestamp)
+        if (e && e.submitted_timestamp) {
+          const defaultDate = dayjs(e.submitted_timestamp)
           if (defaultDate.isValid()) {
             submittedTimestamp = defaultDate.tz('Asia/Bangkok').format('DD/MM/YYYY HH:mm')
           }
@@ -6366,7 +6329,7 @@ export class ExportFilesService {
         ['Status']: e['query_shipper_nomination_status']?.['name'],
         ['Version']: (!!e['nomination_version'][0]['version'] && e['nomination_version'][0]['version']) || null,
         // ['Contract Code']: e['contract_code']?.['contract_code'],
-        ['Contract Code']: e?.reserve_balancing_gas_contract ? e?.reserve_balancing_gas_contract?.res_bal_gas_contract : e?.contract_code?.contract_code || '',
+        ['Contract Code']: e.reserve_balancing_gas_contract ? e.reserve_balancing_gas_contract?.res_bal_gas_contract : e.contract_code?.contract_code || '',
         ['Shipper Name']: e['group']?.['name'],
         ['Submitted Timestamp']: submittedTimestamp,
         ['Submission Comment']: lengthSubmission.length > 32767 ? lengthSubmission.slice(0, 32700) + 'เกินลิมิตแล้วโปรดดูที่เว็บ' : lengthSubmission,
@@ -7742,7 +7705,7 @@ export class ExportFilesService {
           const zone = e['zone']
           const zoneObj = e['zoneObj']
           const group = eD['data'][0]?.['group']?.['name']
-          const contract_code = data[0]?.['contract_code']?.['contract_code'] ?? data[0]?.['reserve_balancing_gas_contract']?.['res_bal_gas_contract']
+          const contract_code = data?.[0]?.['contract_code']?.['contract_code'] ?? data?.[0]?.['reserve_balancing_gas_contract']?.['res_bal_gas_contract']
           const parkDefault = e['parkDefault']
           const lastUserParkValue = e['lastUserParkValue']
           const version = eD['data'][0]?.['version']?.['version']
@@ -7834,9 +7797,9 @@ export class ExportFilesService {
         ['Zone']: e['prop']?.['zone']?.['name'],
         ['Area']: e['prop']?.['area']?.['name'],
         ['Customer Type']: e['prop']?.['customer_type']?.['name'],
-        ['Volume (MMSCF)']: this.dcimal6(e['volume']),
-        ['Heating Value (BTU/SCF)']: this.dcimal3(e['heatingValue']),
-        ['Energy (MMBTU)']: this.dcimal3(e['energy']),
+        ['Volume (MMSCF)']: dcimal6(e['volume']),
+        ['Heating Value (BTU/SCF)']: dcimal3(e['heatingValue']),
+        ['Energy (MMBTU)']: dcimal3(e['energy']),
         ['Received Timestamp']: (!!e['registerTimestamp'] && dayjs(e['registerTimestamp']).format('DD/MM/YYYY HH:mm:ss')) || null, //"2025-03-10T13:55:45"
         ['TPA Insert Timestamp']: e['insert_timestamp'], //"2025-03-21 16:29:26"
         ['Metering Retrieving ID']: e['metering_retrieving_id'],
@@ -7864,7 +7827,7 @@ export class ExportFilesService {
         ['Gas Day']: !!e['data']['gasDay'] ? dayjs(e['data']['gasDay']).format('DD/MM/YYYY') : '',
         ['Metering Retrieving ID']: e['data']['metering_retrieving_id'],
         ['Metering Point ID']: e['data']['meteringPointId'],
-        ['Energy (MMBTU)']: e['data']['energy'] ? this.dcimal3(e['data']['energy']) : null,
+        ['Energy (MMBTU)']: e['data']['energy'] ? dcimal3(e['data']['energy']) : null,
         ['Timestamp']: (!!e['data']['insert_timestamp'] && dayjs(e['data']['insert_timestamp']).format('DD/MM/YYYY HH:mm:ss')) || null,
         ['Error Description']: e['description']
       }
@@ -7975,7 +7938,7 @@ export class ExportFilesService {
         ['Contract Code']: e['contract'],
         ['Nomination Point / Concept Point']: e['point'],
         // ['Nominated Value (MMBTU/D)']: e['nominationValue'] !== null && e['nominationValue'] !== undefined ? e['nominationValue'] : null,
-        ['Nominated Value (MMBTU/D)']: this.dcimal3(e['nominationValue'] || 0),
+        ['Nominated Value (MMBTU/D)']: dcimal3(e['nominationValue'] || 0),
         ['System Allocation (MMBTU/D)']: (e['systemAllocation'] !== null && e['systemAllocation'] !== undefined && this.dcimal4(e['systemAllocation'])) || null,
         ['Timestamp']: e['execute_timestamp'] && dayjs(e['execute_timestamp'] * 1000).format('DD/MM/YYYY HH:mm')
       }
@@ -11672,19 +11635,19 @@ export class ExportFilesService {
               ['EGAT']: e['detail_exit_east_egat'],
               ['IPP']: e['detail_exit_east_ipp'],
               // ['Others']: e['custom_detail_exit_east_'],
-              ['Others']: sumDetail(e?.['values_'], 'detail_exit_east_', ['egat', 'ipp', 'F2andG']) ?? ''
+              ['Others']: sumDetail(e['values_'], 'detail_exit_east_', ['egat', 'ipp', 'F2andG']) ?? ''
             },
             ['West']: {
               ['EGAT']: e['detail_exit_west_egat'],
               ['IPP']: e['detail_exit_west_ipp'],
               // ['Others']: e['custom_detail_exit_west_'],
-              ['Others']: sumDetail(e?.['values_'], 'detail_exit_west_', ['egat', 'ipp', 'F2andG']) ?? ''
+              ['Others']: sumDetail(e['values_'], 'detail_exit_west_', ['egat', 'ipp', 'F2andG']) ?? ''
             },
             ['East-West']: {
               ['EGAT']: e['detail_exit_east-west_egat'],
               ['IPP']: e['detail_exit_east-west_ipp'],
               // ['Others']: e['custom_detail_exit_east-west_'],
-              ['Others']: sumDetail(e?.['values_'], 'detail_exit_east-west_', ['egat', 'ipp', 'F2andG']) ?? ''
+              ['Others']: sumDetail(e['values_'], 'detail_exit_east-west_', ['egat', 'ipp', 'F2andG']) ?? ''
             },
             ['F2&G']: {
               ['East']: e['detail_exit_east_F2andG'],
@@ -12502,7 +12465,7 @@ export class ExportFilesService {
         let endColumn = startColumn
 
         // หาคอลัมน์ถัดไปที่มี Header ชื่อเดียวกัน
-        while (endColumn + 1 < totalColumns && String(headerRows[rowIndex]?.[endColumn + 1] ?? '').trim() === currentHeader) {
+        while (endColumn + 1 < totalColumns && String(headerRows?.[rowIndex]?.[endColumn + 1] ?? '').trim() === currentHeader) {
           endColumn++
         }
 
@@ -13263,7 +13226,7 @@ export class ExportFilesService {
 
         if (!cell) continue
 
-        const headerValue = headerRows?.[R]?.[C]
+        const headerValue = headerRows[R]?.[C]
 
         const fullPath = headerRows
           .slice(0, R + 1)
@@ -13460,7 +13423,7 @@ export class ExportFilesService {
       let startC = 0
 
       while (startC < headers.length) {
-        const startValue = headerRows && headerRows?.[R]?.[startC]
+        const startValue = headerRows && headerRows[R]?.[startC]
 
         if (isBlank(startValue)) {
           startC++
@@ -13471,7 +13434,7 @@ export class ExportFilesService {
 
         let endC = startC
 
-        while (endC + 1 < headers.length && headerRows?.[R]?.[endC + 1] === startValue && getParentKey(R, endC + 1) === parentKey) {
+        while (endC + 1 < headers.length && headerRows[R]?.[endC + 1] === startValue && getParentKey(R, endC + 1) === parentKey) {
           endC++
         }
 
@@ -13500,7 +13463,7 @@ export class ExportFilesService {
       let leafRow = -1
 
       for (let R = 0; R < headerRows.length; R++) {
-        const value = headerRows?.[R]?.[C]
+        const value = headerRows[R]?.[C]
 
         if (!isBlank(value)) {
           leafRow = R
@@ -14798,7 +14761,7 @@ export class ExportFilesService {
 
       let setData = {
         ['Gas Day']: dayjs(e['gas_day'], 'YYYY-MM-DD').format('DD/MM/YYYY'),
-        ['Gas Hour']: e !== null && e !== undefined && (e['gas_hour'] && `${e?.gas_hour > 10 ? e?.gas_hour + ':00' : '0' + e?.gas_hour + ':00'}`) || '', //
+        ['Gas Hour']: e !== null && e !== undefined && (e['gas_hour'] && `${e.gas_hour > 10 ? e.gas_hour + ':00' : '0' + e.gas_hour + ':00'}`) || '', //
         ['Timestamp']: dayjs(e['timestamp'], 'DD/MM/YYYY HH:mm:ss').format('DD/MM/YYYY HH:mm:ss') || '', //
         ['Zone']: e['zone'] || '', //
         ['Mode']: e['mode'] || '', //
@@ -14964,7 +14927,7 @@ export class ExportFilesService {
         let yell = []
 
         const valueDigitKeyPure3 = (pE: any, nKey: any) => {
-          const resultKey = pE?.[nKey] !== undefined && pE?.[nKey] !== null ? this.dcimal3(pE?.[nKey]) : null
+          const resultKey = pE?.[nKey] !== undefined && pE?.[nKey] !== null ? dcimal3(pE?.[nKey]) : null
 
           return resultKey
         }
@@ -15703,21 +15666,21 @@ export class ExportFilesService {
               ['EGAT']: e['detail_exit_east_egat'] || '',
               ['IPP']: e['detail_exit_east_ipp'] || '',
               // ['Others']: e['custom_detail_exit_east_'] || '',
-              ['Others']: sumDetail(e?.['values_'], 'detail_exit_east_', ['egat', 'ipp', 'F2andG']) ?? ''
+              ['Others']: sumDetail(e['values_'], 'detail_exit_east_', ['egat', 'ipp', 'F2andG']) ?? ''
               // ['Others']: sumDetailTwo(e?.["values_"], 'detail_exit_east_', ['egat', 'ipp', 'F2andG']) ?? '',
             },
             ['West']: {
               ['EGAT']: e['detail_exit_west_egat'] || '',
               ['IPP']: e['detail_exit_west_ipp'] || '',
               // ['Others']: e['custom_detail_exit_west_'] || '',
-              ['Others']: sumDetail(e?.['values_'], 'detail_exit_west_', ['egat', 'ipp', 'F2andG']) ?? ''
+              ['Others']: sumDetail(e['values_'], 'detail_exit_west_', ['egat', 'ipp', 'F2andG']) ?? ''
               // ['Others']: sumDetailTwo(e?.["values_"], 'detail_exit_west_', ['egat', 'ipp', 'F2andG']) ?? '',
             },
             ['East-West']: {
               ['EGAT']: e['detail_exit_east-west_egat'] || '',
               ['IPP']: e['detail_exit_east-west_ipp'] || '',
               // ['Others']: e['custom_detail_exit_east-west_'] || '',
-              ['Others']: sumDetail(e?.['values_'], 'detail_exit_east-west_', ['egat', 'ipp', 'F2andG']) ?? ''
+              ['Others']: sumDetail(e['values_'], 'detail_exit_east-west_', ['egat', 'ipp', 'F2andG']) ?? ''
               // ['Others']: sumDetailTwo(e?.["values_"], 'detail_exit_east-west_', ['egat', 'ipp', 'F2andG']) ?? '',
             },
             ['F2&G']: {
@@ -16199,7 +16162,7 @@ export class ExportFilesService {
               metering_value: 0,
 
               data: [],
-              priorityStatus: item?.allocation_status?.id ?? 999
+              priorityStatus: item.allocation_status?.id ?? 999
             }
           }
 
@@ -16212,7 +16175,7 @@ export class ExportFilesService {
           acc[key].previous_allocation_tpa_for_review += item && (Number(item?.previousAllocationTPAforReview ?? 0)) || 0
           acc[key].metering_value += item && (Number(item?.meteringValue ?? 0)) || 0
 
-          const shipperReview = item?.allocation_management_shipper_review?.[0]?.shipper_allocation_review ?? item?.shipperAllocationReview ?? 0
+          const shipperReview = item.allocation_management_shipper_review?.[0]?.shipper_allocation_review ?? item.shipperAllocationReview ?? 0
           acc[key].shipper_allocation_review += Number(shipperReview)
 
           // Update priority status if item has higher priority
@@ -16502,7 +16465,7 @@ export class ExportFilesService {
           acc[key].intraday_system += item && (Number(item?.intradaySystem ?? 0)) || 0
           acc[key].previous_allocation_tpa_for_review += item && (Number(item?.previousAllocationTPAforReview ?? 0)) || 0
 
-          const shipperReview = item?.allocation_management_shipper_review?.[0]?.shipper_allocation_review ?? item?.shipperAllocationReview ?? 0
+          const shipperReview = item.allocation_management_shipper_review?.[0]?.shipper_allocation_review ?? item.shipperAllocationReview ?? 0
           acc[key].shipper_allocation_review += Number(shipperReview)
 
           // Update priority status if item has higher priority
@@ -16581,28 +16544,28 @@ export class ExportFilesService {
         ['Previous Allocation TPA for Review (MMBTU/D)']:
           e && ((e?.data?.length > 0 && this.genManoStatus(e?.data)) || [])?.filter((f: any) => (f['allocation_management_shipper_review']?.length > 0 ? f['allocation_management_shipper_review'][0]?.shipper_allocation_review : null) !== null)?.length === 0
             ? '' // https://app.clickup.com/t/9018502823/86ev29x2b
-            : e?.previous_allocation_tpa_for_review !== null && e?.previous_allocation_tpa_for_review !== undefined
-              ? e?.shipper_allocation_review !== null && e?.shipper_allocation_review !== undefined
-                ? this.formatNumberFourDecimal(e?.previous_allocation_tpa_for_review)
+            : e.previous_allocation_tpa_for_review !== null && e.previous_allocation_tpa_for_review !== undefined
+              ? e.shipper_allocation_review !== null && e.shipper_allocation_review !== undefined
+                ? this.formatNumberFourDecimal(e.previous_allocation_tpa_for_review)
                 : null
               : null,
         ['Shipper Review Allocation (MMBTU/D)']:
           e && ((e?.data?.length > 0 && this.genManoStatus(e?.data)) || [])?.filter((f: any) => (f['allocation_management_shipper_review']?.length > 0 ? f['allocation_management_shipper_review'][0]?.shipper_allocation_review : null) !== null)?.length === 0
             ? '' // https://app.clickup.com/t/9018502823/86ev29x2b
-            : e?.previous_allocation_tpa_for_review !== null && e?.previous_allocation_tpa_for_review !== undefined
-              ? e?.shipper_allocation_review !== null && e?.shipper_allocation_review !== undefined
-                ? this.formatNumberFourDecimal(e?.shipper_allocation_review)
+            : e.previous_allocation_tpa_for_review !== null && e.previous_allocation_tpa_for_review !== undefined
+              ? e.shipper_allocation_review !== null && e.shipper_allocation_review !== undefined
+                ? this.formatNumberFourDecimal(e.shipper_allocation_review)
                 : null
               : null,
         ['Shipper Allocation Review (MMBTU/D)']:
           e && ((e?.data?.length > 0 && this.genManoStatus(e?.data)) || [])?.filter((f: any) => (f['allocation_management_shipper_review']?.length > 0 ? f['allocation_management_shipper_review'][0]?.shipper_allocation_review : null) !== null)?.length === 0
             ? '' // https://app.clickup.com/t/9018502823/86ev29x2b
-            : e?.previous_allocation_tpa_for_review !== null && e?.previous_allocation_tpa_for_review !== undefined
-              ? e?.shipper_allocation_review !== null && e?.shipper_allocation_review !== undefined
-                ? this.formatNumberFourDecimal(e?.shipper_allocation_review)
+            : e.previous_allocation_tpa_for_review !== null && e.previous_allocation_tpa_for_review !== undefined
+              ? e.shipper_allocation_review !== null && e.shipper_allocation_review !== undefined
+                ? this.formatNumberFourDecimal(e.shipper_allocation_review)
                 : null
               : null,
-        ['Metering Value (MMBTU/D)']: e?.metering_value !== null && e?.metering_value !== undefined ? this.formatNumberFourDecimal(e?.metering_value) : '',
+        ['Metering Value (MMBTU/D)']: e.metering_value !== null && e.metering_value !== undefined ? this.formatNumberFourDecimal(e.metering_value) : '',
         ['Review Code']: '', // ""
         ['Comment']: '', // ""
         ['tab']: 'green',
@@ -16799,7 +16762,7 @@ export class ExportFilesService {
     }
 
     // previous_date always have at least 1 data that is gas_day
-    const previousDate = bodys && bodys?.previous_date || (bodys?.gas_day ? [bodys?.gas_day] : [])
+    const previousDate = bodys.previous_date || (bodys.gas_day ? [bodys.gas_day] : [])
     const onlyPreviousDateData = resData?.data?.filter((f: any) => previousDate.includes(f?.gas_day)) ?? []
     const nresData = []
     for (let i = 0; i < onlyPreviousDateData.length; i++) {
@@ -18218,12 +18181,22 @@ export class ExportFilesService {
       let tsoD2 = null
       let tsoD3 = null
 
+      if (!e) {
+        return {}
+      }
+
+      const document1 = e.document1
+      const document2 = e.document2
+      const document3 = e.document3
+      const document2List = Array.isArray(document2) ? document2 : []
+      const document3List = Array.isArray(document3) ? document3 : []
+
       if (userType?.id === 3) {
-        shipperD2 = (e['document2'] && e['document2']?.['event_doc_status_id'] !== 1 && e['document2']?.['event_doc_status_id'] !== 2 && e['document2']?.['event_doc_status']?.name) || ''
-        shipperD3 = (e['document3'] && e['document3']?.['event_doc_status_id'] === 5 && e['document3']?.['event_doc_status']?.name) || ''
+        shipperD2 = (document2 && document2['event_doc_status_id'] !== 1 && document2['event_doc_status_id'] !== 2 && document2['event_doc_status']?.name) || ''
+        shipperD3 = (document3 && document3['event_doc_status_id'] === 5 && document3['event_doc_status']?.name) || ''
       } else {
-        tsoD2 = userType && e?.['document2']?.length === 0 ? '' : `${e?.['document2']?.filter((item) => item?.event_doc_status_id !== 2).length || 0}/${e?.['document2']?.length || 0}` || ''
-        tsoD3 = userType && e?.['document3']?.length === 0 ? '' : `${e?.['document3']?.filter((item) => item?.event_doc_status_id === 5).length || 0}/${e?.['document3']?.length - 1 || 0}` || ''
+        tsoD2 = userType && document2List.length === 0 ? '' : `${document2List.filter((item) => item?.event_doc_status_id !== 2).length || 0}/${document2List.length || 0}` || ''
+        tsoD3 = userType && document3List.length === 0 ? '' : `${document3List.filter((item) => item?.event_doc_status_id === 5).length || 0}/${document3List.length - 1 || 0}` || ''
       }
       let setData =
         userType?.id === 3 || userType?.id === 4
@@ -18231,13 +18204,13 @@ export class ExportFilesService {
               ['Event Code']: e['Event Code'] || null,
               ['Event Date']: e['Event Date'] || null,
               ['Document 1']: {
-                ['Status']: e['document1']?.['event_doc_status_id'] !== 3 && e['document1']?.['event_doc_status_id'] !== 4 && e['document1']?.['event_doc_status_id'] !== 5 && e['document1']?.['event_doc_status_id'] !== 6 ? '' : e['document1']?.['event_doc_status']?.['name']
+                ['Status']: document1?.['event_doc_status_id'] !== 3 && document1?.['event_doc_status_id'] !== 4 && document1?.['event_doc_status_id'] !== 5 && document1?.['event_doc_status_id'] !== 6 ? '' : document1?.['event_doc_status']?.['name']
               },
               ['Document 2']: {
-                ['Shipper']: userType && userType?.id === 3 ? shipperD2 : tsoD2 || ''
+                ['Shipper']: userType && userType.id === 3 ? shipperD2 : tsoD2 || ''
               },
               ['Document 3']: {
-                ['Shipper']: userType && userType?.id === 3 ? shipperD3 : tsoD3 || ''
+                ['Shipper']: userType && userType.id === 3 ? shipperD3 : tsoD3 || ''
               },
               ['Event Status']: e['event_status']?.['name'] || ''
             }
@@ -18245,13 +18218,13 @@ export class ExportFilesService {
               ['Event Code']: e['Event Code'] || null,
               ['Event Date']: e['Event Date'] || null,
               ['Document 1']: {
-                ['Status']: e['document1']?.['event_doc_status_id'] !== 3 && e['document1']?.['event_doc_status_id'] !== 4 && e['document1']?.['event_doc_status_id'] !== 5 && e['document1']?.['event_doc_status_id'] !== 6 ? '' : e['document1']?.['event_doc_status']?.['name']
+                ['Status']: document1?.['event_doc_status_id'] !== 3 && document1?.['event_doc_status_id'] !== 4 && document1?.['event_doc_status_id'] !== 5 && document1?.['event_doc_status_id'] !== 6 ? '' : document1?.['event_doc_status']?.['name']
               },
               ['Document 2']: {
-                ['Shipper']: userType && userType?.id === 3 ? shipperD2 : tsoD2 || ''
+                ['Shipper']: userType && userType.id === 3 ? shipperD2 : tsoD2 || ''
               },
               ['Document 3']: {
-                ['Shipper']: userType && userType?.id === 3 ? shipperD3 : tsoD3 || ''
+                ['Shipper']: userType && userType.id === 3 ? shipperD3 : tsoD3 || ''
               },
               ['Created by']: e['Created by'] || '',
               ['Event Status']: e['event_status']?.['name'] || ''
@@ -18410,32 +18383,45 @@ export class ExportFilesService {
       let tsoD6 = null
       let tsostatusD6 = null
 
+      if (!e) {
+        return {}
+      }
+
+      const document39 = e.document39
+      const document41 = e.document41
+      const document5 = e.document5
+      const document6 = e.document6
+      const document41List = document41 || []
+      const document39List = Array.isArray(document39) ? document39 : []
+      const document5List = Array.isArray(document5) ? document5 : []
+      const document6List = Array.isArray(document6) ? document6 : []
+
       if (userType?.id === 3) {
-        shipperstatusD39 = e['document39']?.['event_doc_status_id'] !== 5 && e['document39']?.['event_doc_status_id'] !== 6 ? '' : e['document39']?.['event_doc_status']?.['name']
-        shipperstatusD4 = (e['document41'] || [])?.length > 0 ? (this.getAcknowledgeStatus(e?.['document41'])?.equ ? 'Acknowledge' : '') : ''
-        shipperstatusD5 = e['document5']?.['event_doc_status_id'] !== 5 && e['document5']?.['event_doc_status_id'] !== 6 ? '' : e['document5']?.['event_doc_status']?.['name']
-        shipperstatusD6 = e['document6']?.['event_doc_status_id'] !== 5 && e['document6']?.['event_doc_status_id'] !== 6 ? '' : e['document6']?.['event_doc_status']?.['name']
+        shipperstatusD39 = document39?.['event_doc_status_id'] !== 5 && document39?.['event_doc_status_id'] !== 6 ? '' : document39?.['event_doc_status']?.['name']
+        shipperstatusD4 = document41List.length > 0 ? (this.getAcknowledgeStatus(document41)?.equ ? 'Acknowledge' : '') : ''
+        shipperstatusD5 = document5?.['event_doc_status_id'] !== 5 && document5?.['event_doc_status_id'] !== 6 ? '' : document5?.['event_doc_status']?.['name']
+        shipperstatusD6 = document6?.['event_doc_status_id'] !== 5 && document6?.['event_doc_status_id'] !== 6 ? '' : document6?.['event_doc_status']?.['name']
       } else {
-        tsoD39 = userType && e?.['document39']?.length === 0 ? '' : `${e?.['document39']?.filter((item) => item?.event_doc_status_id !== 2).length || 0}/${e?.['document39']?.length - 1 || 0}` || ''
+        tsoD39 = userType && document39List.length === 0 ? '' : `${document39List.filter((item) => item?.event_doc_status_id !== 2).length || 0}/${document39List.length - 1 || 0}` || ''
         tsostatusD39 =
-          e?.['document39']?.length > 0
-            ? e?.['document39']?.filter((item) => item?.event_doc_status_id === 5).length === (e?.['document39']?.length - 1 || 0)
+          document39List.length > 0
+            ? document39List.filter((item) => item?.event_doc_status_id === 5).length === (document39List.length - 1 || 0)
               ? // ? 'Open'
                 // : 'Closed'
                 'Closed'
               : 'Open'
             : ''
-        tsoD4 = e['document41'] && this.getAcknowledgeStatus(e?.['document41'])?.text
-        ;((tsostatusD4 = e['document41']?.length > 0 ? (e?.['document41']?.find((f: any) => f?.event_doc_status_id === 6) ? 'Generated' : this.getAcknowledgeStatus(e?.['document41'])?.equ ? 'Closed' : 'Open') : ''),
-          (tsoD5 = userType && e['document5']?.length === 0 ? '' : `${e?.['document5']?.filter((item) => item?.event_doc_status_id !== 2).length || 0}/${e?.['document5']?.length - 1 || 0}` || ''))
-        tsostatusD5 = e['document5']?.length > 0 ? (e?.['document5']?.filter((item) => item?.event_doc_status_id === 5).length === (e?.['document5']?.length - 1 || 0) ? 'Closed' : 'Open') : ''
-        tsoD6 = userType && e['document6']?.length === 0 ? '' : `${e?.['document6']?.filter((item) => item?.event_doc_status_id !== 2).length || 0}/${e?.['document6']?.length - 1 || 0}` || ''
-        tsostatusD6 = e['document6']?.length > 0 ? (e?.['document6']?.filter((item) => item?.event_doc_status_id === 5).length === (e?.['document6']?.length - 1 || 0) ? 'Closed' : 'Open') : ''
+        tsoD4 = document41 && this.getAcknowledgeStatus(document41)?.text
+        tsostatusD4 = document41List.length > 0 ? (document41List.find((f: any) => f?.event_doc_status_id === 6) ? 'Generated' : this.getAcknowledgeStatus(document41)?.equ ? 'Closed' : 'Open') : ''
+        tsoD5 = userType && document5List.length === 0 ? '' : `${document5List.filter((item) => item?.event_doc_status_id !== 2).length || 0}/${document5List.length - 1 || 0}` || ''
+        tsostatusD5 = document5List.length > 0 ? (document5List.filter((item) => item?.event_doc_status_id === 5).length === (document5List.length - 1 || 0) ? 'Closed' : 'Open') : ''
+        tsoD6 = userType && document6List.length === 0 ? '' : `${document6List.filter((item) => item?.event_doc_status_id !== 2).length || 0}/${document6List.length - 1 || 0}` || ''
+        tsostatusD6 = document6List.length > 0 ? (document6List.filter((item) => item?.event_doc_status_id === 5).length === (document6List.length - 1 || 0) ? 'Closed' : 'Open') : ''
       }
       let setData =
         userType?.id === 3 || userType?.id === 4
           ? {
-              ['Event Code']: e['Event Code'] || null,
+              ['Event Code']: e['Event Code'] || '',
               ['Type']: e['Type'] || '',
               ['Event Date']: e['Event Date'] || '',
               ['Zone']: e['Zone'] || '',
@@ -18672,15 +18658,24 @@ export class ExportFilesService {
       let tsoD8 = null
       let tsostatusD8 = null
 
-      if (userType?.id === 3) {
-        shipperstatusD7 = e?.['document7']?.length > 0 ? (this.getAcknowledgeStatus(e?.['document7'])?.equ ? 'Acknowledge' : '') : ''
-        shipperstatusD8 = e['document8']?.['event_doc_status_id'] !== 5 && e['document8']?.['event_doc_status_id'] !== 6 ? '' : e['document8']?.['event_doc_status']?.['name']
-      } else {
-        tsoD7 = this.getAcknowledgeStatus(e?.['document7'])?.text
-        tsostatusD7 = e?.['document7']?.length > 0 ? (e?.['document7']?.find((f: any) => f?.event_doc_status_id === 6) ? 'Generated' : this.getAcknowledgeStatus(e?.['document7'])?.equ ? 'Closed' : 'Open') : ''
+      if (!e) {
+        return {}
+      }
 
-        tsoD8 = userType && e?.['document8']?.length === 0 ? '' : `${e?.['document8']?.filter((item) => item?.event_doc_status_id !== 2).length || 0}/${e?.['document8']?.length - 1 || 0}` || ''
-        tsostatusD8 = e?.['document8']?.length > 0 ? (e?.['document8']?.filter((item) => item?.event_doc_status_id === 5).length === (e?.['document8']?.length - 1 || 0) ? 'Closed' : 'Open') : ''
+      const document7 = e.document7
+      const document8 = e.document8
+      const document7List = Array.isArray(document7) ? document7 : []
+      const document8List = Array.isArray(document8) ? document8 : []
+
+      if (userType?.id === 3) {
+        shipperstatusD7 = document7List.length > 0 ? (this.getAcknowledgeStatus(document7)?.equ ? 'Acknowledge' : '') : ''
+        shipperstatusD8 = document8?.['event_doc_status_id'] !== 5 && document8?.['event_doc_status_id'] !== 6 ? '' : document8?.['event_doc_status']?.['name']
+      } else {
+        tsoD7 = this.getAcknowledgeStatus(document7)?.text
+        tsostatusD7 = document7List.length > 0 ? (document7List.find((f: any) => f?.event_doc_status_id === 6) ? 'Generated' : this.getAcknowledgeStatus(document7)?.equ ? 'Closed' : 'Open') : ''
+
+        tsoD8 = userType && document8List.length === 0 ? '' : `${document8List.filter((item) => item?.event_doc_status_id !== 2).length || 0}/${document8List.length - 1 || 0}` || ''
+        tsostatusD8 = document8List.length > 0 ? (document8List.filter((item) => item?.event_doc_status_id === 5).length === (document8List.length - 1 || 0) ? 'Closed' : 'Open') : ''
       }
       let setData =
         userType?.id === 3 || userType?.id === 4

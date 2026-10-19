@@ -131,7 +131,7 @@ export class HandleReserveBalancingGasContractService {
           if (finds) {
             warningLogHrTemp = warningLogHrTemp?.map((ehr: any) => {
               let neHR = ehr
-              if (neHR && finds.hr === neHR?.hr && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
+              if (neHR && finds.hr === neHR?.hr && finds.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
                 if (neHR) neHR.energy = +parseToNumber(currentCapacity)
               }
               return {
@@ -480,11 +480,11 @@ export class HandleReserveBalancingGasContractService {
 
     let groupedBywarningLogHrTemp: any = Object.values(
       warningLogHrTemp.reduce((acc, item) => {
-        const key = item && `${item?.hr}|${item?.nomination_point}|${item?.value}|${item?.unit}` || ""
+        const key = item && `${item.hr}|${item.nomination_point}|${item.value}|${item.unit}` || ""
         if (!acc[key]) {
           acc[key] = {
             hr: item && item.hr || "",
-            nomination_point: item && item.nomination_point || "",
+            nomination_point: item.nomination_point || "",
             value: item.value,
             valueDay: item.valueDay,
             unit: item.unit,
@@ -498,10 +498,10 @@ export class HandleReserveBalancingGasContractService {
 
     let groupedBywarningLogTotalTemp: any = Object.values(
       groupedBywarningLogHrTemp.reduce((acc, item) => {
-        const key = `${item?.nomination_point}|${item?.value}|${item?.unit}`
+        const key = `${item.nomination_point}|${item.value}|${item.unit}`
         if (!acc[key]) {
           acc[key] = {
-            nomination_point: item && item.nomination_point || "",
+            nomination_point: item.nomination_point || "",
             value: item.value,
             valueDay: item.valueDay,
             unit: item.unit,
@@ -531,11 +531,11 @@ export class HandleReserveBalancingGasContractService {
 
     let groupedBywarningLogHrWeeklyTemp: any = Object.values(
       warningLogDayWeekTemp.reduce((acc, item) => {
-        const key = `${item?.headDayUse}|${item?.nomination_point}|${item?.value}|${item?.unit}`
+        const key = `${item.headDayUse}|${item.nomination_point}|${item.value}|${item.unit}`
         if (!acc[key]) {
           acc[key] = {
             headDayUse: item.headDayUse,
-            nomination_point: item && item.nomination_point || "",
+            nomination_point: item.nomination_point || "",
             value: item.value,
             unit: item.unit,
             data: []

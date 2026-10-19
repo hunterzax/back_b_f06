@@ -507,8 +507,7 @@ export class AccountManageSystemLoginService {
                   payload
                     ?.system_login_account[
                     i
-                  ]
-                    ?.account_id ??
+                  ].account_id ??
                     -1
                 )
               },
@@ -772,7 +771,7 @@ export class AccountManageSystemLoginService {
             null,
           password_gen_flag:
             null,
-          password: null
+          // password: null
         }
         if (
           system_login_account?.length >
@@ -790,8 +789,7 @@ export class AccountManageSystemLoginService {
                   id: Number(
                     system_login_account[
                       i
-                    ]
-                      ?.account_id ??
+                    ].account_id ??
                       -1
                   )
                 },
@@ -932,8 +930,7 @@ export class AccountManageSystemLoginService {
                   id: Number(
                     system_login_account[
                       i
-                    ]
-                      ?.account_id ??
+                    ].account_id ??
                       -1
                   )
                 },

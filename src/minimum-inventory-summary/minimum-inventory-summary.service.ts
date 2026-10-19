@@ -883,16 +883,16 @@ export class MinimumInventorySummaryService {
             iW++
           ) {
             if (
-              data && data?.[iW] && data?.[iW]
+              data && data[iW] && data[iW]
                 ?.nomination_type
                 ?.id === 1
             ) {
               nData?.push({
-                ...data?.[iW]
+                ...data[iW]
               })
             } else {
               const find =
-                data?.find(
+                data.find(
                   (
                     f: any
                   ) => {
@@ -902,49 +902,30 @@ export class MinimumInventorySummaryService {
                         ?.id ===
                         1 &&
                       f?.nomination_code ===
-                        data?.[
-                          iW
-                        ]
-                          ?.nomination_code &&
+                        data[iW]?.nomination_code &&
                       f?.gas_day ===
-                        data?.[
-                          iW
-                        ]
-                          ?.gas_day &&
+                        data[iW]?.gas_day &&
                       f?.group
                         ?.name ===
-                        data?.[
-                          iW
-                        ]
-                          ?.group
-                          ?.name &&
+                        data[iW]?.group?.name &&
                       (f
                         ?.contract_code
                         ?.contract_code
                         ? f
                             .contract_code
                             .contract_code ===
-                          data?.[
-                            iW
-                          ]
-                            ?.contract_code
-                            ?.contract_code
+                          data[iW]?.contract_code?.contract_code
                         : f
                             ?.reserve_balancing_gas_contract
                             ?.res_bal_gas_contract ===
-                          data?.[
-                            iW
-                          ]
-                            ?.reserve_balancing_gas_contract
-                            ?.res_bal_gas_contract)
+                          data[iW]?.reserve_balancing_gas_contract?.res_bal_gas_contract
+                      )
                     )
                   }
                 )
               if (!find) {
                 nData?.push({
-                  ...data?.[
-                    iW
-                  ]
+                  ...data[iW]
                 })
               }
             }
@@ -986,7 +967,8 @@ export class MinimumInventorySummaryService {
               }
             )
           const weekly =
-            data?.filter(
+            (data || [])
+              .filter(
               (f: any) => {
                 return (
                   f
@@ -995,6 +977,17 @@ export class MinimumInventorySummaryService {
                 )
               }
             )
+              .sort((a: any, b: any) => {
+                const diffGasDayMain = getTodayNowDDMMYYYYAdd7(a.gas_day_main).diff(getTodayNowDDMMYYYYAdd7(b.gas_day_main))
+                if(diffGasDayMain !== 0){
+                  return diffGasDayMain
+                }
+                const diffGasDay = getTodayNowDDMMYYYYAdd7(a.gas_day).diff(getTodayNowDDMMYYYYAdd7(b.gas_day))
+                if(diffGasDay !== 0){
+                  return diffGasDay
+                }
+                return a.nomination_code.localeCompare(b.nomination_code)
+              })
 
           return {
             ...eN,
@@ -1017,7 +1010,7 @@ export class MinimumInventorySummaryService {
                   acc,
                   item
                 ) => {
-                  const key = item && `${item.gas_day}|${item.group?.name}|${item?.contract_code?.contract_code ?? item?.reserve_balancing_gas_contract?.res_bal_gas_contract}` || ""
+                  const key = item && `${item.gas_day}|${item.group?.name}|${item.contract_code?.contract_code ?? item.reserve_balancing_gas_contract?.res_bal_gas_contract}` || ""
                   if (
                     !acc[key]
                   ) {
@@ -1106,7 +1099,7 @@ export class MinimumInventorySummaryService {
                   acc,
                   item
                 ) => {
-                  const key = item && `${item.gas_day}|${item.group?.name}|${item?.contract_code?.contract_code ?? item?.reserve_balancing_gas_contract?.res_bal_gas_contract}` || ""
+                  const key = item && `${item.gas_day}|${item.group?.name}|${item.contract_code?.contract_code ?? item.reserve_balancing_gas_contract?.res_bal_gas_contract}` || ""
                   if (
                     !acc[key]
                   ) {
@@ -1123,9 +1116,7 @@ export class MinimumInventorySummaryService {
                             .group
                             ?.name,
                         contract_code:
-                          item
-                            ?.contract_code
-                            ?.contract_code,
+                          item.contract_code?.contract_code,
                         reserve_balancing_gas_contract:
                           item
                             .reserve_balancing_gas_contract
@@ -1146,9 +1137,7 @@ export class MinimumInventorySummaryService {
                     )
                   const contractStart =
                     dayjs(
-                      item
-                        ?.contract_code
-                        ?.contract_start_date
+                      item.contract_code?.contract_start_date
                     ).startOf(
                       'day'
                     )

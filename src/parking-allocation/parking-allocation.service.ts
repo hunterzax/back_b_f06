@@ -562,9 +562,9 @@ export class ParkingAllocationService {
           const key = item.nomination_code
           if (!acc[key]) {
             acc[key] = {
-              query_shipper_nomination_file_id: item && item?.query_shipper_nomination_file_id || -1,
+              query_shipper_nomination_file_id: item.query_shipper_nomination_file_id || -1,
               nomination_code: key,
-              gas_day: item?.gas_day,
+              gas_day: item.gas_day,
               data: []
             }
           }

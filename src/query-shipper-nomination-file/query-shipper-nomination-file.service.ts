@@ -849,11 +849,11 @@ export class QueryShipperNominationFileService {
       let latestSubmittedTimestamp: Date | undefined = e && e?.submitted_timestamp || undefined
       try {
         e.nomination_version
-        if (e?.nomination_version && e.nomination_version.length > 0 && e.nomination_version[0]?.create_date) {
+        if (e.nomination_version && e.nomination_version.length > 0 && e.nomination_version[0]?.create_date) {
           latestSubmittedTimestamp = e.nomination_version[0].create_date
         }
       } catch (error) {
-        latestSubmittedTimestamp = e?.submitted_timestamp
+        latestSubmittedTimestamp = e.submitted_timestamp
       }
 
       e.nomination_version = nominationVersionWithContractPointList
@@ -1290,11 +1290,11 @@ export class QueryShipperNominationFileService {
       let latestSubmittedTimestamp: Date | undefined = e && e?.submitted_timestamp || undefined
       try {
         e.nomination_version
-        if (e?.nomination_version && e.nomination_version.length > 0 && e.nomination_version[0]?.create_date) {
+        if (e.nomination_version && e.nomination_version.length > 0 && e.nomination_version[0]?.create_date) {
           latestSubmittedTimestamp = e.nomination_version[0].create_date
         }
       } catch (error) {
-        latestSubmittedTimestamp = e?.submitted_timestamp
+        latestSubmittedTimestamp = e.submitted_timestamp
       }
 
       e.nomination_version = nominationVersionWithContractPointList
@@ -1920,7 +1920,7 @@ export class QueryShipperNominationFileService {
             if (finds) {
               warningLogHrTemp = warningLogHrTemp?.map((ehr: any) => {
                 let neHR = ehr
-                if (neHR && finds?.hr === neHR?.hr && finds?.contractPoint === neHR?.contractPoint && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
+                if (neHR && finds.hr === neHR?.hr && finds.contractPoint === neHR?.contractPoint && finds.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
                   neHR.energy = +parseToNumber3Decimal(data_temp?.[index] ?? 0)
                 }
                 return {
@@ -1974,7 +1974,7 @@ export class QueryShipperNominationFileService {
             if (finds) {
               warningLogHrTemp = warningLogHrTemp?.map((ehr: any) => {
                 let neHR = ehr
-                if (neHR && finds?.hr === neHR?.hr && finds?.contractPoint === neHR?.contractPoint && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
+                if (neHR && finds.hr === neHR?.hr && finds.contractPoint === neHR?.contractPoint && finds.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
                   neHR.energy = +parseToNumber3Decimal(data_temp?.[index] ?? 0)
                 }
                 return {
@@ -2028,7 +2028,7 @@ export class QueryShipperNominationFileService {
             if (finds) {
               warningLogHrTemp = warningLogHrTemp?.map((ehr: any) => {
                 let neHR = ehr
-                if (neHR && finds?.hr === neHR?.hr && finds?.contractPoint === neHR?.contractPoint && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
+                if (neHR && finds.hr === neHR?.hr && finds.contractPoint === neHR?.contractPoint && finds.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
                   neHR.energy = +parseToNumber3Decimal(data_temp?.[index] ?? 0)
                 }
                 return {
@@ -2081,7 +2081,7 @@ export class QueryShipperNominationFileService {
             if (finds) {
               warningLogHrTemp = warningLogHrTemp?.map((ehr: any) => {
                 let neHR = ehr
-                if (neHR && finds?.hr === neHR?.hr && finds?.contractPoint === neHR?.contractPoint && finds?.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
+                if (neHR && finds.hr === neHR?.hr && finds.contractPoint === neHR?.contractPoint && finds.nomination_point === ehr?.nomination_point && isMatch(finds.unit, ehr.unit)) {
                   neHR.energy = +parseToNumber3Decimal(data_temp?.[index] ?? 0)
                 }
                 return {
@@ -2373,7 +2373,7 @@ export class QueryShipperNominationFileService {
 
     let groupedBywarningLogTotalTemp: any = Object.values(
       groupedBywarningLogHrTemp.reduce((acc, item) => {
-        const key = `${item?.contractPoint}|${item?.value}|${item?.unit}`
+        const key = `${item.contractPoint}|${item.value}|${item.unit}`
         if (!acc[key]) {
           acc[key] = {
             contractPoint: item && item.contractPoint || null,
@@ -2883,7 +2883,7 @@ export class QueryShipperNominationFileService {
     const headData = nominationVersion && JSON.parse(nominationVersion.nomination_full_json[0]?.data_temp)?.headData || null
     const objArr = Object.keys(headData)
 
-    const rowData = nominationVersion.nomination_row_json.map((e: any) => {
+    const rowData = (nominationVersion?.nomination_row_json || []).map((e: any) => {
       let objTemp = JSON.parse(e['data_temp'])
       const objConvert = objArr.map((ob: any) => {
         return {
@@ -4953,14 +4953,15 @@ export class QueryShipperNominationFileService {
             if (nomType === 2) {
               let calcData = 0
               let hasValue = false
+              const nomRows = nom || []
 
-              for (let iCal = 0; iCal < (nom?.length || 0); iCal++) {
+              for (let iCal = 0; iCal < nomRows.length; iCal++) {
                 for (
                   let iCalZone = 0;
-                  iCalZone < (nom[iCal]?.zone?.length || 0);
+                  iCalZone < (nomRows[iCal]?.zone?.length || 0);
                   iCalZone++
                 ) {
-                  const zoneData = nom[iCal]?.zone[iCalZone]
+                  const zoneData = nomRows[iCal]?.zone[iCalZone]
 
                   const foundEntry = Object.entries(
                     zoneData?.headData || {}
@@ -5366,7 +5367,7 @@ export class QueryShipperNominationFileService {
             let calcData = null
             let hasValue = false
             for (let iCal = 0; iCal < noms.length; iCal++) {
-              const val = noms?.[iCal]?.weeklyDay?.[day_]?.nominatedValueMMBTUD
+              const val = noms[iCal]?.weeklyDay?.[day_]?.nominatedValueMMBTUD
               if(val !== null || val !== undefined){
                 hasValue = true
                 // console.log('val : ', val);
